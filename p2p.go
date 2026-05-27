@@ -190,14 +190,20 @@ func (p *Peer) writeLoop() {
 // Server is the Chakram P2P node. It listens for incoming connections, manages
 // peers, and routes messages to the appropriate handlers.
 type Server struct {
-	Blockchain *Blockchain
-	Mempool    *Mempool
-	peers      map[string]*Peer
-	mu         sync.RWMutex
-	port       int
-	magic      [4]byte
-	quit       chan struct{}
-	listener   net.Listener
+	Blockchain  *Blockchain
+	Mempool     *Mempool
+	SyncManager *SyncManager
+	peers       map[string]*Peer
+	mu          sync.RWMutex
+	port        int
+	magic       [4]byte
+	quit        chan struct{}
+	listener    net.Listener
+}
+
+// SetSyncManager wires a SyncManager into the server after construction.
+func (s *Server) SetSyncManager(sm *SyncManager) {
+	s.SyncManager = sm
 }
 
 // NewServer creates a Server. Use testnet=true to select testnet magic bytes.
@@ -363,6 +369,10 @@ func (s *Server) handleVersion(peer *Peer, msg Message) error {
 
 func (s *Server) handleVerAck(peer *Peer, msg Message) error {
 	peer.Connected = true
+	if s.SyncManager != nil {
+		s.SyncManager.OnPeerConnected(peer)
+		return nil
+	}
 	if peer.Height > s.Blockchain.GetHeight() {
 		req, err := NewMessage(s.magic, MsgGetBlocks, GetBlocksPayload{
 			FromHeight: s.Blockchain.GetHeight(),
@@ -465,6 +475,10 @@ func (s *Server) handleBlock(peer *Peer, msg Message) error {
 	var b Block
 	if err := json.Unmarshal(msg.Payload, &b); err != nil {
 		return fmt.Errorf("decode block: %w", err)
+	}
+	if s.SyncManager != nil {
+		s.SyncManager.OnBlockReceived(&b, peer)
+		return nil
 	}
 	if err := s.Blockchain.AddBlock(&b); err != nil {
 		return err
@@ -569,6 +583,9 @@ func (s *Server) RemovePeer(p *Peer) {
 	defer s.mu.Unlock()
 	delete(s.peers, p.Address)
 	p.Conn.Close()
+	if s.SyncManager != nil {
+		s.SyncManager.OnPeerDisconnected(p)
+	}
 }
 
 // PeerCount returns the total number of registered peers.

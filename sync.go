@@ -1,0 +1,341 @@
+// sync.go — Production-grade chain synchronisation layer for Chakram.
+// Sits on top of p2p.go and manages the full sync lifecycle including orphan handling.
+package main
+
+import (
+	"encoding/hex"
+	"fmt"
+	"strings"
+	"sync"
+	"time"
+)
+
+// ── Sync state ────────────────────────────────────────────────────────────────
+
+type SyncState uint8
+
+const (
+	SyncIdle     SyncState = 0
+	SyncHeaders  SyncState = 1
+	SyncBlocks   SyncState = 2
+	SyncComplete SyncState = 3
+)
+
+// ── Types ─────────────────────────────────────────────────────────────────────
+
+type OrphanBlock struct {
+	Block      *Block
+	ReceivedAt time.Time
+}
+
+type SyncManager struct {
+	blockchain    *Blockchain
+	server        *Server
+	orphans       map[string]*OrphanBlock // keyed by hex(hash)
+	orphansMu     sync.Mutex
+	state         SyncState
+	stateMu       sync.RWMutex
+	bestPeer      *Peer
+	pendingBlocks map[string]time.Time // blocks requested, waiting for response
+	pendingMu     sync.Mutex
+	quit          chan struct{}
+}
+
+// NewSyncManager creates a SyncManager wired to bc and server.
+func NewSyncManager(bc *Blockchain, server *Server) *SyncManager {
+	return &SyncManager{
+		blockchain:    bc,
+		server:        server,
+		orphans:       make(map[string]*OrphanBlock),
+		pendingBlocks: make(map[string]time.Time),
+		quit:          make(chan struct{}),
+	}
+}
+
+// ── Lifecycle ─────────────────────────────────────────────────────────────────
+
+// Start launches the sync and orphan maintenance goroutines.
+func (sm *SyncManager) Start() {
+	go sm.syncLoop()
+	go sm.orphanLoop()
+}
+
+// Stop signals all goroutines to exit.
+func (sm *SyncManager) Stop() {
+	close(sm.quit)
+}
+
+// ── State helpers ─────────────────────────────────────────────────────────────
+
+func (sm *SyncManager) GetState() SyncState {
+	sm.stateMu.RLock()
+	defer sm.stateMu.RUnlock()
+	return sm.state
+}
+
+func (sm *SyncManager) SetState(s SyncState) {
+	sm.stateMu.Lock()
+	defer sm.stateMu.Unlock()
+	sm.state = s
+}
+
+// ── Sync loop ─────────────────────────────────────────────────────────────────
+
+func (sm *SyncManager) syncLoop() {
+	ticker := time.NewTicker(5 * time.Second)
+	defer ticker.Stop()
+	for {
+		select {
+		case <-sm.quit:
+			return
+		case <-ticker.C:
+			sm.doSync()
+		}
+	}
+}
+
+func (sm *SyncManager) doSync() {
+	peers := sm.server.ConnectedPeers()
+	if len(peers) == 0 {
+		sm.SetState(SyncIdle)
+		return
+	}
+
+	var best *Peer
+	for _, p := range peers {
+		if best == nil || p.Height > best.Height {
+			best = p
+		}
+	}
+
+	if sm.blockchain.GetHeight() >= best.Height {
+		sm.SetState(SyncComplete)
+		return
+	}
+
+	sm.SetState(SyncBlocks)
+	sm.bestPeer = best
+
+	req, err := NewMessage(sm.server.magic, MsgGetBlocks, GetBlocksPayload{
+		FromHeight: sm.blockchain.GetHeight(),
+		Count:      500,
+	})
+	if err != nil {
+		return
+	}
+	best.Send(req) //nolint:errcheck
+}
+
+// ── Block handling ────────────────────────────────────────────────────────────
+
+// OnBlockReceived is called by p2p handleBlock instead of bc.AddBlock directly.
+// It handles orphans, broadcasts new blocks, and updates sync state.
+func (sm *SyncManager) OnBlockReceived(b *Block, from *Peer) {
+	if err := sm.blockchain.AddBlock(b); err != nil {
+		if isOrphanError(err) {
+			sm.AddOrphan(b)
+			if from != nil {
+				sm.RequestBlock(b.Header.PreviousHash, from)
+			}
+		}
+		return
+	}
+
+	hashHex := hex.EncodeToString(b.Hash)
+	sm.pendingMu.Lock()
+	delete(sm.pendingBlocks, hashHex)
+	sm.pendingMu.Unlock()
+
+	sm.ProcessOrphans(b.Hash)
+
+	inv, err := NewMessage(sm.server.magic, MsgInv, InvPayload{
+		Items: []InvItem{{Type: 1, Hash: b.Hash}},
+	})
+	if err == nil {
+		sm.server.Broadcast(inv, from)
+	}
+
+	if sm.bestPeer != nil && sm.blockchain.GetHeight() >= sm.bestPeer.Height {
+		sm.SetState(SyncComplete)
+	}
+}
+
+// isOrphanError returns true when AddBlock fails because the block's parent
+// does not match the current chain tip (out-of-order or genuinely orphaned).
+func isOrphanError(err error) bool {
+	return strings.Contains(err.Error(), "PreviousHash does not match")
+}
+
+// ── Orphan management ─────────────────────────────────────────────────────────
+
+// AddOrphan inserts b into the orphan pool, evicting blocks older than 10 minutes.
+func (sm *SyncManager) AddOrphan(b *Block) {
+	hashHex := hex.EncodeToString(b.Hash)
+	cutoff := time.Now().Add(-10 * time.Minute)
+
+	sm.orphansMu.Lock()
+	defer sm.orphansMu.Unlock()
+
+	for k, o := range sm.orphans {
+		if o.ReceivedAt.Before(cutoff) {
+			delete(sm.orphans, k)
+		}
+	}
+
+	if _, exists := sm.orphans[hashHex]; !exists {
+		sm.orphans[hashHex] = &OrphanBlock{Block: b, ReceivedAt: time.Now()}
+	}
+}
+
+// ProcessOrphans checks whether any orphan's parent is newBlockHash, and if so
+// tries to add it. The process repeats recursively until no more orphans connect.
+func (sm *SyncManager) ProcessOrphans(newBlockHash []byte) {
+	parentHex := hex.EncodeToString(newBlockHash)
+
+	sm.orphansMu.Lock()
+	var ready []*Block
+	for k, o := range sm.orphans {
+		if hex.EncodeToString(o.Block.Header.PreviousHash) == parentHex {
+			ready = append(ready, o.Block)
+			delete(sm.orphans, k)
+		}
+	}
+	sm.orphansMu.Unlock()
+
+	for _, b := range ready {
+		sm.OnBlockReceived(b, nil)
+	}
+}
+
+// orphanLoop periodically evicts stale orphans (runs every 60 seconds).
+func (sm *SyncManager) orphanLoop() {
+	ticker := time.NewTicker(60 * time.Second)
+	defer ticker.Stop()
+	for {
+		select {
+		case <-sm.quit:
+			return
+		case <-ticker.C:
+			sm.evictOldOrphans()
+		}
+	}
+}
+
+func (sm *SyncManager) evictOldOrphans() {
+	cutoff := time.Now().Add(-10 * time.Minute)
+	sm.orphansMu.Lock()
+	defer sm.orphansMu.Unlock()
+
+	evicted := 0
+	for k, o := range sm.orphans {
+		if o.ReceivedAt.Before(cutoff) {
+			delete(sm.orphans, k)
+			evicted++
+		}
+	}
+	if evicted > 0 {
+		fmt.Printf("[sync] evicted %d stale orphan blocks\n", evicted)
+	}
+}
+
+// ── Pending block tracking ────────────────────────────────────────────────────
+
+// RequestBlock sends a MsgGetData for hash to peer and records it as pending.
+func (sm *SyncManager) RequestBlock(hash []byte, from *Peer) {
+	if from == nil {
+		return
+	}
+	hashHex := hex.EncodeToString(hash)
+	sm.pendingMu.Lock()
+	sm.pendingBlocks[hashHex] = time.Now()
+	sm.pendingMu.Unlock()
+
+	req, err := NewMessage(sm.server.magic, MsgGetData, GetDataPayload{Type: 1, Hash: hash})
+	if err != nil {
+		return
+	}
+	from.Send(req) //nolint:errcheck
+}
+
+// CleanPendingBlocks removes request entries older than 30 seconds (timed out).
+func (sm *SyncManager) CleanPendingBlocks() {
+	cutoff := time.Now().Add(-30 * time.Second)
+	sm.pendingMu.Lock()
+	defer sm.pendingMu.Unlock()
+	for k, t := range sm.pendingBlocks {
+		if t.Before(cutoff) {
+			delete(sm.pendingBlocks, k)
+		}
+	}
+}
+
+// ── Peer events ───────────────────────────────────────────────────────────────
+
+// OnPeerConnected is called after the handshake completes.
+// If the peer is ahead of us, sync starts immediately without waiting for the next tick.
+func (sm *SyncManager) OnPeerConnected(p *Peer) {
+	if p.Height <= sm.blockchain.GetHeight() {
+		return
+	}
+	sm.bestPeer = p
+	sm.SetState(SyncBlocks)
+
+	req, err := NewMessage(sm.server.magic, MsgGetBlocks, GetBlocksPayload{
+		FromHeight: sm.blockchain.GetHeight(),
+		Count:      500,
+	})
+	if err != nil {
+		return
+	}
+	p.Send(req) //nolint:errcheck
+}
+
+// OnPeerDisconnected is called when a peer drops.
+// If it was our best peer we pick the next best, or fall back to SyncIdle.
+func (sm *SyncManager) OnPeerDisconnected(p *Peer) {
+	if sm.bestPeer == nil || sm.bestPeer.Address != p.Address {
+		return
+	}
+	peers := sm.server.ConnectedPeers()
+	if len(peers) == 0 {
+		sm.bestPeer = nil
+		sm.SetState(SyncIdle)
+		return
+	}
+	var next *Peer
+	for _, peer := range peers {
+		if next == nil || peer.Height > next.Height {
+			next = peer
+		}
+	}
+	sm.bestPeer = next
+}
+
+// ── Status ────────────────────────────────────────────────────────────────────
+
+// SyncStatus returns a human-readable sync status string.
+func (sm *SyncManager) SyncStatus() string {
+	peers := sm.server.ConnectedPeers()
+	if len(peers) == 0 {
+		return "Idle — no peers"
+	}
+
+	ourHeight := sm.blockchain.GetHeight()
+	if sm.GetState() == SyncComplete {
+		return fmt.Sprintf("Synced — height %d", ourHeight)
+	}
+
+	var bestHeight uint64
+	for _, p := range peers {
+		if p.Height > bestHeight {
+			bestHeight = p.Height
+		}
+	}
+
+	if bestHeight == 0 || ourHeight >= bestHeight {
+		return fmt.Sprintf("Synced — height %d", ourHeight)
+	}
+
+	pct := ourHeight * 100 / bestHeight
+	return fmt.Sprintf("Syncing — height %d / %d (%d%%)", ourHeight, bestHeight, pct)
+}
