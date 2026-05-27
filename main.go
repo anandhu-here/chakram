@@ -1,11 +1,11 @@
-// main.go — Phase 4 smoke test: Wallets, Keys, and signed transactions.
+// main.go — Phase 5 smoke test: two-node P2P sync over real TCP.
 package main
 
 import (
-	"bytes"
 	"encoding/hex"
 	"fmt"
 	"os"
+	"time"
 )
 
 func chk(err error, msg string) {
@@ -15,156 +15,146 @@ func chk(err error, msg string) {
 	}
 }
 
-func toCHK(cash uint64) float64 {
-	return float64(cash) / float64(CashPerCHK)
-}
-
 func main() {
-	fmt.Println("=== Chakram Phase 4 — Wallet Test ===")
+	fmt.Println("=== Chakram Phase 5 — P2P Network Test ===")
 
-	// ── 2. Generate wallet ────────────────────────────────────────────────────
-	wallet, err := NewWallet()
-	chk(err, "NewWallet")
+	// Wipe any stale data from previous runs.
+	os.RemoveAll("./chakram-data-node1")
+	os.RemoveAll("./chakram-data-node2")
+	defer os.RemoveAll("./chakram-data-node1")
+	defer os.RemoveAll("./chakram-data-node2")
 
-	fmt.Println("\n--- New Wallet ---")
-	fmt.Printf("Address:     %s\n", wallet.Address)
-	fmt.Printf("Mnemonic:    %s\n", wallet.Mnemonic)
-	fmt.Printf("PublicKey:   %s\n", hex.EncodeToString(wallet.KeyPair.PublicKey))
-	fmt.Printf("PubKeyHash:  %s\n", hex.EncodeToString(wallet.GetPubKeyHash()))
+	// ── 2. Node 1 ─────────────────────────────────────────────────────────────
+	bc1, err := NewBlockchain("./chakram-data-node1")
+	chk(err, "open bc1")
+	mempool1 := NewMempool()
+	server1 := NewServer(bc1, mempool1, 18500, true)
+	chk(server1.Start(), "start server1")
+	fmt.Printf("\nNode 1 started on port 18500, height: %d\n", bc1.GetHeight())
 
-	// ── 3. Validate address ───────────────────────────────────────────────────
-	fmt.Printf("\nAddress valid: %v\n", ValidateAddress(wallet.Address))
+	// ── 3. Node 2 ─────────────────────────────────────────────────────────────
+	bc2, err := NewBlockchain("./chakram-data-node2")
+	chk(err, "open bc2")
+	mempool2 := NewMempool()
+	server2 := NewServer(bc2, mempool2, 18501, true)
+	chk(server2.Start(), "start server2")
+	fmt.Printf("Node 2 started on port 18501, height: %d\n", bc2.GetHeight())
 
-	// ── 4. Address round-trip ─────────────────────────────────────────────────
-	recovered, err := AddressToPubKeyHash(wallet.Address)
-	chk(err, "AddressToPubKeyHash")
-	fmt.Printf("PubKeyHash round-trip matches: %v\n",
-		bytes.Equal(recovered, wallet.GetPubKeyHash()))
-
-	// ── 5. Save and load wallet ───────────────────────────────────────────────
-	fmt.Println("\n--- Wallet File ---")
-	chk(wallet.SaveToFile("./test-wallet.json", "chakram123"), "SaveToFile")
-
-	loaded, err := LoadWalletFromFile("./test-wallet.json", "chakram123")
-	chk(err, "LoadWalletFromFile")
-	fmt.Printf("Wallet loaded successfully: %v\n", err == nil)
-	fmt.Printf("Loaded address matches:     %v\n", loaded.Address == wallet.Address)
-
-	_, wrongErr := LoadWalletFromFile("./test-wallet.json", "wrongpassword")
-	fmt.Printf("Wrong password rejected:    %v\n", wrongErr != nil)
-
-	// ── 6. Mnemonic restore ───────────────────────────────────────────────────
-	restored, err := WalletFromMnemonic(wallet.Mnemonic)
-	chk(err, "WalletFromMnemonic")
-	fmt.Printf("\nMnemonic restore address matches: %v\n", restored.Address == wallet.Address)
-
-	// ── 7. Second wallet ──────────────────────────────────────────────────────
-	wallet2, err := NewWallet()
-	chk(err, "NewWallet wallet2")
-	fmt.Printf("\nWallet 2 address: %s\n", wallet2.Address)
-
-	// ── 8. Open blockchain ────────────────────────────────────────────────────
-	bc, err := NewBlockchain("./chakram-data")
-	chk(err, "NewBlockchain")
-	defer bc.Close()
+	// ── 4. Mine 5 blocks on Node 1 ───────────────────────────────────────────
+	fmt.Println("\n--- Mining 5 blocks on Node 1 ---")
+	wallet1, err := NewWallet()
+	chk(err, "new wallet")
 
 	engine := &RandomXEngine{}
 	defer engine.Close()
 
-	genesis, err := bc.GetBlock(0)
-	chk(err, "GetBlock genesis")
+	genesis, err := bc1.GetBlock(0)
+	chk(err, "get genesis")
 
-	// ── 9. Mine block 1 with coinbase to wallet ───────────────────────────────
-	fmt.Println("\n--- Mining block 1 ---")
-	coinbaseTx1 := NewCoinbaseTransaction(wallet.GetPubKeyHash(), 1)
-	block1 := NewBlock(genesis.Hash, 1, MinDifficulty, []*Transaction{coinbaseTx1})
-	block1.Header.Timestamp = genesis.Header.Timestamp + 61
-	chk(MineBlock(block1, engine), "MineBlock 1")
-	chk(bc.AddBlock(block1), "AddBlock 1")
-	fmt.Printf("Block 1 mined, reward to: %s\n", wallet.Address)
+	for h := uint64(1); h <= 5; h++ {
+		prev, err := bc1.GetLastBlock()
+		chk(err, fmt.Sprintf("get last block at %d", h))
 
-	// ── 10. Mine 100 more blocks for maturity ─────────────────────────────────
-	fmt.Print("\nMining 100 blocks for maturity")
-	for h := uint64(2); h <= 101; h++ {
-		prev, err := bc.GetLastBlock()
-		chk(err, fmt.Sprintf("GetLastBlock at %d", h))
-
-		cb := NewCoinbaseTransaction(wallet.GetPubKeyHash(), h)
+		cb := NewCoinbaseTransaction(wallet1.GetPubKeyHash(), h)
 		b := NewBlock(prev.Hash, h, MinDifficulty, []*Transaction{cb})
-		b.Header.Timestamp = prev.Header.Timestamp + 61
-		chk(MineBlock(b, engine), fmt.Sprintf("MineBlock %d", h))
-		chk(bc.AddBlock(b), fmt.Sprintf("AddBlock %d", h))
+		b.Header.Timestamp = genesis.Header.Timestamp + int64(h)*61
 
-		if h%10 == 0 {
-			fmt.Print(".")
-			os.Stdout.Sync()
-		}
+		chk(MineBlock(b, engine), fmt.Sprintf("mine block %d", h))
+		chk(bc1.AddBlock(b), fmt.Sprintf("add block %d", h))
+
+		fmt.Printf("  Block %d — %s\n", h, hex.EncodeToString(b.Hash))
 	}
-	fmt.Printf("\nChain height: %d\n", bc.GetHeight())
+	fmt.Printf("\nNode 1 chain height: %d\n", bc1.GetHeight())
+	fmt.Printf("Node 2 chain height: %d (not synced yet)\n", bc2.GetHeight())
 
-	// ── 11. Check wallet balance ──────────────────────────────────────────────
-	balance, err := wallet.GetBalance(bc.UTXOSet)
-	chk(err, "GetBalance")
-	fmt.Printf("\nWallet balance: %.6f CHK\n", toCHK(balance))
+	// ── 5. Connect Node 2 → Node 1 ───────────────────────────────────────────
+	fmt.Println("\nConnecting Node 2 to Node 1...")
+	chk(server2.ConnectToPeer("127.0.0.1:18500"), "connect peer")
 
-	// ── 12. Create and sign transfer: 5 CHK → wallet2 ────────────────────────
-	fmt.Println("\n--- Signing transfer ---")
-
-	utxos, err := bc.UTXOSet.GetUTXOsForAddress(wallet.GetPubKeyHash())
-	chk(err, "GetUTXOsForAddress")
-
-	// Find the block-1 coinbase (now mature: height 101 >= 1 + 100).
-	var spendUTXO *UTXO
-	for i := range utxos {
-		if utxos[i].BlockHeight == 1 && utxos[i].IsCoinbase {
-			spendUTXO = &utxos[i]
+	// ── 6. Wait for sync ──────────────────────────────────────────────────────
+	deadline := time.Now().Add(30 * time.Second)
+	lastPrint := time.Now().Add(-2 * time.Second) // trigger immediately
+	synced := false
+	for time.Now().Before(deadline) {
+		if bc2.GetHeight() >= 5 {
+			synced = true
 			break
 		}
+		if time.Since(lastPrint) >= 2*time.Second {
+			fmt.Printf("  Waiting for sync... Node 2 height: %d\n", bc2.GetHeight())
+			lastPrint = time.Now()
+		}
+		time.Sleep(500 * time.Millisecond)
 	}
-	if spendUTXO == nil {
-		fmt.Fprintln(os.Stderr, "FATAL: could not find block-1 coinbase UTXO")
-		os.Exit(1)
+	if !synced {
+		fmt.Println("WARNING: sync timed out after 30s")
 	}
 
-	const transferCash = uint64(5) * CashPerCHK        // 5 CHK
-	const changeCash   = uint64(50)*CashPerCHK - transferCash - MinTxFee // 44.999 CHK
+	// ── 7. Sync results ───────────────────────────────────────────────────────
+	fmt.Println("\n=== Sync Results ===")
+	fmt.Printf("Node 1 height: %d\n", bc1.GetHeight())
+	fmt.Printf("Node 2 height: %d\n", bc2.GetHeight())
+	fmt.Printf("Heights match: %v\n", bc1.GetHeight() == bc2.GetHeight())
 
-	inputs := []TxInput{{TxID: spendUTXO.TxID, OutputIndex: spendUTXO.OutputIndex}}
-	outputs := []TxOutput{
-		{Value: transferCash, PublicKeyHash: wallet2.GetPubKeyHash()},
-		{Value: changeCash,   PublicKeyHash: wallet.GetPubKeyHash()},
+	last1, err := bc1.GetLastBlock()
+	chk(err, "get last block node1")
+	last2, err := bc2.GetLastBlock()
+	chk(err, "get last block node2")
+
+	tip1 := hex.EncodeToString(last1.Hash)
+	tip2 := hex.EncodeToString(last2.Hash)
+	fmt.Printf("Node 1 tip: %s\n", tip1)
+	fmt.Printf("Node 2 tip: %s\n", tip2)
+	fmt.Printf("Tips match: %v\n", tip1 == tip2)
+
+	// ── 8. Block propagation test (mine block 6, broadcast Inv) ──────────────
+	fmt.Println("\n=== Block Propagation Test ===")
+	prev, err := bc1.GetLastBlock()
+	chk(err, "get last block for block 6")
+
+	cb6 := NewCoinbaseTransaction(wallet1.GetPubKeyHash(), 6)
+	block6 := NewBlock(prev.Hash, 6, MinDifficulty, []*Transaction{cb6})
+	block6.Header.Timestamp = genesis.Header.Timestamp + 6*61
+
+	chk(MineBlock(block6, engine), "mine block 6")
+	chk(bc1.AddBlock(block6), "add block 6")
+	fmt.Printf("Block 6 mined on Node 1: %s\n", hex.EncodeToString(block6.Hash))
+
+	// Announce block 6 to all connected peers.
+	inv, err := NewMessage(MagicTestnet, MsgInv, InvPayload{
+		Items: []InvItem{{Type: 1, Hash: block6.Hash}},
+	})
+	chk(err, "build inv")
+	server1.Broadcast(inv, nil)
+
+	// Poll for propagation.
+	deadline = time.Now().Add(10 * time.Second)
+	for time.Now().Before(deadline) {
+		if bc2.GetHeight() >= 6 {
+			break
+		}
+		time.Sleep(500 * time.Millisecond)
 	}
-	transferTx := NewTransaction(inputs, outputs)
-	chk(SignTransaction(transferTx, wallet), "SignTransaction")
+	fmt.Printf("Block 6 propagated to Node 2: %v\n", bc2.GetHeight() == 6)
 
-	// ── Mine block 102 with coinbase + transfer ───────────────────────────────
-	prev, err := bc.GetLastBlock()
-	chk(err, "GetLastBlock for block 102")
+	// ── 9. Peer counts ────────────────────────────────────────────────────────
+	fmt.Printf("\nNode 1 peers: %d\n", server1.PeerCount())
+	fmt.Printf("Node 2 peers: %d\n", server2.PeerCount())
 
-	coinbaseTx102 := NewCoinbaseTransaction(wallet.GetPubKeyHash(), 102)
-	block102 := NewBlock(prev.Hash, 102, MinDifficulty,
-		[]*Transaction{coinbaseTx102, transferTx})
-	block102.Header.Timestamp = prev.Header.Timestamp + 61
-	chk(MineBlock(block102, engine), "MineBlock 102")
-	chk(bc.AddBlock(block102), "AddBlock 102")
-	fmt.Printf("Transfer mined in block 102 (%d txs)\n", len(block102.Transactions))
+	// ── 10. Chain validation ──────────────────────────────────────────────────
+	fmt.Println("\n--- Chain Validation ---")
+	valid1, err := bc1.IsValid()
+	chk(err, "validate bc1")
+	valid2, err := bc2.IsValid()
+	chk(err, "validate bc2")
+	fmt.Printf("Node 1 chain valid: %v\n", valid1)
+	fmt.Printf("Node 2 chain valid: %v\n", valid2)
 
-	// ── 13. Final balances ────────────────────────────────────────────────────
-	fmt.Println("\n--- Final Balances ---")
-	w1bal, err := wallet.GetBalance(bc.UTXOSet)
-	chk(err, "GetBalance wallet1")
-	w2bal, err := wallet2.GetBalance(bc.UTXOSet)
-	chk(err, "GetBalance wallet2")
-	fmt.Printf("Wallet 1 balance: %.6f CHK\n", toCHK(w1bal))
-	fmt.Printf("Wallet 2 balance: %.6f CHK\n", toCHK(w2bal))
+	// ── 11. Cleanup ───────────────────────────────────────────────────────────
+	server1.Stop()
+	server2.Stop()
+	bc1.Close()
+	bc2.Close()
 
-	// ── 14. Validate chain ────────────────────────────────────────────────────
-	valid, err := bc.IsValid()
-	chk(err, "IsValid")
-	fmt.Printf("\nChain valid: %v  (height: %d)\n", valid, bc.GetHeight())
-
-	// ── 15. Cleanup ───────────────────────────────────────────────────────────
-	os.Remove("./test-wallet.json")
-
-	fmt.Println("\n=== Phase 4 Complete ===")
+	fmt.Println("\n=== Phase 5 Complete ===")
 }
