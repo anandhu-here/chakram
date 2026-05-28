@@ -151,6 +151,13 @@ func (n *Node) Start() error {
 	fmt.Printf("Address: %s\n", n.Wallet.Address)
 	fmt.Printf("Height:  %d\n", n.Blockchain.GetHeight())
 	fmt.Printf("DataDir: %s\n", n.Config.DataDir)
+	if n.Config.Mine {
+		miningAddr := n.Wallet.Address
+		if n.Config.MinerAddr != "" {
+			miningAddr = n.Config.MinerAddr
+		}
+		fmt.Printf("Mining to: %s\n", miningAddr)
+	}
 	fmt.Println()
 
 	n.SyncManager.Start()
@@ -228,7 +235,13 @@ func (n *Node) mineLoop() {
 		}
 
 		height := prev.Header.Height + 1
-		cb := NewCoinbaseTransaction(n.Wallet.GetPubKeyHash(), height)
+		pubKeyHash := n.Wallet.GetPubKeyHash()
+		if n.Config.MinerAddr != "" {
+			if pkh, err := AddressToPubKeyHash(n.Config.MinerAddr); err == nil {
+				pubKeyHash = pkh
+			}
+		}
+		cb := NewCoinbaseTransaction(pubKeyHash, height)
 
 		pending := n.Mempool.GetAll()
 		if len(pending) > 100 {

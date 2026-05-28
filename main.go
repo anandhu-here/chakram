@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"os/signal"
+	"strings"
 	"syscall"
 	"time"
 )
@@ -34,22 +35,43 @@ func main() {
 	}
 }
 
+// ── flag parser ───────────────────────────────────────────────────────────────
+
+// parseFlags parses --flag, --flag=value, and --flag value forms.
+// Boolean flags map to "true"; value flags map to their value.
+func parseFlags(args []string) map[string]string {
+	flags := make(map[string]string)
+	for i := 0; i < len(args); i++ {
+		a := args[i]
+		if !strings.HasPrefix(a, "--") {
+			continue
+		}
+		a = a[2:]
+		if idx := strings.IndexByte(a, '='); idx >= 0 {
+			flags[a[:idx]] = a[idx+1:]
+		} else if i+1 < len(args) && !strings.HasPrefix(args[i+1], "--") {
+			flags[a] = args[i+1]
+			i++
+		} else {
+			flags[a] = "true"
+		}
+	}
+	return flags
+}
+
 // ── node command ──────────────────────────────────────────────────────────────
 
 func runNode(args []string) {
-	testnet := false
-	mine := false
-	for _, a := range args {
-		switch a {
-		case "--testnet":
-			testnet = true
-		case "--mine":
-			mine = true
-		}
-	}
+	flags := parseFlags(args)
 
-	cfg := DefaultConfig(testnet)
-	cfg.Mine = mine
+	cfg := DefaultConfig(flags["testnet"] == "true")
+	cfg.Mine = flags["mine"] == "true"
+	if p := flags["password"]; p != "" {
+		cfg.Password = p
+	}
+	if m := flags["mineraddress"]; m != "" {
+		cfg.MinerAddr = m
+	}
 
 	node, err := NewNode(cfg)
 	if err != nil {
