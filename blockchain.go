@@ -70,20 +70,12 @@ func (bc *Blockchain) Close() error {
 }
 
 // epochKey returns the RandomX seed for the epoch that contains height.
-// All blocks in the same 64-block epoch share one seed, so Argon2d is only
-// re-run at epoch boundaries. Falls back to the genesis hash or a hard-coded
-// sentinel if storage is unavailable (covers the very first epoch).
+// Derived purely from the epoch number so every node computes the same key
+// for the same height regardless of which blocks are in local storage.
+// This eliminates IBD false-positive PoW failures caused by storage fallbacks.
 func (bc *Blockchain) epochKey(height uint64) []byte {
-	epochStart := (height / RandomXEpochLen) * RandomXEpochLen
-	b, err := bc.Storage.GetBlockByHeight(epochStart)
-	if err == nil {
-		return b.Hash
-	}
-	genesis, err := bc.Storage.GetBlockByHeight(0)
-	if err == nil {
-		return genesis.Hash
-	}
-	return []byte("chakram-genesis-seed")
+	epochNum := height / RandomXEpochLen
+	return []byte(fmt.Sprintf("chakram-epoch-%d", epochNum))
 }
 
 // AddBlock validates b and integrates it into the chain.

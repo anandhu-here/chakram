@@ -32,7 +32,7 @@ ORANGE     = "#ff8c00"
 
 RPC_BASE  = "http://localhost:18339"
 POLL_SECS = 5
-VERSION   = "v0.1.4"
+VERSION   = "v0.1.7"
 
 
 # ── Binary detection ───────────────────────────────────────────────────────────
@@ -110,6 +110,7 @@ class ChakramApp(ctk.CTk):
         self._poll_stop        = threading.Event()
         self._address          = ""
         self._last_mined_block = None
+        self._last_tx_count    = 0
 
         self._build_main_ui()
 
@@ -643,6 +644,12 @@ class ChakramApp(ctk.CTk):
         if data:
             chk = data.get("balance_chk", 0.0)
             self.after(0, self._balance_label.configure, {"text": f"{chk:,.6f} CHK"})
+        else:
+            self.after(0, self._balance_label.configure, {"text": "0.000000 CHK"})
+
+    def _flash_balance(self):
+        self._balance_label.configure(text_color=GREEN)
+        self.after(800, lambda: self._balance_label.configure(text_color=GOLD))
 
     def _render_blocks(self, blocks):
         for w in self._blocks_frame.winfo_children():
@@ -669,6 +676,9 @@ class ChakramApp(ctk.CTk):
             for b in blocks
             if b.get("miner", "") == self._address
         ]
+        if self._mining and len(earned) > self._last_tx_count:
+            self._flash_balance()
+        self._last_tx_count = len(earned)
         for w in self._tx_frame.winfo_children():
             w.destroy()
         if not earned:
