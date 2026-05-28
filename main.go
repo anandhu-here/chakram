@@ -158,11 +158,52 @@ func runWallet(args []string) {
 // ── send command ──────────────────────────────────────────────────────────────
 
 func runSend(args []string) {
-	if len(args) < 2 {
-		fmt.Fprintln(os.Stderr, "usage: chakram send <address> <amount>")
+	// Collect positional args (non-flag tokens) and parse flags.
+	var positional []string
+	flags := parseFlags(args)
+	for _, a := range args {
+		if !strings.HasPrefix(a, "--") {
+			positional = append(positional, a)
+		}
+	}
+
+	if len(positional) < 2 {
+		fmt.Fprintln(os.Stderr, "usage: chakram send <address> <amount> [--testnet] [--password <pass>]")
 		os.Exit(1)
 	}
-	fmt.Println("send: not yet implemented")
+
+	toAddress := positional[0]
+	var amountCHK float64
+	if _, err := fmt.Sscanf(positional[1], "%f", &amountCHK); err != nil {
+		fmt.Fprintf(os.Stderr, "invalid amount: %s\n", positional[1])
+		os.Exit(1)
+	}
+
+	cfg := DefaultConfig(flags["testnet"] == "true")
+	if p := flags["password"]; p != "" {
+		cfg.Password = p
+	}
+
+	txid, err := SendCHK(cfg, toAddress, amountCHK)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Error: %v\n", err)
+		os.Exit(1)
+	}
+
+	rpcPort := RPCPortMainnet
+	if cfg.Testnet {
+		rpcPort = RPCPortTestnet
+	}
+
+	fmt.Println("✓ Transaction submitted")
+	fmt.Printf("  From:   %s\n", cfg.WalletFile)
+	fmt.Printf("  To:     %s\n", toAddress)
+	fmt.Printf("  Amount: %.6f CHK\n", amountCHK)
+	fmt.Printf("  Fee:    %.6f CHK\n", float64(MinTxFee)/float64(CashPerCHK))
+	fmt.Printf("  TxID:   %s\n", txid)
+	fmt.Println()
+	fmt.Println("Transaction will confirm in the next block (~60 seconds)")
+	fmt.Printf("Check: http://localhost:%d/tx/%s\n", rpcPort, txid)
 }
 
 // ── status command ────────────────────────────────────────────────────────────

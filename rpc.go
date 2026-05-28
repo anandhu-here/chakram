@@ -61,12 +61,22 @@ func (r *RPCServer) route(w http.ResponseWriter, req *http.Request) {
 	w.Header().Set("Access-Control-Allow-Origin", "*")
 	w.Header().Set("Content-Type", "application/json")
 
-	if req.Method != http.MethodGet {
+	parts := strings.Split(strings.Trim(req.URL.Path, "/"), "/")
+
+	// POST routes
+	if req.Method == http.MethodPost {
+		if len(parts) == 2 && parts[0] == "tx" && parts[1] == "submit" {
+			r.handleTxSubmit(w, req)
+			return
+		}
 		writeError(w, http.StatusMethodNotAllowed, "method not allowed")
 		return
 	}
 
-	parts := strings.Split(strings.Trim(req.URL.Path, "/"), "/")
+	if req.Method != http.MethodGet {
+		writeError(w, http.StatusMethodNotAllowed, "method not allowed")
+		return
+	}
 
 	switch parts[0] {
 	case "", "explorer":
@@ -358,4 +368,28 @@ func (r *RPCServer) handlePeers(w http.ResponseWriter) {
 		})
 	}
 	writeJSON(w, http.StatusOK, result)
+}
+
+func (r *RPCServer) handleTxSubmit(w http.ResponseWriter, req *http.Request) {
+	var tx Transaction
+	if err := json.NewDecoder(req.Body).Decode(&tx); err != nil {
+		writeError(w, http.StatusBadRequest, "invalid transaction JSON: "+err.Error())
+		return
+	}
+	if err := tx.Validate(); err != nil {
+		writeError(w, http.StatusBadRequest, "transaction invalid: "+err.Error())
+		return
+	}
+	if err := r.node.Mempool.Add(&tx); err != nil {
+		writeError(w, http.StatusBadRequest, "mempool rejected: "+err.Error())
+		return
+	}
+	msg, err := NewMessage(r.node.Server.magic, MsgTx, &tx)
+	if err == nil {
+		r.node.Server.Broadcast(msg, nil)
+	}
+	writeJSON(w, http.StatusOK, map[string]string{
+		"txid":   hex.EncodeToString(tx.TxID),
+		"status": "submitted",
+	})
 }
