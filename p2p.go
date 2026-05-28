@@ -250,16 +250,40 @@ func (s *Server) Start() error {
 }
 
 // Stop signals all goroutines to exit, closes peer connections, and shuts the listener.
+// Peer connections are closed concurrently and the call returns within 3 seconds.
 func (s *Server) Stop() {
 	close(s.quit)
-	s.mu.Lock()
-	defer s.mu.Unlock()
-	for _, p := range s.peers {
-		close(p.send)
-		p.Conn.Close()
-	}
 	if s.listener != nil {
 		s.listener.Close()
+	}
+
+	// Snapshot and clear the peers map atomically so RemovePeer can't race us.
+	s.mu.Lock()
+	peers := make([]*Peer, 0, len(s.peers))
+	for _, p := range s.peers {
+		peers = append(peers, p)
+	}
+	s.peers = make(map[string]*Peer)
+	s.mu.Unlock()
+
+	done := make(chan struct{})
+	go func() {
+		var wg sync.WaitGroup
+		for _, p := range peers {
+			wg.Add(1)
+			go func(peer *Peer) {
+				defer wg.Done()
+				close(peer.send)
+				peer.Conn.Close()
+			}(p)
+		}
+		wg.Wait()
+		close(done)
+	}()
+
+	select {
+	case <-done:
+	case <-time.After(3 * time.Second):
 	}
 }
 

@@ -3,6 +3,7 @@
 package main
 
 import (
+	"context"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -26,7 +27,11 @@ type NodeConfig struct {
 
 // DefaultConfig returns sensible defaults for mainnet or testnet.
 func DefaultConfig(testnet bool) NodeConfig {
-	home, _ := os.UserHomeDir()
+	home, err := os.UserHomeDir()
+	if err != nil || home == "" {
+		home = "/tmp"
+		fmt.Println("WARNING: could not determine home directory, using /tmp")
+	}
 	network := "mainnet"
 	port := DefaultPortMainnet
 	seeds := MainnetSeeds
@@ -88,6 +93,7 @@ func NewNode(cfg NodeConfig) (*Node, error) {
 		if err != nil {
 			return nil, fmt.Errorf("load wallet: %w", err)
 		}
+		fmt.Printf("Wallet loaded:  %s\n", wallet.Address)
 	} else {
 		wallet, err = NewWallet()
 		if err != nil {
@@ -175,19 +181,33 @@ func (n *Node) Start() error {
 }
 
 // Stop shuts down all subsystems cleanly. Safe to call more than once.
+// Guarantees completion within 5 seconds.
 func (n *Node) Stop() {
 	n.stopOnce.Do(func() {
-		if n.Config.Mine && n.miningQuit != nil {
-			close(n.miningQuit)
+		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer cancel()
+
+		done := make(chan struct{})
+		go func() {
+			defer close(done)
+			if n.Config.Mine && n.miningQuit != nil {
+				close(n.miningQuit)
+			}
+			n.RPCServer.Stop()
+			n.SyncManager.Stop()
+			n.Server.Stop()
+			n.Blockchain.Close()
+			if n.Config.Mine && n.Engine != nil {
+				n.Engine.Close()
+			}
+		}()
+
+		select {
+		case <-done:
+			fmt.Println("Node stopped cleanly.")
+		case <-ctx.Done():
+			fmt.Println("Node stop timed out — forcing exit.")
 		}
-		n.RPCServer.Stop()
-		n.SyncManager.Stop()
-		n.Server.Stop()
-		n.Blockchain.Close()
-		if n.Config.Mine && n.Engine != nil {
-			n.Engine.Close()
-		}
-		fmt.Println("Node stopped cleanly.")
 	})
 }
 

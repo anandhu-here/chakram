@@ -6,6 +6,7 @@ import (
 	"os"
 	"os/signal"
 	"syscall"
+	"time"
 )
 
 func main() {
@@ -63,8 +64,17 @@ func runNode(args []string) {
 	c := make(chan os.Signal, 1)
 	signal.Notify(c, os.Interrupt, syscall.SIGTERM)
 	<-c
-	fmt.Println("\nShutting down...")
-	node.Stop()
+	fmt.Println("\nShutting down Chakram node...")
+	stopDone := make(chan struct{})
+	go func() {
+		node.Stop()
+		close(stopDone)
+	}()
+	select {
+	case <-stopDone:
+	case <-time.After(5 * time.Second):
+	}
+	os.Exit(0)
 }
 
 // ── wallet commands ───────────────────────────────────────────────────────────
