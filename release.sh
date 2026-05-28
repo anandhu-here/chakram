@@ -15,26 +15,28 @@ fi
 
 echo "=== Chakram Release $VERSION ==="
 
-# Step 1 — Build all 3 platforms
-echo "Building binaries..."
+# Step 1 — Git commit and tag first (so deploy gets the right code)
+echo "Committing and tagging..."
+git add .
+git commit -m "Release $VERSION — $NOTES" || echo "  (nothing to commit)"
+git push
+git tag $VERSION
+git push origin $VERSION
+
+# Step 2 — Deploy to GCP
+# deploy.sh rebuilds chakram-linux internally — let it finish before we upload
+echo "Deploying to GCP..."
+./deploy.sh
+
+# Step 3 — Build all 3 platform binaries AFTER deploy finishes
+# This avoids a race where deploy.sh overwrites chakram-linux mid-upload
+echo "Building release binaries..."
 go build -o chakram-mac .
 GOOS=linux GOARCH=amd64 go build -o chakram-linux .
 GOOS=windows GOARCH=amd64 go build -o chakram-windows.exe .
 echo "  ✓ chakram-mac"
 echo "  ✓ chakram-linux"
 echo "  ✓ chakram-windows.exe"
-
-# Step 2 — Deploy to GCP
-echo "Deploying to GCP..."
-./deploy.sh
-
-# Step 3 — Git commit and tag
-echo "Tagging release..."
-git add .
-git commit -m "Release $VERSION — $NOTES"
-git push
-git tag $VERSION
-git push origin $VERSION
 
 # Step 4 — GitHub release
 echo "Creating GitHub release..."

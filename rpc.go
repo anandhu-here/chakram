@@ -116,6 +116,12 @@ func (r *RPCServer) route(w http.ResponseWriter, req *http.Request) {
 		} else {
 			writeError(w, http.StatusNotFound, "not found")
 		}
+	case "utxos":
+		if len(parts) == 2 {
+			r.handleUTXOs(w, parts[1])
+		} else {
+			writeError(w, http.StatusNotFound, "not found")
+		}
 	case "peers":
 		r.handlePeers(w)
 	default:
@@ -365,6 +371,34 @@ func (r *RPCServer) handlePeers(w http.ResponseWriter) {
 			"address":   p.Address,
 			"height":    p.Height,
 			"connected": p.Connected,
+		})
+	}
+	writeJSON(w, http.StatusOK, result)
+}
+
+func (r *RPCServer) handleUTXOs(w http.ResponseWriter, address string) {
+	pkh, err := AddressToPubKeyHash(address)
+	if err != nil {
+		writeError(w, http.StatusBadRequest, "invalid address")
+		return
+	}
+	utxos, err := r.node.Blockchain.UTXOSet.GetUTXOsForAddress(pkh)
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, "failed to query UTXOs")
+		return
+	}
+	height := r.node.Blockchain.GetHeight()
+	result := make([]map[string]interface{}, 0, len(utxos))
+	for _, u := range utxos {
+		mature := !u.IsCoinbase || height >= u.BlockHeight+CoinbaseMaturity
+		result = append(result, map[string]interface{}{
+			"txid":         hex.EncodeToString(u.TxID),
+			"output_index": u.OutputIndex,
+			"value":        u.Value,
+			"value_chk":    float64(u.Value) / float64(CashPerCHK),
+			"block_height": u.BlockHeight,
+			"is_coinbase":  u.IsCoinbase,
+			"mature":       mature,
 		})
 	}
 	writeJSON(w, http.StatusOK, result)

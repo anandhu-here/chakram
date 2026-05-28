@@ -1,15 +1,28 @@
 // send.go — CHK transfer logic for the `chakram send` command.
+// Talks to the running node via HTTP — never opens the blockchain directly.
 package main
 
 import (
 	"bytes"
+	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"net/http"
 	"strings"
 )
 
-// SendCHK builds, signs, and submits a CHK transfer to the local running node.
+// rpcUTXO is the JSON shape returned by GET /utxos/{address}.
+type rpcUTXO struct {
+	TxID        string  `json:"txid"`
+	OutputIndex uint32  `json:"output_index"`
+	Value       uint64  `json:"value"`
+	ValueCHK    float64 `json:"value_chk"`
+	BlockHeight uint64  `json:"block_height"`
+	IsCoinbase  bool    `json:"is_coinbase"`
+	Mature      bool    `json:"mature"`
+}
+
+// SendCHK builds, signs, and submits a CHK transfer via the local running node.
 // Returns the hex TxID on success.
 func SendCHK(cfg NodeConfig, toAddress string, amountCHK float64) (string, error) {
 	// 1. Validate destination address.
@@ -23,14 +36,13 @@ func SendCHK(cfg NodeConfig, toAddress string, amountCHK float64) (string, error
 		return "", fmt.Errorf("amount must be greater than 0")
 	}
 
-	// 3. Open blockchain (read-only — we only need UTXOs and height).
-	bc, err := NewBlockchain(cfg.DataDir)
-	if err != nil {
-		return "", fmt.Errorf("open blockchain: %w", err)
+	rpcPort := RPCPortMainnet
+	if cfg.Testnet {
+		rpcPort = RPCPortTestnet
 	}
-	defer bc.Close()
+	base := fmt.Sprintf("http://localhost:%d", rpcPort)
 
-	// 4. Load wallet.
+	// 3. Load wallet (no blockchain — just the key file).
 	password := cfg.Password
 	if password == "" {
 		password = "chakram"
@@ -40,28 +52,27 @@ func SendCHK(cfg NodeConfig, toAddress string, amountCHK float64) (string, error
 		return "", fmt.Errorf("load wallet: %w", err)
 	}
 
-	// 5. Fetch all UTXOs for this wallet.
-	utxos, err := bc.UTXOSet.GetUTXOsForAddress(wallet.GetPubKeyHash())
+	// 4. Fetch UTXOs from running node.
+	utxos, err := fetchUTXOs(base, wallet.Address)
 	if err != nil {
-		return "", fmt.Errorf("get UTXOs: %w", err)
+		return "", err
 	}
 
-	// 6. Coin selection — skip immature coinbase outputs.
+	// 5. Coin selection — only mature UTXOs.
 	fee := MinTxFee
 	needed := amountCash + fee
-	currentHeight := bc.GetHeight()
 
-	var selected []UTXO
+	var selectedUTXOs []rpcUTXO
 	var total uint64
 	var matureBalance uint64
 
 	for _, u := range utxos {
-		if u.IsCoinbase && currentHeight < u.BlockHeight+CoinbaseMaturity {
+		if !u.Mature {
 			continue
 		}
 		matureBalance += u.Value
 		if total < needed {
-			selected = append(selected, u)
+			selectedUTXOs = append(selectedUTXOs, u)
 			total += u.Value
 		}
 	}
@@ -74,13 +85,17 @@ func SendCHK(cfg NodeConfig, toAddress string, amountCHK float64) (string, error
 		)
 	}
 
-	// 7. Build inputs.
-	inputs := make([]TxInput, len(selected))
-	for i, u := range selected {
-		inputs[i] = TxInput{TxID: u.TxID, OutputIndex: u.OutputIndex}
+	// 6. Build inputs.
+	inputs := make([]TxInput, len(selectedUTXOs))
+	for i, u := range selectedUTXOs {
+		txid, err := hex.DecodeString(u.TxID)
+		if err != nil {
+			return "", fmt.Errorf("decode txid %s: %w", u.TxID, err)
+		}
+		inputs[i] = TxInput{TxID: txid, OutputIndex: u.OutputIndex}
 	}
 
-	// 8. Build outputs — send + change.
+	// 7. Build outputs — payment + change.
 	toPKH, err := AddressToPubKeyHash(toAddress)
 	if err != nil {
 		return "", fmt.Errorf("resolve to address: %w", err)
@@ -95,39 +110,44 @@ func SendCHK(cfg NodeConfig, toAddress string, amountCHK float64) (string, error
 		})
 	}
 
-	// 9. Create transaction.
+	// 8. Create, sign, and validate transaction.
 	tx := NewTransaction(inputs, outputs)
-
-	// 10. Sign.
 	if err := SignTransaction(tx, wallet); err != nil {
 		return "", fmt.Errorf("sign transaction: %w", err)
 	}
-
-	// 11. Structural validation.
 	if err := tx.Validate(); err != nil {
 		return "", fmt.Errorf("transaction invalid: %w", err)
 	}
 
-	// 12. Submit to the local running node via RPC.
-	rpcPort := RPCPortMainnet
-	if cfg.Testnet {
-		rpcPort = RPCPortTestnet
-	}
+	// 9. Submit to running node.
+	return submitTx(base, tx)
+}
 
+// fetchUTXOs calls GET /utxos/{address} on the local node.
+func fetchUTXOs(base, address string) ([]rpcUTXO, error) {
+	url := base + "/utxos/" + address
+	resp, err := http.Get(url) //nolint:noctx
+	if err != nil {
+		return nil, nodeOfflineErr(err)
+	}
+	defer resp.Body.Close()
+
+	var utxos []rpcUTXO
+	if err := json.NewDecoder(resp.Body).Decode(&utxos); err != nil {
+		return nil, fmt.Errorf("decode UTXOs: %w", err)
+	}
+	return utxos, nil
+}
+
+// submitTx POSTs a transaction to POST /tx/submit on the local node.
+func submitTx(base string, tx *Transaction) (string, error) {
 	body, err := json.Marshal(tx)
 	if err != nil {
 		return "", fmt.Errorf("encode transaction: %w", err)
 	}
-
-	url := fmt.Sprintf("http://localhost:%d/tx/submit", rpcPort)
-	resp, err := http.Post(url, "application/json", bytes.NewReader(body)) //nolint:noctx
+	resp, err := http.Post(base+"/tx/submit", "application/json", bytes.NewReader(body)) //nolint:noctx
 	if err != nil {
-		if strings.Contains(err.Error(), "connection refused") {
-			return "", fmt.Errorf(
-				"node is not running. Start your node first with:\n  ./chakram node --testnet",
-			)
-		}
-		return "", fmt.Errorf("submit transaction: %w", err)
+		return "", nodeOfflineErr(err)
 	}
 	defer resp.Body.Close()
 
@@ -138,6 +158,13 @@ func SendCHK(cfg NodeConfig, toAddress string, amountCHK float64) (string, error
 	if errMsg, ok := result["error"]; ok {
 		return "", fmt.Errorf("node rejected transaction: %s", errMsg)
 	}
-
 	return result["txid"], nil
+}
+
+// nodeOfflineErr converts a connection-refused error into a friendly message.
+func nodeOfflineErr(err error) error {
+	if strings.Contains(err.Error(), "connection refused") {
+		return fmt.Errorf("node is not running. Start your node first with:\n  ./chakram node --testnet")
+	}
+	return err
 }
