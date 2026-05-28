@@ -9,6 +9,7 @@ import requests
 import subprocess
 import threading
 import webbrowser
+import atexit
 import time
 import sys
 import os
@@ -32,6 +33,8 @@ RED        = "#c04040"
 ORANGE     = "#ff8c00"
 
 RPC_BASE  = "http://localhost:18339"
+RPC_PORT  = 18339
+PID_FILE  = os.path.expanduser("~/.chakram/testnet/gui.pid")
 POLL_SECS = 5
 VERSION   = "v0.1.9"
 
@@ -141,6 +144,8 @@ class ChakramApp(ctk.CTk):
         self._password         = "chakram"
         self._binary           = None
         self._poll_stop        = threading.Event()
+
+        atexit.register(self._stop_node)
         self._address          = ""
         self._last_mined_block = None
         self._last_tx_count    = 0
@@ -518,6 +523,11 @@ class ChakramApp(ctk.CTk):
             self.after(0, self._on_node_ready)
             return
 
+        # Nothing responding — kill any orphan from a previous crashed session
+        # before we try to bind port 18339 again.
+        self._kill_orphan_node()
+        time.sleep(0.4)
+
         self._we_started_node = True
         self.after(0, lambda: self._overlay_loading("Starting Chakram node…"))
         self._launch_node(mine=False)
@@ -549,6 +559,7 @@ class ChakramApp(ctk.CTk):
             stderr=subprocess.DEVNULL,
             preexec_fn=os.setpgrp if sys.platform != "win32" else None,
         )
+        self._write_pid_file()
         self._mining = mine
         if mine:
             self._last_mined_block = None
@@ -1090,20 +1101,80 @@ class ChakramApp(ctk.CTk):
     # Shutdown
     # ═══════════════════════════════════════════════════════════════════════════
 
+    def _stop_node(self):
+        """Kill the node we launched. Safe to call multiple times."""
+        if not self._we_started_node:
+            return
+        proc = self._node_proc
+        if proc is None or proc.poll() is not None:
+            self._clear_pid_file()
+            return
+        # Graceful: SIGTERM to the whole process group (node spawns children)
+        if sys.platform != "win32":
+            try:
+                os.killpg(os.getpgid(proc.pid), signal.SIGTERM)
+            except (ProcessLookupError, OSError):
+                proc.terminate()
+        else:
+            proc.terminate()
+        try:
+            proc.wait(timeout=5)
+        except subprocess.TimeoutExpired:
+            proc.kill()
+            proc.wait()
+        self._node_proc = None
+        self._clear_pid_file()
+
+    def _write_pid_file(self):
+        try:
+            os.makedirs(os.path.dirname(PID_FILE), exist_ok=True)
+            with open(PID_FILE, "w") as f:
+                f.write(str(self._node_proc.pid))
+        except Exception:
+            pass
+
+    def _clear_pid_file(self):
+        try:
+            os.remove(PID_FILE)
+        except Exception:
+            pass
+
+    def _kill_orphan_node(self):
+        """Kill any node left running from a previous crashed GUI session."""
+        # Try PID file first — it's the most precise
+        try:
+            if os.path.exists(PID_FILE):
+                with open(PID_FILE) as f:
+                    pid = int(f.read().strip())
+                try:
+                    os.kill(pid, signal.SIGTERM)
+                    time.sleep(0.3)
+                except (ProcessLookupError, OSError):
+                    pass
+                self._clear_pid_file()
+                return
+        except Exception:
+            pass
+
+        # Fallback: find whoever is holding RPC_PORT and send SIGTERM
+        if sys.platform == "win32":
+            return
+        try:
+            result = subprocess.run(
+                ["lsof", "-t", f"-i:{RPC_PORT}"],
+                capture_output=True, text=True, timeout=3
+            )
+            for line in result.stdout.strip().splitlines():
+                try:
+                    os.kill(int(line.strip()), signal.SIGTERM)
+                except (ProcessLookupError, ValueError, OSError):
+                    pass
+        except Exception:
+            pass
+
     def _on_close(self):
         self._poll_stop.set()
-        if self._we_started_node and self._node_proc and self._node_proc.poll() is None:
-            if sys.platform != "win32":
-                try:
-                    os.killpg(os.getpgid(self._node_proc.pid), signal.SIGTERM)
-                except ProcessLookupError:
-                    pass
-            else:
-                self._node_proc.terminate()
-            try:
-                self._node_proc.wait(timeout=6)
-            except subprocess.TimeoutExpired:
-                self._node_proc.kill()
+        self._stop_node()
         self.destroy()
 
 

@@ -282,6 +282,7 @@ func (n *Node) mineLoop() {
 		}
 
 		fmt.Printf("⛏  Mined block %d — hash: %x\n", height, b.Hash)
+		time.Sleep(10 * time.Millisecond) // brief yield between blocks for RPC goroutines
 	}
 }
 

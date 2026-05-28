@@ -11,6 +11,7 @@ import (
 	"net/http"
 	"strconv"
 	"strings"
+	"time"
 )
 
 //go:embed explorer/index.html
@@ -38,8 +39,11 @@ func (r *RPCServer) Start() error {
 	mux := http.NewServeMux()
 	mux.HandleFunc("/", r.route)
 	r.server = &http.Server{
-		Addr:    fmt.Sprintf("0.0.0.0:%d", r.port),
-		Handler: mux,
+		Addr:         fmt.Sprintf("0.0.0.0:%d", r.port),
+		Handler:      mux,
+		ReadTimeout:  10 * time.Second,
+		WriteTimeout: 15 * time.Second,
+		IdleTimeout:  60 * time.Second,
 	}
 	go func() {
 		if err := r.server.ListenAndServe(); err != nil && err != http.ErrServerClosed {

@@ -9,6 +9,7 @@ import (
 	"encoding/binary"
 	"errors"
 	"fmt"
+	"runtime"
 
 	randomx "git.gammaspectra.live/P2Pool/go-randomx"
 )
@@ -149,6 +150,7 @@ func MineBlock(b *Block, engine PoWEngine, key []byte) error {
 	for {
 		data := serializeHeader(b.Header)
 		b.Hash = engine.Hash(data)
+		runtime.Gosched() // yield after each ~500ms hash so RPC goroutines can run
 
 		if b.HashIsValid() {
 			return nil
