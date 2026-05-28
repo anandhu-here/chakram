@@ -63,8 +63,9 @@ const (
 
 	// InitialDifficulty is the difficulty used for early blocks before enough
 	// history exists for the sliding-window algorithm.
-	// difficulty=11 → target < 2^245 → ~1/2048 hashes succeed at ~200 H/s ≈ 10 s/block.
-	InitialDifficulty uint64 = 11
+	// Kept at 1 (same as MinDifficulty) so the chain starts regardless of the
+	// VM's actual RandomX hash rate. The sliding window adjusts upward naturally.
+	InitialDifficulty uint64 = 1
 
 	// DifficultyAdjustmentInterval is kept for reference / future batch retarget.
 	DifficultyAdjustmentInterval uint64 = 2016
