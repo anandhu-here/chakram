@@ -3,3 +3,13 @@ docs/prompts/
 .claude/
 
 chakram-data-node*
+
+# compiled binaries
+chakram-linux
+chakram-mac
+chakram-windows.exe
+
+# wallet / key material — never commit these
+pnemonic.txt
+*.json
+wallet.json
