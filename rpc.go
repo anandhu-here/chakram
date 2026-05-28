@@ -16,6 +16,12 @@ import (
 //go:embed explorer/index.html
 var explorerHTML []byte
 
+//go:embed explorer/faucet.html
+var faucetHTML []byte
+
+//go:embed explorer/wallet.html
+var walletHTML []byte
+
 // ── Server ────────────────────────────────────────────────────────────────────
 
 type RPCServer struct {
@@ -66,6 +72,12 @@ func (r *RPCServer) route(w http.ResponseWriter, req *http.Request) {
 	case "", "explorer":
 		w.Header().Set("Content-Type", "text/html")
 		w.Write(explorerHTML) //nolint:errcheck
+	case "faucet":
+		w.Header().Set("Content-Type", "text/html")
+		w.Write(faucetHTML) //nolint:errcheck
+	case "wallet":
+		w.Header().Set("Content-Type", "text/html")
+		w.Write(walletHTML) //nolint:errcheck
 	case "info":
 		r.handleInfo(w)
 	case "block":

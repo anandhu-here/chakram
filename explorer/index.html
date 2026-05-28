@@ -431,6 +431,16 @@
         <button class="btn" onclick="doSearch()">Search</button>
     </div>
 
+    <nav style="display:flex;gap:0;">
+        <a style="color:var(--gold);background:var(--bg3);text-decoration:none;padding:6px 14px;border-radius:5px;font-size:0.82rem;letter-spacing:0.5px;" href="/">Explorer</a>
+        <a style="color:var(--text2);text-decoration:none;padding:6px 14px;border-radius:5px;font-size:0.82rem;letter-spacing:0.5px;transition:color 0.2s,background 0.2s;" href="/wallet"
+           onmouseover="this.style.color='var(--gold)';this.style.background='var(--bg3)'"
+           onmouseout="this.style.color='var(--text2)';this.style.background=''">Wallet</a>
+        <a style="color:var(--text2);text-decoration:none;padding:6px 14px;border-radius:5px;font-size:0.82rem;letter-spacing:0.5px;transition:color 0.2s,background 0.2s;" href="/faucet"
+           onmouseover="this.style.color='var(--gold)';this.style.background='var(--bg3)'"
+           onmouseout="this.style.color='var(--text2)';this.style.background=''">Faucet</a>
+    </nav>
+
     <div class="header-meta">
         <span class="badge-testnet">TESTNET</span>
         <div class="node-status">

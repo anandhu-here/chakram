@@ -1,0 +1,626 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Chakram Wallet</title>
+    <style>
+        :root {
+            --bg:     #0a0a0f;
+            --bg2:    #111118;
+            --bg3:    #1a1a24;
+            --gold:   #f0c040;
+            --gold2:  #c9a030;
+            --text:   #e0e0e8;
+            --text2:  #8888a0;
+            --border: #2a2a3a;
+            --orange: #ff8c00;
+            --green:  #40c080;
+            --red:    #c04040;
+            --purple: #a080f0;
+        }
+
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+
+        body {
+            background: var(--bg);
+            color: var(--text);
+            font-family: 'Courier New', Courier, monospace;
+            min-height: 100vh;
+        }
+
+        /* ── Header ─────────────────────────────────────────────── */
+        header {
+            background: var(--bg2);
+            border-bottom: 1px solid var(--border);
+            padding: 1rem 2rem;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            flex-wrap: wrap;
+            gap: 1rem;
+        }
+
+        .header-brand { display: flex; flex-direction: column; }
+
+        .logo {
+            font-size: 2rem;
+            font-weight: bold;
+            color: var(--gold);
+            letter-spacing: 4px;
+        }
+
+        .subtitle { color: var(--text2); font-size: 0.85rem; margin-top: 2px; }
+
+        nav { display: flex; gap: 0; }
+
+        .nav-link {
+            color: var(--text2);
+            text-decoration: none;
+            padding: 6px 14px;
+            border-radius: 5px;
+            font-size: 0.82rem;
+            transition: color 0.2s, background 0.2s;
+        }
+
+        .nav-link:hover { color: var(--gold); background: var(--bg3); }
+        .nav-link.active { color: var(--gold); background: var(--bg3); }
+
+        .badge {
+            padding: 4px 12px;
+            border-radius: 999px;
+            font-size: 0.72rem;
+            font-weight: bold;
+            letter-spacing: 1px;
+        }
+
+        .badge-testnet { background: var(--orange); color: #000; }
+        .badge-wallet  { background: var(--purple); color: #fff; }
+
+        /* ── Layout ─────────────────────────────────────────────── */
+        .layout {
+            max-width: 1100px;
+            margin: 0 auto;
+            padding: 2rem;
+            display: grid;
+            grid-template-columns: 1fr 300px;
+            gap: 1.5rem;
+            align-items: start;
+        }
+
+        /* ── Cards ──────────────────────────────────────────────── */
+        .card {
+            background: var(--bg2);
+            border: 1px solid var(--border);
+            border-radius: 10px;
+            padding: 1.5rem;
+            margin-bottom: 1.5rem;
+        }
+
+        .card:last-child { margin-bottom: 0; }
+
+        .card-title {
+            color: var(--text2);
+            font-size: 0.7rem;
+            letter-spacing: 2px;
+            text-transform: uppercase;
+            margin-bottom: 1.25rem;
+            padding-bottom: 0.75rem;
+            border-bottom: 1px solid var(--border);
+        }
+
+        /* ── Address lookup ─────────────────────────────────────── */
+        .page-title {
+            text-align: center;
+            margin-bottom: 2rem;
+        }
+
+        .page-title h1 {
+            color: var(--gold);
+            font-size: 1.8rem;
+            letter-spacing: 4px;
+            margin-bottom: 0.4rem;
+        }
+
+        .page-title p { color: var(--text2); font-size: 0.88rem; }
+
+        .input-group {
+            display: flex;
+            gap: 0.5rem;
+            margin-bottom: 1rem;
+        }
+
+        .input-group input {
+            flex: 1;
+            background: var(--bg3);
+            border: 1px solid var(--border);
+            color: var(--text);
+            padding: 0.75rem 1rem;
+            border-radius: 6px;
+            font-family: inherit;
+            font-size: 0.9rem;
+            outline: none;
+            transition: border-color 0.2s;
+        }
+
+        .input-group input:focus { border-color: var(--gold); }
+        .input-group input::placeholder { color: var(--text2); }
+
+        .btn {
+            background: var(--gold);
+            color: #000;
+            border: none;
+            padding: 0.75rem 1.5rem;
+            border-radius: 6px;
+            cursor: pointer;
+            font-family: inherit;
+            font-weight: bold;
+            font-size: 0.9rem;
+            transition: background 0.2s;
+            white-space: nowrap;
+        }
+
+        .btn:hover { background: var(--gold2); }
+
+        /* ── Balance display ────────────────────────────────────── */
+        .balance-display {
+            display: none;
+            text-align: center;
+            padding: 2rem 1rem;
+            background: var(--bg3);
+            border-radius: 8px;
+            margin-top: 1rem;
+        }
+
+        .balance-address {
+            color: var(--text2);
+            font-size: 0.78rem;
+            word-break: break-all;
+            margin-bottom: 1rem;
+        }
+
+        .balance-amount {
+            color: var(--gold);
+            font-size: 2.5rem;
+            font-weight: bold;
+            margin-bottom: 0.25rem;
+        }
+
+        .balance-unit { color: var(--text2); font-size: 0.9rem; margin-bottom: 1rem; }
+
+        .balance-meta {
+            display: flex;
+            justify-content: center;
+            gap: 2rem;
+            font-size: 0.8rem;
+            color: var(--text2);
+        }
+
+        .balance-meta span b { color: var(--text); }
+
+        .rich-msg {
+            margin-top: 1rem;
+            font-size: 1.1rem;
+        }
+
+        .error-msg {
+            color: var(--red);
+            text-align: center;
+            padding: 1rem;
+            display: none;
+        }
+
+        /* ── Transactions table ─────────────────────────────────── */
+        .tx-table { width: 100%; border-collapse: collapse; }
+
+        .tx-table th {
+            text-align: left;
+            padding: 0.6rem 0.75rem;
+            color: var(--text2);
+            font-size: 0.68rem;
+            letter-spacing: 1px;
+            text-transform: uppercase;
+            border-bottom: 1px solid var(--border);
+        }
+
+        .tx-table td {
+            padding: 0.7rem 0.75rem;
+            border-bottom: 1px solid var(--border);
+            font-size: 0.82rem;
+            vertical-align: middle;
+        }
+
+        .tx-table tr:last-child td { border-bottom: none; }
+        .tx-table tbody tr:hover { background: var(--bg3); }
+
+        .miner-col { color: var(--green); font-family: monospace; }
+        .reward-col { color: var(--gold); }
+        .time-col { color: var(--text2); font-size: 0.75rem; }
+
+        /* ── Sidebar stats ──────────────────────────────────────── */
+        .stat-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 0.6rem 0;
+            border-bottom: 1px solid var(--border);
+            font-size: 0.85rem;
+        }
+
+        .stat-row:last-child { border-bottom: none; }
+        .stat-key { color: var(--text2); }
+        .stat-val { color: var(--gold); font-weight: bold; }
+
+        /* ── About section ──────────────────────────────────────── */
+        .steps { list-style: none; }
+
+        .steps li {
+            display: flex;
+            gap: 0.75rem;
+            padding: 0.55rem 0;
+            border-bottom: 1px solid var(--border);
+            font-size: 0.82rem;
+            align-items: flex-start;
+            line-height: 1.5;
+        }
+
+        .steps li:last-child { border-bottom: none; }
+        .step-num { color: var(--gold); font-weight: bold; min-width: 18px; flex-shrink: 0; }
+
+        .dl-link {
+            display: inline-block;
+            margin-top: 1rem;
+            background: var(--gold);
+            color: #000;
+            padding: 0.6rem 1.25rem;
+            border-radius: 6px;
+            text-decoration: none;
+            font-weight: bold;
+            font-size: 0.85rem;
+            transition: background 0.2s;
+        }
+
+        .dl-link:hover { background: var(--gold2); }
+
+        .loading-msg {
+            text-align: center;
+            padding: 1.5rem;
+            color: var(--text2);
+            font-size: 0.85rem;
+        }
+
+        /* ── Footer ─────────────────────────────────────────────── */
+        footer {
+            text-align: center;
+            padding: 2rem;
+            color: var(--text2);
+            font-size: 0.78rem;
+            border-top: 1px solid var(--border);
+            margin-top: 1rem;
+        }
+
+        footer a { color: var(--gold); text-decoration: none; }
+
+        ::-webkit-scrollbar { width: 6px; }
+        ::-webkit-scrollbar-track { background: var(--bg); }
+        ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+
+        @media (max-width: 800px) {
+            .layout { grid-template-columns: 1fr; }
+            .logo { font-size: 1.5rem; }
+        }
+
+        @media (max-width: 500px) {
+            .input-group { flex-direction: column; }
+        }
+    </style>
+</head>
+<body>
+
+<header>
+    <div class="header-brand">
+        <div class="logo">⬡ CHAKRAM</div>
+        <div class="subtitle">ചക്രം — Kerala's Digital Coin</div>
+    </div>
+    <nav>
+        <a class="nav-link" href="/">Explorer</a>
+        <a class="nav-link active" href="/wallet">Wallet</a>
+        <a class="nav-link" href="/faucet">Faucet</a>
+    </nav>
+    <div class="header-meta">
+        <span class="badge badge-wallet">WALLET</span>
+        <span class="badge badge-testnet">TESTNET</span>
+    </div>
+</header>
+
+<div class="layout">
+
+    <!-- ── Main column ─────────────────────────────────────── -->
+    <div class="main-col">
+
+        <div class="page-title">
+            <h1>⬡ CHAKRAM WALLET</h1>
+            <p>Check your CHK balance</p>
+        </div>
+
+        <!-- Address lookup -->
+        <div class="card">
+            <div class="card-title">Address Lookup</div>
+            <div class="input-group">
+                <input id="addrInput"
+                       type="text"
+                       placeholder="Enter CK1 address…"
+                       autocomplete="off" />
+                <button class="btn" onclick="lookupAddress()">Check Balance</button>
+            </div>
+
+            <div class="balance-display" id="balanceDisplay">
+                <div class="balance-address" id="balanceAddr"></div>
+                <div class="balance-amount" id="balanceAmt"></div>
+                <div class="balance-unit">CHK</div>
+                <div class="balance-meta">
+                    <span><b id="utxoCount">—</b> UTXOs</span>
+                    <span><b id="rawBalance">—</b> Cash</span>
+                </div>
+                <div class="rich-msg" id="richMsg"></div>
+            </div>
+            <div class="error-msg" id="errorMsg"></div>
+        </div>
+
+        <!-- Recent mined blocks -->
+        <div class="card">
+            <div class="card-title">Recent Block Rewards</div>
+            <div id="txSection">
+                <div class="loading-msg">Loading…</div>
+            </div>
+        </div>
+
+        <!-- About / how to get wallet -->
+        <div class="card">
+            <div class="card-title">Get the Chakram Wallet</div>
+            <ol class="steps">
+                <li>
+                    <span class="step-num">1.</span>
+                    <span>Download the Chakram binary for your platform from GitHub Releases</span>
+                </li>
+                <li>
+                    <span class="step-num">2.</span>
+                    <span>Run: <code style="color:var(--gold)">./chakram node --testnet</code> — a wallet is created automatically on first run</span>
+                </li>
+                <li>
+                    <span class="step-num">3.</span>
+                    <span>Your CK1 address is shown at startup. <strong style="color:var(--red)">Back up your 12-word mnemonic immediately.</strong></span>
+                </li>
+                <li>
+                    <span class="step-num">4.</span>
+                    <span>Paste your CK1 address in the lookup above to check your balance anytime</span>
+                </li>
+                <li>
+                    <span class="step-num">5.</span>
+                    <span>Need testnet CHK? Visit the <a href="/faucet" style="color:var(--gold)">Faucet →</a></span>
+                </li>
+            </ol>
+            <a class="dl-link"
+               href="https://github.com/anandhusathe/chakram/releases"
+               target="_blank" rel="noopener">
+                Download Chakram →
+            </a>
+        </div>
+
+    </div>
+
+    <!-- ── Sidebar ──────────────────────────────────────────── -->
+    <div class="sidebar-col">
+        <div class="card">
+            <div class="card-title">Network Stats</div>
+            <div class="stat-row">
+                <span class="stat-key">Height</span>
+                <span class="stat-val" id="sHeight">—</span>
+            </div>
+            <div class="stat-row">
+                <span class="stat-key">Total Mined</span>
+                <span class="stat-val" id="sSupply">—</span>
+            </div>
+            <div class="stat-row">
+                <span class="stat-key">Active Peers</span>
+                <span class="stat-val" id="sPeers">—</span>
+            </div>
+            <div class="stat-row">
+                <span class="stat-key">Latest Block</span>
+                <span class="stat-val" id="sLatest">—</span>
+            </div>
+            <div class="stat-row">
+                <span class="stat-key">Network</span>
+                <span class="stat-val" id="sNetwork">—</span>
+            </div>
+        </div>
+
+        <div class="card">
+            <div class="card-title">Coin Info</div>
+            <div class="stat-row">
+                <span class="stat-key">Name</span>
+                <span class="stat-val">Chakram</span>
+            </div>
+            <div class="stat-row">
+                <span class="stat-key">Ticker</span>
+                <span class="stat-val">CHK</span>
+            </div>
+            <div class="stat-row">
+                <span class="stat-key">Algorithm</span>
+                <span class="stat-val">RandomX</span>
+            </div>
+            <div class="stat-row">
+                <span class="stat-key">Block Time</span>
+                <span class="stat-val">~60s</span>
+            </div>
+            <div class="stat-row">
+                <span class="stat-key">Block Reward</span>
+                <span class="stat-val">50 CHK</span>
+            </div>
+            <div class="stat-row">
+                <span class="stat-key">1 CHK</span>
+                <span class="stat-val">1,000,000 Cash</span>
+            </div>
+        </div>
+    </div>
+
+</div>
+
+<footer>
+    <div>Chakram Testnet — Built with ❤️ in Kerala</div>
+    <div style="margin-top:0.5rem;">
+        <a href="/">Explorer</a> &nbsp;·&nbsp;
+        <a href="/faucet">Faucet</a> &nbsp;·&nbsp;
+        <a href="https://github.com/anandhusathe/chakram" target="_blank" rel="noopener">GitHub</a>
+    </div>
+</footer>
+
+<script>
+'use strict';
+
+const RPC = 'http://35.207.217.64:18339';
+
+function timeAgo(ts) {
+    const d = Math.floor(Date.now() / 1000) - ts;
+    if (d < 5)     return 'just now';
+    if (d < 60)    return d + ' secs ago';
+    if (d < 3600)  return Math.floor(d / 60) + ' mins ago';
+    if (d < 86400) return Math.floor(d / 3600) + ' hrs ago';
+    return Math.floor(d / 86400) + ' days ago';
+}
+
+function trunc(s, n = 16) {
+    return s && s.length > n ? s.slice(0, n) + '…' : s;
+}
+
+function esc(s) {
+    return String(s)
+        .replace(/&/g, '&amp;').replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+}
+
+function richMessage(balanceCHK) {
+    if (balanceCHK === 0)     return '😢 Empty wallet — visit the Faucet to get some CHK!';
+    if (balanceCHK < 10)      return '🌱 Just getting started!';
+    if (balanceCHK < 100)     return '💰 Building up nicely!';
+    if (balanceCHK < 1000)    return '🤑 Looking good!';
+    if (balanceCHK < 10000)   return '🚀 Whale in the making!';
+    return '🐳 Chakram whale detected!';
+}
+
+// ── Network stats ──────────────────────────────────────────────────
+
+async function loadStats() {
+    try {
+        const [info, blocks] = await Promise.all([
+            fetch(RPC + '/info').then(r => r.json()),
+            fetch(RPC + '/blocks/latest/10').then(r => r.json()),
+        ]);
+
+        document.getElementById('sHeight').textContent =
+            info.height.toLocaleString();
+        document.getElementById('sSupply').textContent =
+            (info.total_supply_mined / 1_000_000).toFixed(2) + ' CHK';
+        document.getElementById('sPeers').textContent = info.peers;
+        document.getElementById('sNetwork').textContent =
+            info.network.charAt(0).toUpperCase() + info.network.slice(1);
+
+        if (blocks.length > 0) {
+            document.getElementById('sLatest').textContent =
+                timeAgo(blocks[0].timestamp);
+        }
+
+        renderRecentBlocks(blocks);
+    } catch (e) {
+        ['sHeight', 'sSupply', 'sPeers', 'sLatest', 'sNetwork'].forEach(id => {
+            document.getElementById(id).textContent = 'offline';
+        });
+        document.getElementById('txSection').innerHTML =
+            '<div class="loading-msg" style="color:var(--red)">⚠ Node unreachable</div>';
+    }
+}
+
+function renderRecentBlocks(blocks) {
+    if (!blocks || blocks.length === 0) {
+        document.getElementById('txSection').innerHTML =
+            '<div class="loading-msg">No blocks found</div>';
+        return;
+    }
+
+    const rows = blocks.map(b => `
+        <tr>
+            <td style="color:var(--gold)">${b.height}</td>
+            <td class="miner-col" title="${esc(b.miner || '')}">${b.miner ? trunc(b.miner, 14) : '—'}</td>
+            <td class="reward-col">50 CHK</td>
+            <td class="time-col">${timeAgo(b.timestamp)}</td>
+        </tr>
+    `).join('');
+
+    document.getElementById('txSection').innerHTML = `
+        <table class="tx-table">
+            <thead>
+                <tr>
+                    <th>Block</th>
+                    <th>Miner</th>
+                    <th>Reward</th>
+                    <th>Age</th>
+                </tr>
+            </thead>
+            <tbody>${rows}</tbody>
+        </table>
+    `;
+}
+
+// ── Address lookup ─────────────────────────────────────────────────
+
+async function lookupAddress() {
+    const addr = document.getElementById('addrInput').value.trim();
+    const displayEl = document.getElementById('balanceDisplay');
+    const errorEl   = document.getElementById('errorMsg');
+
+    displayEl.style.display = 'none';
+    errorEl.style.display   = 'none';
+
+    if (!addr) {
+        errorEl.textContent = 'Please enter a CK1 address.';
+        errorEl.style.display = 'block';
+        return;
+    }
+
+    if (!addr.startsWith('CK1')) {
+        errorEl.textContent = 'Invalid address — must start with CK1.';
+        errorEl.style.display = 'block';
+        return;
+    }
+
+    try {
+        const data = await fetch(RPC + '/address/' + encodeURIComponent(addr))
+            .then(r => { if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); });
+
+        const chk = data.balance_chk;
+
+        document.getElementById('balanceAddr').textContent = data.address;
+        document.getElementById('balanceAmt').textContent  = chk.toFixed(6);
+        document.getElementById('utxoCount').textContent   = data.utxo_count;
+        document.getElementById('rawBalance').textContent  =
+            data.balance.toLocaleString();
+        document.getElementById('richMsg').textContent     = richMessage(chk);
+
+        displayEl.style.display = 'block';
+    } catch (e) {
+        errorEl.textContent = 'Address not found or node unreachable.';
+        errorEl.style.display = 'block';
+    }
+}
+
+document.getElementById('addrInput').addEventListener('keydown', e => {
+    if (e.key === 'Enter') lookupAddress();
+});
+
+// ── Init ───────────────────────────────────────────────────────────
+
+loadStats();
+setInterval(loadStats, 30_000);
+</script>
+</body>
+</html>
