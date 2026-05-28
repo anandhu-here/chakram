@@ -154,6 +154,12 @@ func (sm *SyncManager) OnBlockReceived(b *Block, from *Peer) {
 			if from != nil {
 				sm.RequestBlock(b.Header.PreviousHash, from)
 			}
+		} else if isPoWError(err) && from != nil {
+			// Sending a block with a fabricated hash is a protocol violation.
+			// Penalize the peer — five violations triggers a 24-hour ban.
+			fmt.Printf("peer %s sent block with invalid PoW at height %d — penalizing\n",
+				peerAddr(from), b.Header.Height)
+			sm.server.penalizePeer(from)
 		}
 		return
 	}
@@ -186,6 +192,12 @@ func (sm *SyncManager) OnBlockReceived(b *Block, from *Peer) {
 // is not yet stored locally (block arrived out of order or from a fork).
 func isOrphanError(err error) bool {
 	return errors.Is(err, ErrOrphanBlock)
+}
+
+// isPoWError returns true when AddBlock rejects a block because its RandomX
+// hash does not match the hash claimed in the block header.
+func isPoWError(err error) bool {
+	return errors.Is(err, ErrInvalidPoW)
 }
 
 // ── Orphan management ─────────────────────────────────────────────────────────

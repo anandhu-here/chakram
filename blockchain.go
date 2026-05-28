@@ -13,12 +13,17 @@ import (
 // known to this node. The sync layer uses this to request the missing parent.
 var ErrOrphanBlock = errors.New("orphan: parent block not found")
 
+// ErrInvalidPoW is returned by AddBlock when the RandomX hash recomputed from
+// the block header does not match the hash the block claims to have.
+var ErrInvalidPoW = errors.New("invalid block: RandomX PoW hash mismatch")
+
 // Blockchain holds the in-memory chain state and a handle to the storage layer.
 type Blockchain struct {
-	Storage *Storage
-	UTXOSet *UTXOSet
-	Tip     []byte // hash of the current best (highest) block
-	Height  uint64 // height of the current best block
+	Storage      *Storage
+	UTXOSet      *UTXOSet
+	VerifyEngine *RandomXEngine // RandomX engine used to authenticate received blocks
+	Tip          []byte         // hash of the current best (highest) block
+	Height       uint64         // height of the current best block
 }
 
 // NewBlockchain opens (or resumes) the blockchain stored at dataDir.
@@ -31,8 +36,9 @@ func NewBlockchain(dataDir string) (*Blockchain, error) {
 	}
 
 	bc := &Blockchain{
-		Storage: storage,
-		UTXOSet: NewUTXOSet(storage),
+		Storage:      storage,
+		UTXOSet:      NewUTXOSet(storage),
+		VerifyEngine: NewRandomXEngine(),
 	}
 
 	tip, height, err := storage.GetChainTip()
@@ -61,6 +67,23 @@ func NewBlockchain(dataDir string) (*Blockchain, error) {
 // Always defer this after a successful NewBlockchain call.
 func (bc *Blockchain) Close() error {
 	return bc.Storage.Close()
+}
+
+// epochKey returns the RandomX seed for the epoch that contains height.
+// All blocks in the same 64-block epoch share one seed, so Argon2d is only
+// re-run at epoch boundaries. Falls back to the genesis hash or a hard-coded
+// sentinel if storage is unavailable (covers the very first epoch).
+func (bc *Blockchain) epochKey(height uint64) []byte {
+	epochStart := (height / RandomXEpochLen) * RandomXEpochLen
+	b, err := bc.Storage.GetBlockByHeight(epochStart)
+	if err == nil {
+		return b.Hash
+	}
+	genesis, err := bc.Storage.GetBlockByHeight(0)
+	if err == nil {
+		return genesis.Hash
+	}
+	return []byte("chakram-genesis-seed")
 }
 
 // AddBlock validates b and integrates it into the chain.
@@ -100,6 +123,17 @@ func (bc *Blockchain) AddBlock(b *Block) error {
 	if b.Header.Timestamp <= parent.Header.Timestamp {
 		return fmt.Errorf("invalid block: timestamp %d not after parent timestamp %d",
 			b.Header.Timestamp, parent.Header.Timestamp)
+	}
+
+	// Full RandomX PoW verification — recomputes the hash from the raw header
+	// bytes and confirms it equals b.Hash. The VerifyEngine reuses its Argon2d
+	// cache for all 64 blocks in the same epoch, so IBD cost is amortised to
+	// one cache rebuild per epoch rather than one per block.
+	if bc.VerifyEngine != nil {
+		key := bc.epochKey(b.Header.Height)
+		if !VerifyBlock(b, bc.VerifyEngine, key) {
+			return fmt.Errorf("%w (height %d hash %x)", ErrInvalidPoW, b.Header.Height, b.Hash)
+		}
 	}
 
 	// Store the block data (by hash only — height index updated separately).

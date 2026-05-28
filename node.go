@@ -287,21 +287,10 @@ func (n *Node) mineLoop() {
 
 // ── RandomX epoch key ─────────────────────────────────────────────────────────
 
-// epochKey returns the RandomX seed key for the block at the given height.
-// It uses the hash of the most recent epoch-boundary block, falling back to
-// the genesis hash if that block is not yet available.
+// epochKey delegates to the Blockchain's canonical epoch-key derivation so
+// the miner and the verifier always use the same seed for the same height.
 func (n *Node) epochKey(height uint64) []byte {
-	epochStart := (height / RandomXEpochLen) * RandomXEpochLen
-	b, err := n.Blockchain.Storage.GetBlockByHeight(epochStart)
-	if err == nil {
-		return b.Hash
-	}
-	// Fallback to genesis hash (covers the first epoch and any storage error).
-	genesis, err := n.Blockchain.Storage.GetBlockByHeight(0)
-	if err == nil {
-		return genesis.Hash
-	}
-	return []byte("chakram-genesis-seed")
+	return n.Blockchain.epochKey(height)
 }
 
 // ── Status ────────────────────────────────────────────────────────────────────
