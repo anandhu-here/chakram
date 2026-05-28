@@ -5,8 +5,8 @@ package main
 import (
 	"bytes"
 	"encoding/hex"
+	"errors"
 	"fmt"
-	"strings"
 	"sync"
 	"time"
 )
@@ -183,9 +183,9 @@ func (sm *SyncManager) OnBlockReceived(b *Block, from *Peer) {
 }
 
 // isOrphanError returns true when AddBlock fails because the block's parent
-// does not match the current chain tip (out-of-order or genuinely orphaned).
+// is not yet stored locally (block arrived out of order or from a fork).
 func isOrphanError(err error) bool {
-	return strings.Contains(err.Error(), "PreviousHash does not match")
+	return errors.Is(err, ErrOrphanBlock)
 }
 
 // ── Orphan management ─────────────────────────────────────────────────────────

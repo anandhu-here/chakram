@@ -34,6 +34,14 @@ scp $SSH_OPTS $BINARY anandhusathe@$MINER:$REMOTE_PATH
 ssh $SSH_OPTS anandhusathe@$MINER "chmod +x $REMOTE_PATH"
 echo "  chakram-miner-1 done"
 
+# Wipe testnet chain data on all VMs (v0.1.5: new storage format, fresh chain required).
+# Seed nodes: delete everything. Miner: keep wallet.json so it mines to the same address.
+echo "Wiping testnet chain data..."
+ssh $SSH_OPTS anandhusathe@$SEED1 "rm -rf ~/.chakram/testnet/ && echo '  seed-1 wiped'"
+ssh $SSH_OPTS anandhusathe@$SEED2 "rm -rf ~/.chakram/testnet/ && echo '  seed-2 wiped'"
+ssh $SSH_OPTS anandhusathe@$MINER \
+  "find ~/.chakram/testnet/ -mindepth 1 -not -name 'wallet.json' -delete 2>/dev/null; echo '  miner wiped (wallet kept)'"
+
 # Start all services
 echo "Starting services..."
 ssh $SSH_OPTS anandhusathe@$SEED1 "sudo systemctl start chakram-seed"

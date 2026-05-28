@@ -109,6 +109,8 @@ func runWallet(args []string) {
 		}
 	}
 
+	flags := parseFlags(args)
+
 	switch args[0] {
 	case "new":
 		w, err := NewWallet()
@@ -120,9 +122,16 @@ func runWallet(args []string) {
 		fmt.Printf("Mnemonic: %s\n", w.Mnemonic)
 		fmt.Println("IMPORTANT: Back up your mnemonic phrase — it cannot be recovered!")
 
+	case "recover":
+		runWalletRecover(args[1:], flags, testnet)
+
 	case "address":
 		cfg := DefaultConfig(testnet)
-		w, err := LoadWalletFromFile(cfg.WalletFile, "chakram")
+		password := flags["password"]
+		if password == "" {
+			password = "chakram"
+		}
+		w, err := LoadWalletFromFile(cfg.WalletFile, password)
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "FATAL: %v\n", err)
 			os.Exit(1)
@@ -137,7 +146,11 @@ func runWallet(args []string) {
 			os.Exit(1)
 		}
 		defer bc.Close()
-		w, err := LoadWalletFromFile(cfg.WalletFile, "chakram")
+		password := flags["password"]
+		if password == "" {
+			password = "chakram"
+		}
+		w, err := LoadWalletFromFile(cfg.WalletFile, password)
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "FATAL: %v\n", err)
 			os.Exit(1)
@@ -153,6 +166,46 @@ func runWallet(args []string) {
 		printUsage()
 		os.Exit(1)
 	}
+}
+
+// ── wallet recover command ────────────────────────────────────────────────────
+
+func runWalletRecover(args []string, flags map[string]string, testnet bool) {
+	// Collect positional args (mnemonic words, or --mnemonic "word1 word2 ...").
+	mnemonic := flags["mnemonic"]
+	if mnemonic == "" {
+		var words []string
+		for _, a := range args {
+			if !strings.HasPrefix(a, "--") {
+				words = append(words, a)
+			}
+		}
+		mnemonic = strings.Join(words, " ")
+	}
+	if mnemonic == "" {
+		fmt.Fprintln(os.Stderr, "usage: chakram wallet recover --mnemonic \"word1 word2 ... word12\" [--password <pass>] [--testnet]")
+		os.Exit(1)
+	}
+
+	w, err := WalletFromMnemonic(mnemonic)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "recover failed: %v\n", err)
+		os.Exit(1)
+	}
+
+	cfg := DefaultConfig(testnet)
+	password := flags["password"]
+	if password == "" {
+		password = "chakram"
+		fmt.Println("WARNING: using default password 'chakram'. Pass --password to use a custom one.")
+	}
+
+	if err := w.SaveToFile(cfg.WalletFile, password); err != nil {
+		fmt.Fprintf(os.Stderr, "save wallet: %v\n", err)
+		os.Exit(1)
+	}
+	fmt.Printf("Wallet recovered: %s\n", w.Address)
+	fmt.Printf("Saved to:         %s\n", cfg.WalletFile)
 }
 
 // ── send command ──────────────────────────────────────────────────────────────
@@ -234,12 +287,13 @@ func runStatus(args []string) {
 
 func printUsage() {
 	fmt.Println("Usage:")
-	fmt.Println("  chakram node                    — start full node")
-	fmt.Println("  chakram node --mine             — start node with mining")
-	fmt.Println("  chakram node --testnet          — start on testnet")
-	fmt.Println("  chakram wallet new              — generate new wallet")
-	fmt.Println("  chakram wallet address          — show wallet address")
-	fmt.Println("  chakram wallet balance          — show wallet balance")
-	fmt.Println("  chakram send <address> <amount> — send CHK")
-	fmt.Println("  chakram status                  — show chain status")
+	fmt.Println("  chakram node                                     — start full node")
+	fmt.Println("  chakram node --mine                              — start node with mining")
+	fmt.Println("  chakram node --testnet                           — start on testnet")
+	fmt.Println("  chakram wallet new                               — generate new wallet")
+	fmt.Println("  chakram wallet recover --mnemonic \"<12 words>\"  — restore wallet from mnemonic")
+	fmt.Println("  chakram wallet address [--password <pass>]       — show wallet address")
+	fmt.Println("  chakram wallet balance [--password <pass>]       — show wallet balance")
+	fmt.Println("  chakram send <address> <amount>                  — send CHK")
+	fmt.Println("  chakram status                                   — show chain status")
 }

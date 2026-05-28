@@ -12,6 +12,11 @@ import (
 	"time"
 )
 
+const (
+	maxPeerViolations = 5               // bans a peer after this many protocol violations
+	banDuration       = 24 * time.Hour  // how long a banned address stays banned
+)
+
 // ── Message types ─────────────────────────────────────────────────────────────
 
 type MessageType uint8
@@ -142,13 +147,14 @@ func DecodeMessage(r io.Reader) (Message, error) {
 
 // Peer represents a remote Chakram node.
 type Peer struct {
-	Address   string
-	Conn      net.Conn
-	Height    uint64
-	Version   uint32
-	Connected bool
-	LastSeen  time.Time
-	send      chan Message // outbound message queue
+	Address    string
+	Conn       net.Conn
+	Height     uint64
+	Version    uint32
+	Connected  bool
+	LastSeen   time.Time
+	violations int       // protocol violations; banned at maxPeerViolations
+	send       chan Message // outbound message queue
 }
 
 // NewPeer creates a Peer with a 100-message outbound buffer.
@@ -194,6 +200,7 @@ type Server struct {
 	Mempool     *Mempool
 	SyncManager *SyncManager
 	peers       map[string]*Peer
+	banned      map[string]time.Time // IP address → ban expiry
 	mu          sync.RWMutex
 	port        int
 	magic       [4]byte
@@ -216,10 +223,56 @@ func NewServer(bc *Blockchain, mp *Mempool, port int, testnet bool) *Server {
 		Blockchain: bc,
 		Mempool:    mp,
 		peers:      make(map[string]*Peer),
+		banned:     make(map[string]time.Time),
 		port:       port,
 		magic:      magic,
 		quit:       make(chan struct{}),
 	}
+}
+
+// isBanned reports whether addr is currently banned.
+func (s *Server) isBanned(addr string) bool {
+	host, _, err := net.SplitHostPort(addr)
+	if err != nil {
+		host = addr
+	}
+	s.mu.RLock()
+	expiry, ok := s.banned[host]
+	s.mu.RUnlock()
+	if !ok {
+		return false
+	}
+	if time.Now().After(expiry) {
+		s.mu.Lock()
+		delete(s.banned, host)
+		s.mu.Unlock()
+		return false
+	}
+	return true
+}
+
+// banPeer immediately disconnects peer and bans its IP for banDuration.
+func (s *Server) banPeer(p *Peer) {
+	host, _, err := net.SplitHostPort(p.Address)
+	if err != nil {
+		host = p.Address
+	}
+	s.mu.Lock()
+	s.banned[host] = time.Now().Add(banDuration)
+	s.mu.Unlock()
+	fmt.Printf("Peer %s banned for %s\n", p.Address, banDuration)
+	s.RemovePeer(p)
+}
+
+// penalizePeer increments a peer's violation counter and bans it if the
+// threshold is reached. Returns true when the peer was banned.
+func (s *Server) penalizePeer(p *Peer) bool {
+	p.violations++
+	if p.violations >= maxPeerViolations {
+		s.banPeer(p)
+		return true
+	}
+	return false
 }
 
 // Start opens a TCP listener and spawns the accept and ping loops.
@@ -302,7 +355,12 @@ func (s *Server) ConnectToPeer(address string) error {
 
 // handleConnection manages a full inbound connection lifecycle.
 func (s *Server) handleConnection(conn net.Conn) {
-	peer := NewPeer(conn.RemoteAddr().String(), conn)
+	addr := conn.RemoteAddr().String()
+	if s.isBanned(addr) {
+		conn.Close()
+		return
+	}
+	peer := NewPeer(addr, conn)
 	s.AddPeer(peer)
 	go peer.writeLoop()
 	if err := s.sendVersion(peer); err != nil {
@@ -313,6 +371,8 @@ func (s *Server) handleConnection(conn net.Conn) {
 }
 
 // readLoop reads messages from peer until the connection drops or quit is signalled.
+// Protocol violations increment the peer's violation counter; at the threshold
+// the peer is banned.
 func (s *Server) readLoop(peer *Peer) {
 	defer s.RemovePeer(peer)
 	for {
@@ -326,7 +386,11 @@ func (s *Server) readLoop(peer *Peer) {
 			return
 		}
 		peer.LastSeen = time.Now()
-		s.handleMessage(peer, msg) //nolint:errcheck — non-fatal errors are dropped
+		if err := s.handleMessage(peer, msg); err != nil {
+			if s.penalizePeer(peer) {
+				return // peer was banned, exit loop
+			}
+		}
 	}
 }
 
@@ -567,6 +631,9 @@ func (s *Server) handlePeers(peer *Peer, msg Message) error {
 	for _, addr := range pp.Addresses {
 		if s.PeerCount() >= MaxPeers {
 			break
+		}
+		if s.isBanned(addr) {
+			continue
 		}
 		s.mu.RLock()
 		_, exists := s.peers[addr]

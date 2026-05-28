@@ -35,11 +35,31 @@ func blockHeightKey(height uint64) []byte {
 	return append([]byte("block:height:"), buf[:]...)
 }
 
-// ── Storage-local DTOs ────────────────────────────────────────────────────────
-// We convert []byte fields to hex strings so stored JSON is human-readable.
+func blockUndoKey(hash []byte) []byte {
+	return []byte("block:undo:" + hex.EncodeToString(hash))
+}
 
-type txJSON struct {
-	TxID string `json:"txid"`
+// ── Storage-local DTOs ────────────────────────────────────────────────────────
+// All []byte fields are stored as hex strings for human-readable JSON.
+
+type txInputJSON struct {
+	TxID        string `json:"txid"`
+	OutputIndex uint32 `json:"output_index"`
+	Signature   string `json:"signature"`
+	PublicKey   string `json:"public_key"`
+}
+
+type txOutputJSON struct {
+	Value      uint64 `json:"value"`
+	PubKeyHash string `json:"pub_key_hash"`
+}
+
+type txFullJSON struct {
+	TxID       string         `json:"txid"`
+	Inputs     []txInputJSON  `json:"inputs"`
+	Outputs    []txOutputJSON `json:"outputs"`
+	Timestamp  int64          `json:"timestamp"`
+	IsCoinbase bool           `json:"is_coinbase"`
 }
 
 type headerJSON struct {
@@ -53,15 +73,75 @@ type headerJSON struct {
 }
 
 type blockJSON struct {
-	Header       headerJSON `json:"header"`
-	Transactions []txJSON   `json:"transactions"`
-	Hash         string     `json:"hash"`
+	Header       headerJSON   `json:"header"`
+	Transactions []txFullJSON `json:"transactions"`
+	Hash         string       `json:"hash"`
+}
+
+func txToFullJSON(tx *Transaction) txFullJSON {
+	inputs := make([]txInputJSON, len(tx.Inputs))
+	for i, in := range tx.Inputs {
+		inputs[i] = txInputJSON{
+			TxID:        hex.EncodeToString(in.TxID),
+			OutputIndex: in.OutputIndex,
+			Signature:   hex.EncodeToString(in.Signature),
+			PublicKey:   hex.EncodeToString(in.PublicKey),
+		}
+	}
+	outputs := make([]txOutputJSON, len(tx.Outputs))
+	for i, out := range tx.Outputs {
+		outputs[i] = txOutputJSON{
+			Value:      out.Value,
+			PubKeyHash: hex.EncodeToString(out.PublicKeyHash),
+		}
+	}
+	return txFullJSON{
+		TxID:       hex.EncodeToString(tx.TxID),
+		Inputs:     inputs,
+		Outputs:    outputs,
+		Timestamp:  tx.Timestamp,
+		IsCoinbase: tx.IsCoinbase,
+	}
+}
+
+func txFromFullJSON(tj txFullJSON) (*Transaction, error) {
+	txID, err := hex.DecodeString(tj.TxID)
+	if err != nil {
+		return nil, fmt.Errorf("decode txid: %w", err)
+	}
+	inputs := make([]TxInput, len(tj.Inputs))
+	for i, inj := range tj.Inputs {
+		inTxID, _ := hex.DecodeString(inj.TxID)
+		sig, _ := hex.DecodeString(inj.Signature)
+		pk, _ := hex.DecodeString(inj.PublicKey)
+		inputs[i] = TxInput{
+			TxID:        inTxID,
+			OutputIndex: inj.OutputIndex,
+			Signature:   sig,
+			PublicKey:   pk,
+		}
+	}
+	outputs := make([]TxOutput, len(tj.Outputs))
+	for i, outj := range tj.Outputs {
+		pkh, _ := hex.DecodeString(outj.PubKeyHash)
+		outputs[i] = TxOutput{
+			Value:         outj.Value,
+			PublicKeyHash: pkh,
+		}
+	}
+	return &Transaction{
+		TxID:       txID,
+		Inputs:     inputs,
+		Outputs:    outputs,
+		Timestamp:  tj.Timestamp,
+		IsCoinbase: tj.IsCoinbase,
+	}, nil
 }
 
 func blockToJSON(b *Block) blockJSON {
-	txs := make([]txJSON, len(b.Transactions))
+	txs := make([]txFullJSON, len(b.Transactions))
 	for i, tx := range b.Transactions {
-		txs[i] = txJSON{TxID: hex.EncodeToString(tx.TxID)}
+		txs[i] = txToFullJSON(tx)
 	}
 	return blockJSON{
 		Header: headerJSON{
@@ -91,16 +171,14 @@ func blockFromJSON(bj blockJSON) (*Block, error) {
 	if err != nil {
 		return nil, fmt.Errorf("decode hash: %w", err)
 	}
-
 	txs := make([]*Transaction, len(bj.Transactions))
-	for i, t := range bj.Transactions {
-		txID, err := hex.DecodeString(t.TxID)
+	for i, tj := range bj.Transactions {
+		tx, err := txFromFullJSON(tj)
 		if err != nil {
-			return nil, fmt.Errorf("decode txid[%d]: %w", i, err)
+			return nil, fmt.Errorf("tx[%d]: %w", i, err)
 		}
-		txs[i] = &Transaction{TxID: txID}
+		txs[i] = tx
 	}
-
 	return &Block{
 		Header: BlockHeader{
 			Version:      bj.Header.Version,
@@ -140,21 +218,128 @@ func (s *Storage) Close() error {
 	return s.DB.Close()
 }
 
-// SaveBlock serialises b to JSON and persists it under two keys:
-//   - "block:hash:<hash>"      — the full block data
-//   - "block:height:<height>"  — the hash, for height-based lookups
+// SaveBlock serialises b to JSON and persists it under two keys.
+// Used only for the genesis block; all other blocks should use SaveBlockData
+// followed by UpdateHeightIndex once the block is on the main chain.
 func (s *Storage) SaveBlock(b *Block) error {
 	data, err := json.Marshal(blockToJSON(b))
 	if err != nil {
 		return fmt.Errorf("marshal block: %w", err)
 	}
-
 	return s.DB.Update(func(txn *badger.Txn) error {
 		if err := txn.Set(blockHashKey(b.Hash), data); err != nil {
 			return err
 		}
 		return txn.Set(blockHeightKey(b.Header.Height), b.Hash)
 	})
+}
+
+// SaveBlockData stores a block by its hash only, without updating the height
+// index. Call this for all received blocks (main chain and side chain alike);
+// call UpdateHeightIndex separately once the block is confirmed on the main chain.
+func (s *Storage) SaveBlockData(b *Block) error {
+	data, err := json.Marshal(blockToJSON(b))
+	if err != nil {
+		return fmt.Errorf("marshal block: %w", err)
+	}
+	return s.DB.Update(func(txn *badger.Txn) error {
+		return txn.Set(blockHashKey(b.Hash), data)
+	})
+}
+
+// UpdateHeightIndex maps height → block hash for the main chain.
+// Call after a block is accepted onto the main chain (or after a reorg).
+func (s *Storage) UpdateHeightIndex(b *Block) error {
+	return s.DB.Update(func(txn *badger.Txn) error {
+		return txn.Set(blockHeightKey(b.Header.Height), b.Hash)
+	})
+}
+
+// ── Undo data storage ─────────────────────────────────────────────────────────
+
+// blockUndoDTO mirrors BlockUndo for JSON serialisation in storage.
+type undoUTXOJSON struct {
+	TxID        string `json:"txid"`
+	OutputIndex uint32 `json:"output_index"`
+	Value       uint64 `json:"value"`
+	PubKeyHash  string `json:"pub_key_hash"`
+	BlockHeight uint64 `json:"block_height"`
+	IsCoinbase  bool   `json:"is_coinbase"`
+}
+
+type undoRefJSON struct {
+	TxID        string `json:"txid"`
+	OutputIndex uint32 `json:"output_index"`
+}
+
+type blockUndoDTO struct {
+	SpentUTXOs  []undoUTXOJSON `json:"spent_utxos"`
+	CreatedRefs []undoRefJSON  `json:"created_refs"`
+}
+
+// SaveBlockUndo serialises and stores the undo record for a main-chain block.
+func (s *Storage) SaveBlockUndo(blockHash []byte, undo *BlockUndo) error {
+	spent := make([]undoUTXOJSON, len(undo.SpentUTXOs))
+	for i, u := range undo.SpentUTXOs {
+		spent[i] = undoUTXOJSON{
+			TxID:        hex.EncodeToString(u.TxID),
+			OutputIndex: u.OutputIndex,
+			Value:       u.Value,
+			PubKeyHash:  hex.EncodeToString(u.PublicKeyHash),
+			BlockHeight: u.BlockHeight,
+			IsCoinbase:  u.IsCoinbase,
+		}
+	}
+	refs := make([]undoRefJSON, len(undo.CreatedRefs))
+	for i, r := range undo.CreatedRefs {
+		refs[i] = undoRefJSON{
+			TxID:        hex.EncodeToString(r.TxID),
+			OutputIndex: r.OutputIndex,
+		}
+	}
+	data, err := json.Marshal(blockUndoDTO{SpentUTXOs: spent, CreatedRefs: refs})
+	if err != nil {
+		return fmt.Errorf("marshal undo: %w", err)
+	}
+	return s.DB.Update(func(txn *badger.Txn) error {
+		return txn.Set(blockUndoKey(blockHash), data)
+	})
+}
+
+// GetBlockUndo retrieves the undo record for the block with the given hash.
+func (s *Storage) GetBlockUndo(blockHash []byte) (*BlockUndo, error) {
+	var dto blockUndoDTO
+	err := s.DB.View(func(txn *badger.Txn) error {
+		item, err := txn.Get(blockUndoKey(blockHash))
+		if err != nil {
+			return err
+		}
+		return item.Value(func(val []byte) error {
+			return json.Unmarshal(val, &dto)
+		})
+	})
+	if err != nil {
+		return nil, fmt.Errorf("get block undo: %w", err)
+	}
+	spent := make([]UTXO, len(dto.SpentUTXOs))
+	for i, u := range dto.SpentUTXOs {
+		txID, _ := hex.DecodeString(u.TxID)
+		pkh, _ := hex.DecodeString(u.PubKeyHash)
+		spent[i] = UTXO{
+			TxID:          txID,
+			OutputIndex:   u.OutputIndex,
+			Value:         u.Value,
+			PublicKeyHash: pkh,
+			BlockHeight:   u.BlockHeight,
+			IsCoinbase:    u.IsCoinbase,
+		}
+	}
+	refs := make([]UTXORef, len(dto.CreatedRefs))
+	for i, r := range dto.CreatedRefs {
+		txID, _ := hex.DecodeString(r.TxID)
+		refs[i] = UTXORef{TxID: txID, OutputIndex: r.OutputIndex}
+	}
+	return &BlockUndo{SpentUTXOs: spent, CreatedRefs: refs}, nil
 }
 
 // GetBlockByHash retrieves and deserialises the block stored under the given hash.

@@ -30,8 +30,9 @@ type PoWEngine interface {
 // It operates in light mode (cache-only, ~256 MB) which is required for mobile
 // and sufficient for consensus verification on all platforms.
 type RandomXEngine struct {
-	cache *randomx.Randomx_Cache
-	vm    *randomx.VM
+	cache   *randomx.Randomx_Cache
+	vm      *randomx.VM
+	lastKey []byte // last key used for Init; skip re-init when unchanged
 }
 
 // NewRandomXEngine creates an uninitialised RandomXEngine.
@@ -52,6 +53,10 @@ func NewRandomXEngine() *RandomXEngine {
 //     superscalar programs used by InitDatasetItem during hashing.
 //     Skipping step 2 causes a nil-pointer panic at hash time.
 func (e *RandomXEngine) Init(key []byte) error {
+	if len(e.lastKey) > 0 && bytes.Equal(key, e.lastKey) {
+		return nil // same epoch key — reuse existing cache and VM
+	}
+
 	cache := randomx.Randomx_alloc_cache(randomx.RANDOMX_FLAG_DEFAULT)
 	if cache == nil {
 		return errors.New("randomx: failed to allocate cache")
@@ -70,8 +75,9 @@ func (e *RandomXEngine) Init(key []byte) error {
 		return errors.New("randomx: failed to initialise VM")
 	}
 
-	e.cache = cache
+	e.cache = cache // old cache released to GC
 	e.vm = vm
+	e.lastKey = append([]byte{}, key...)
 	return nil
 }
 
@@ -109,19 +115,33 @@ func serializeHeader(h BlockHeader) []byte {
 
 // ── Mining ────────────────────────────────────────────────────────────────────
 
+// VerifyBlock confirms that b.Hash is the authentic RandomX hash of b's header
+// and that it satisfies the difficulty target. key is the epoch seed (same
+// derivation as MineBlock). Returns true only when both checks pass.
+func VerifyBlock(b *Block, engine PoWEngine, key []byte) bool {
+	if err := engine.Init(key); err != nil {
+		return false
+	}
+	data := serializeHeader(b.Header)
+	expected := engine.Hash(data)
+	return bytes.Equal(expected, b.Hash) && b.HashIsValid()
+}
+
 // MineBlock searches for a Nonce that makes b's hash satisfy the difficulty
-// target, using engine for the RandomX hash function.
+// target, using engine for the RandomX hash function. key is the RandomX epoch
+// seed — callers should derive it from the epoch boundary block hash so that
+// Argon2d is only re-run once per epoch rather than once per block.
 //
 // Steps:
-//  1. Keys the engine to the previous block hash (cheap after first Init).
+//  1. Keys the engine to key (no-op when key matches the last Init call).
 //  2. Serialises the header with the current Nonce and hashes it.
 //  3. Stores the result in b.Hash and checks HashIsValid().
 //  4. Increments Nonce and repeats until a valid hash is found or Nonce wraps.
 //
 // Returns nil when a valid hash is found; returns an error only if the nonce
 // space is exhausted (astronomically unlikely in practice).
-func MineBlock(b *Block, engine PoWEngine) error {
-	if err := engine.Init(b.Header.PreviousHash); err != nil {
+func MineBlock(b *Block, engine PoWEngine, key []byte) error {
+	if err := engine.Init(key); err != nil {
 		return fmt.Errorf("mine: init engine: %w", err)
 	}
 

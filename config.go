@@ -55,9 +55,18 @@ var (
 
 const (
 	// TargetBlockTime is the desired seconds between blocks.
-	TargetBlockTime int64 = 60
+	TargetBlockTime int64 = 10
 
-	// DifficultyAdjustmentInterval is the number of blocks between retargets.
+	// DifficultyWindow is the number of recent blocks used to compute the next
+	// difficulty target (sliding-window retarget).
+	DifficultyWindow uint64 = 60
+
+	// InitialDifficulty is the difficulty used for early blocks before enough
+	// history exists for the sliding-window algorithm.
+	// difficulty=11 → target < 2^245 → ~1/2048 hashes succeed at ~200 H/s ≈ 10 s/block.
+	InitialDifficulty uint64 = 11
+
+	// DifficultyAdjustmentInterval is kept for reference / future batch retarget.
 	DifficultyAdjustmentInterval uint64 = 2016
 
 	// MaxBlockSize is the maximum serialised block size in bytes (1 MB).
@@ -66,6 +75,10 @@ const (
 	// CoinbaseMaturity is the number of confirmations required before a mined
 	// reward can be spent.
 	CoinbaseMaturity uint64 = 100
+
+	// RandomXEpochLen is how many blocks share the same RandomX cache seed.
+	// Argon2d is only re-run when the epoch boundary changes.
+	RandomXEpochLen uint64 = 64
 )
 
 // ── Genesis ───────────────────────────────────────────────────────────────────

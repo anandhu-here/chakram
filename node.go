@@ -251,12 +251,14 @@ func (n *Node) mineLoop() {
 		txs = append(txs, cb)
 		txs = append(txs, pending...)
 
-		b := NewBlock(prev.Hash, height, MinDifficulty, txs)
+		diff := NextDifficulty(n.Blockchain, height)
+		b := NewBlock(prev.Hash, height, diff, txs)
 		if b.Header.Timestamp <= prev.Header.Timestamp {
 			b.Header.Timestamp = prev.Header.Timestamp + 1
 		}
 
-		if err := MineBlock(b, n.Engine); err != nil {
+		epochKey := n.epochKey(height)
+		if err := MineBlock(b, n.Engine, epochKey); err != nil {
 			continue
 		}
 
@@ -281,6 +283,25 @@ func (n *Node) mineLoop() {
 
 		fmt.Printf("⛏  Mined block %d — hash: %x\n", height, b.Hash)
 	}
+}
+
+// ── RandomX epoch key ─────────────────────────────────────────────────────────
+
+// epochKey returns the RandomX seed key for the block at the given height.
+// It uses the hash of the most recent epoch-boundary block, falling back to
+// the genesis hash if that block is not yet available.
+func (n *Node) epochKey(height uint64) []byte {
+	epochStart := (height / RandomXEpochLen) * RandomXEpochLen
+	b, err := n.Blockchain.Storage.GetBlockByHeight(epochStart)
+	if err == nil {
+		return b.Hash
+	}
+	// Fallback to genesis hash (covers the first epoch and any storage error).
+	genesis, err := n.Blockchain.Storage.GetBlockByHeight(0)
+	if err == nil {
+		return genesis.Hash
+	}
+	return []byte("chakram-genesis-seed")
 }
 
 // ── Status ────────────────────────────────────────────────────────────────────

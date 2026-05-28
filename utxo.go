@@ -17,12 +17,25 @@ import (
 
 // UTXO represents a single unspent transaction output.
 type UTXO struct {
+	TxID          []byte
+	OutputIndex   uint32
+	Value         uint64 // in Cash
+	PublicKeyHash []byte // 20 bytes: RIPEMD160(SHA256(ownerPublicKey))
+	BlockHeight   uint64
+	IsCoinbase    bool
+}
+
+// UTXORef identifies a UTXO by its location without carrying its full data.
+type UTXORef struct {
 	TxID        []byte
 	OutputIndex uint32
-	Value       uint64 // in Cash
-	PublicKeyHash []byte // 20 bytes: RIPEMD160(SHA256(ownerPublicKey))
-	BlockHeight uint64
-	IsCoinbase  bool
+}
+
+// BlockUndo contains the data needed to undo the UTXO changes made by one block.
+// SpentUTXOs are restored on rollback; CreatedRefs are deleted.
+type BlockUndo struct {
+	SpentUTXOs  []UTXO    // UTXOs consumed by this block (restore on rollback)
+	CreatedRefs []UTXORef // UTXOs created by this block (delete on rollback)
 }
 
 // UTXOSet manages the full set of unspent outputs backed by Storage.
@@ -175,52 +188,56 @@ func signedMessage(txID []byte, outputIndex uint32) []byte {
 // ── Block processing ──────────────────────────────────────────────────────────
 
 // ValidateAndSpendInputs verifies every input in tx and, if all are valid,
-// removes the spent UTXOs from the set.
+// removes the spent UTXOs from the set. Returns the spent UTXOs for undo logging.
 //
 // Checks per input:
 //  1. The referenced UTXO exists (not already spent).
 //  2. If the UTXO is coinbase, CoinbaseMaturity blocks have elapsed.
 //  3. The Ed25519 signature is valid for SHA256(TxID‖OutputIndex).
 //  4. The supplied public key hashes to the UTXO's PublicKeyHash.
-func (u *UTXOSet) ValidateAndSpendInputs(tx *Transaction, currentHeight uint64) error {
+func (u *UTXOSet) ValidateAndSpendInputs(tx *Transaction, currentHeight uint64) ([]UTXO, error) {
+	spent := make([]UTXO, 0, len(tx.Inputs))
 	for i, in := range tx.Inputs {
 		utxo, err := u.GetUTXO(in.TxID, in.OutputIndex)
 		if err != nil {
-			return fmt.Errorf("input %d: utxo not found (possible double spend): %w", i, err)
+			return nil, fmt.Errorf("input %d: utxo not found (possible double spend): %w", i, err)
 		}
 
 		if utxo.IsCoinbase {
 			if currentHeight < utxo.BlockHeight+CoinbaseMaturity {
-				return fmt.Errorf("input %d: coinbase output not yet mature (height %d, matures at %d)",
+				return nil, fmt.Errorf("input %d: coinbase output not yet mature (height %d, matures at %d)",
 					i, currentHeight, utxo.BlockHeight+CoinbaseMaturity)
 			}
 		}
 
 		msg := signedMessage(in.TxID, in.OutputIndex)
 		if !ed25519.Verify(ed25519.PublicKey(in.PublicKey), msg, in.Signature) {
-			return fmt.Errorf("input %d: invalid Ed25519 signature", i)
+			return nil, fmt.Errorf("input %d: invalid Ed25519 signature", i)
 		}
 
 		derivedHash := pubKeyToHash(in.PublicKey)
 		if !bytes.Equal(derivedHash, utxo.PublicKeyHash) {
-			return fmt.Errorf("input %d: public key does not match UTXO owner", i)
+			return nil, fmt.Errorf("input %d: public key does not match UTXO owner", i)
 		}
+		spent = append(spent, *utxo)
 	}
 
 	// All inputs valid — spend them.
 	for i, in := range tx.Inputs {
 		if err := u.SpendUTXO(in.TxID, in.OutputIndex); err != nil {
-			return fmt.Errorf("input %d: spend failed: %w", i, err)
+			return nil, fmt.Errorf("input %d: spend failed: %w", i, err)
 		}
 	}
-	return nil
+	return spent, nil
 }
 
-// ProcessBlock applies an entire block to the UTXO set.
+// ProcessBlock applies an entire block to the UTXO set and returns undo data
+// so the operation can be reversed during a chain reorganisation.
 // Non-coinbase transactions are processed first (spend inputs, create outputs).
 // The coinbase transaction is processed last to prevent spending the block
 // reward in the same block it is created.
-func (u *UTXOSet) ProcessBlock(b *Block, height uint64) error {
+func (u *UTXOSet) ProcessBlock(b *Block, height uint64) (*BlockUndo, error) {
+	undo := &BlockUndo{}
 	var coinbaseTx *Transaction
 
 	// First pass: non-coinbase transactions.
@@ -229,9 +246,12 @@ func (u *UTXOSet) ProcessBlock(b *Block, height uint64) error {
 			coinbaseTx = tx
 			continue
 		}
-		if err := u.ValidateAndSpendInputs(tx, height); err != nil {
-			return fmt.Errorf("tx %s: %w", hex.EncodeToString(tx.TxID), err)
+		spent, err := u.ValidateAndSpendInputs(tx, height)
+		if err != nil {
+			return nil, fmt.Errorf("tx %s: %w", hex.EncodeToString(tx.TxID), err)
 		}
+		undo.SpentUTXOs = append(undo.SpentUTXOs, spent...)
+
 		for idx, out := range tx.Outputs {
 			utxo := UTXO{
 				TxID:          tx.TxID,
@@ -242,8 +262,9 @@ func (u *UTXOSet) ProcessBlock(b *Block, height uint64) error {
 				IsCoinbase:    false,
 			}
 			if err := u.AddUTXO(utxo); err != nil {
-				return fmt.Errorf("tx %s output %d: %w", hex.EncodeToString(tx.TxID), idx, err)
+				return nil, fmt.Errorf("tx %s output %d: %w", hex.EncodeToString(tx.TxID), idx, err)
 			}
+			undo.CreatedRefs = append(undo.CreatedRefs, UTXORef{TxID: tx.TxID, OutputIndex: uint32(idx)})
 		}
 	}
 
@@ -259,10 +280,32 @@ func (u *UTXOSet) ProcessBlock(b *Block, height uint64) error {
 				IsCoinbase:    true,
 			}
 			if err := u.AddUTXO(utxo); err != nil {
-				return fmt.Errorf("coinbase output %d: %w", idx, err)
+				return nil, fmt.Errorf("coinbase output %d: %w", idx, err)
 			}
+			undo.CreatedRefs = append(undo.CreatedRefs, UTXORef{TxID: coinbaseTx.TxID, OutputIndex: uint32(idx)})
 		}
 	}
 
+	return undo, nil
+}
+
+// RollbackBlock reverses the UTXO changes made when a block was applied.
+// Used during chain reorganisation to revert the old main chain before
+// switching to the new one.
+func (u *UTXOSet) RollbackBlock(undo *BlockUndo) error {
+	// Delete all UTXOs created by the block.
+	for _, ref := range undo.CreatedRefs {
+		if err := u.SpendUTXO(ref.TxID, ref.OutputIndex); err != nil {
+			return fmt.Errorf("rollback: delete created utxo %x:%d: %w",
+				ref.TxID, ref.OutputIndex, err)
+		}
+	}
+	// Restore all UTXOs that the block spent.
+	for _, utxo := range undo.SpentUTXOs {
+		if err := u.AddUTXO(utxo); err != nil {
+			return fmt.Errorf("rollback: restore spent utxo %x:%d: %w",
+				utxo.TxID, utxo.OutputIndex, err)
+		}
+	}
 	return nil
 }

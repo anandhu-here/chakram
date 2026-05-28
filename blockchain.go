@@ -9,6 +9,10 @@ import (
 	"fmt"
 )
 
+// ErrOrphanBlock is returned by AddBlock when the block's parent is not yet
+// known to this node. The sync layer uses this to request the missing parent.
+var ErrOrphanBlock = errors.New("orphan: parent block not found")
+
 // Blockchain holds the in-memory chain state and a handle to the storage layer.
 type Blockchain struct {
 	Storage *Storage
@@ -33,7 +37,6 @@ func NewBlockchain(dataDir string) (*Blockchain, error) {
 
 	tip, height, err := storage.GetChainTip()
 	if err == nil {
-		// Existing chain — restore in-memory state from storage.
 		bc.Tip = tip
 		bc.Height = height
 		return bc, nil
@@ -60,45 +63,177 @@ func (bc *Blockchain) Close() error {
 	return bc.Storage.Close()
 }
 
-// AddBlock validates b and, if valid, appends it to the chain.
-// Validation rules (in order):
-//  1. PreviousHash must match the current tip block's hash.
-//  2. Height must be exactly tip height + 1.
-//  3. The block hash must satisfy the proof-of-work target.
-//  4. Timestamp must be strictly greater than the previous block's timestamp.
+// AddBlock validates b and integrates it into the chain.
+//
+// Accepted cases:
+//   1. Direct extension of the current tip → apply to main chain immediately.
+//   2. Longer competing chain (height > bc.Height) → trigger a reorg.
+//   3. Shorter side chain → store by hash for future reference, no tip change.
+//
+// Returns ErrOrphanBlock when the parent is not yet known; the sync layer uses
+// this signal to request the missing ancestor from the peer.
 func (bc *Blockchain) AddBlock(b *Block) error {
-	last, err := bc.GetLastBlock()
-	if err != nil {
-		return fmt.Errorf("fetch last block: %w", err)
+	// Genesis blocks are immutable.
+	if b.Header.Height == 0 {
+		return errors.New("cannot replace genesis block")
 	}
 
-	if !bytes.Equal(b.Header.PreviousHash, last.Hash) {
-		return errors.New("invalid block: PreviousHash does not match current tip")
+	// Deduplicate — already have this exact block.
+	if bc.Storage.HasBlock(b.Hash) {
+		return nil
 	}
-	if b.Header.Height != last.Header.Height+1 {
+
+	// Locate parent; an unknown parent means this is an orphan.
+	parent, err := bc.Storage.GetBlockByHash(b.Header.PreviousHash)
+	if err != nil {
+		return fmt.Errorf("%w (hash %x)", ErrOrphanBlock, b.Header.PreviousHash)
+	}
+
+	// Structural validity.
+	if b.Header.Height != parent.Header.Height+1 {
 		return fmt.Errorf("invalid block: expected height %d, got %d",
-			last.Header.Height+1, b.Header.Height)
+			parent.Header.Height+1, b.Header.Height)
 	}
 	if !b.HashIsValid() {
 		return errors.New("invalid block: hash does not meet difficulty target")
 	}
-	if b.Header.Timestamp <= last.Header.Timestamp {
-		return fmt.Errorf("invalid block: timestamp %d is not after previous block timestamp %d",
-			b.Header.Timestamp, last.Header.Timestamp)
+	if b.Header.Timestamp <= parent.Header.Timestamp {
+		return fmt.Errorf("invalid block: timestamp %d not after parent timestamp %d",
+			b.Header.Timestamp, parent.Header.Timestamp)
 	}
 
-	if err := bc.Storage.SaveBlock(b); err != nil {
-		return fmt.Errorf("save block: %w", err)
+	// Store the block data (by hash only — height index updated separately).
+	if err := bc.Storage.SaveBlockData(b); err != nil {
+		return fmt.Errorf("save block data: %w", err)
+	}
+
+	switch {
+	case bytes.Equal(b.Header.PreviousHash, bc.Tip):
+		// Fast path: direct extension of the main chain.
+		return bc.applyBlock(b)
+
+	case b.Header.Height > bc.Height:
+		// Longer fork — reorganise to this chain.
+		return bc.reorganize(b)
+
+	default:
+		// Shorter side chain — stored for completeness, no tip change.
+		return nil
+	}
+}
+
+// applyBlock extends the main chain by one block: processes UTXOs, updates the
+// height index, saves undo data, and advances bc.Tip / bc.Height.
+func (bc *Blockchain) applyBlock(b *Block) error {
+	undo, err := bc.UTXOSet.ProcessBlock(b, b.Header.Height)
+	if err != nil {
+		return fmt.Errorf("process utxo set: %w", err)
+	}
+	if err := bc.Storage.UpdateHeightIndex(b); err != nil {
+		return fmt.Errorf("update height index: %w", err)
+	}
+	if err := bc.Storage.SaveBlockUndo(b.Hash, undo); err != nil {
+		return fmt.Errorf("save block undo: %w", err)
 	}
 	if err := bc.Storage.SaveChainTip(b.Hash, b.Header.Height); err != nil {
 		return fmt.Errorf("save chain tip: %w", err)
 	}
-	if err := bc.UTXOSet.ProcessBlock(b, b.Header.Height); err != nil {
-		return fmt.Errorf("process utxo set: %w", err)
-	}
 	bc.Tip = b.Hash
 	bc.Height = b.Header.Height
 	return nil
+}
+
+// reorganize switches the main chain from the current tip to newTip.
+// Steps:
+//  1. Walk back from both tips to their common ancestor.
+//  2. Roll back the old chain (tip → ancestor+1) using stored undo data.
+//  3. Apply the new chain (ancestor+1 → newTip) in order.
+func (bc *Blockchain) reorganize(newTip *Block) error {
+	oldTip, err := bc.Storage.GetBlockByHash(bc.Tip)
+	if err != nil {
+		return fmt.Errorf("fetch current tip: %w", err)
+	}
+
+	ancestor, rollback, apply, err := bc.findReorgPath(oldTip, newTip)
+	if err != nil {
+		return fmt.Errorf("find reorg path: %w", err)
+	}
+
+	fmt.Printf("⛓  Reorg: common ancestor at height %d, rolling back %d, applying %d\n",
+		ancestor.Header.Height, len(rollback), len(apply))
+
+	// Roll back old chain from tip to ancestor+1.
+	for _, b := range rollback {
+		undo, err := bc.Storage.GetBlockUndo(b.Hash)
+		if err != nil {
+			return fmt.Errorf("get undo for %x: %w", b.Hash, err)
+		}
+		if err := bc.UTXOSet.RollbackBlock(undo); err != nil {
+			return fmt.Errorf("rollback block %x: %w", b.Hash, err)
+		}
+	}
+
+	// Apply new chain from ancestor+1 to newTip.
+	for _, b := range apply {
+		undo, err := bc.UTXOSet.ProcessBlock(b, b.Header.Height)
+		if err != nil {
+			return fmt.Errorf("apply block %x: %w", b.Hash, err)
+		}
+		if err := bc.Storage.UpdateHeightIndex(b); err != nil {
+			return fmt.Errorf("update height index for %x: %w", b.Hash, err)
+		}
+		if err := bc.Storage.SaveBlockUndo(b.Hash, undo); err != nil {
+			return fmt.Errorf("save undo for %x: %w", b.Hash, err)
+		}
+	}
+
+	if err := bc.Storage.SaveChainTip(newTip.Hash, newTip.Header.Height); err != nil {
+		return fmt.Errorf("save chain tip: %w", err)
+	}
+	bc.Tip = newTip.Hash
+	bc.Height = newTip.Header.Height
+
+	fmt.Printf("⛓  Reorg complete — new tip %x at height %d\n", bc.Tip, bc.Height)
+	return nil
+}
+
+// findReorgPath walks back from oldTip and newTip simultaneously until they
+// share a common ancestor. Returns:
+//   - ancestor: the shared block
+//   - rollback: old-chain blocks ordered tip→ancestor+1 (highest first)
+//   - apply:    new-chain blocks ordered ancestor+1→newTip (lowest first)
+func (bc *Blockchain) findReorgPath(oldTip, newTip *Block) (ancestor *Block, rollback, apply []*Block, err error) {
+	old := oldTip
+	new_ := newTip
+
+	for !bytes.Equal(old.Hash, new_.Hash) {
+		if old.Header.Height > new_.Header.Height {
+			rollback = append(rollback, old)
+			old, err = bc.Storage.GetBlockByHash(old.Header.PreviousHash)
+			if err != nil {
+				return nil, nil, nil, fmt.Errorf("walk old chain: %w", err)
+			}
+		} else if new_.Header.Height > old.Header.Height {
+			apply = append([]*Block{new_}, apply...)
+			new_, err = bc.Storage.GetBlockByHash(new_.Header.PreviousHash)
+			if err != nil {
+				return nil, nil, nil, fmt.Errorf("walk new chain: %w", err)
+			}
+		} else {
+			// Same height, different blocks — step both back.
+			rollback = append(rollback, old)
+			apply = append([]*Block{new_}, apply...)
+			old, err = bc.Storage.GetBlockByHash(old.Header.PreviousHash)
+			if err != nil {
+				return nil, nil, nil, fmt.Errorf("walk old chain: %w", err)
+			}
+			new_, err = bc.Storage.GetBlockByHash(new_.Header.PreviousHash)
+			if err != nil {
+				return nil, nil, nil, fmt.Errorf("walk new chain: %w", err)
+			}
+		}
+	}
+	return old, rollback, apply, nil
 }
 
 // GetLastBlock returns the block at the current chain tip.
@@ -110,7 +245,7 @@ func (bc *Blockchain) GetLastBlock() (*Block, error) {
 	return b, nil
 }
 
-// GetBlock returns the block at the given height.
+// GetBlock returns the block at the given height on the main chain.
 func (bc *Blockchain) GetBlock(height uint64) (*Block, error) {
 	b, err := bc.Storage.GetBlockByHeight(height)
 	if err != nil {
@@ -119,9 +254,8 @@ func (bc *Blockchain) GetBlock(height uint64) (*Block, error) {
 	return b, nil
 }
 
-// IsValid walks the entire chain from height 1 to bc.Height and verifies
-// each block's linkage, proof-of-work, sequential height, and timestamp order.
-// Returns (false, descriptive error) on the first violation found.
+// IsValid walks the entire main chain from height 1 to bc.Height and verifies
+// linkage, proof-of-work, sequential height, and timestamp ordering.
 func (bc *Blockchain) IsValid() (bool, error) {
 	for h := uint64(1); h <= bc.Height; h++ {
 		block, err := bc.GetBlock(h)
@@ -132,9 +266,8 @@ func (bc *Blockchain) IsValid() (bool, error) {
 		if err != nil {
 			return false, fmt.Errorf("height %d: fetch previous block: %w", h, err)
 		}
-
 		if !bytes.Equal(block.Header.PreviousHash, prev.Hash) {
-			return false, fmt.Errorf("height %d: PreviousHash does not match block %d hash", h, h-1)
+			return false, fmt.Errorf("height %d: PreviousHash mismatch", h)
 		}
 		if !block.HashIsValid() {
 			return false, fmt.Errorf("height %d: hash does not meet difficulty target", h)
@@ -143,8 +276,7 @@ func (bc *Blockchain) IsValid() (bool, error) {
 			return false, fmt.Errorf("height %d: stored height field is %d", h, block.Header.Height)
 		}
 		if block.Header.Timestamp <= prev.Header.Timestamp {
-			return false, fmt.Errorf("height %d: timestamp %d not after previous block timestamp %d",
-				h, block.Header.Timestamp, prev.Header.Timestamp)
+			return false, fmt.Errorf("height %d: timestamp not after previous block", h)
 		}
 	}
 	return true, nil
@@ -155,7 +287,7 @@ func (bc *Blockchain) GetHeight() uint64 {
 	return bc.Height
 }
 
-// HasBlock reports whether the block with the given hash is already in the chain.
+// HasBlock reports whether the block with the given hash is stored (any chain).
 func (bc *Blockchain) HasBlock(hash []byte) bool {
 	return bc.Storage.HasBlock(hash)
 }
