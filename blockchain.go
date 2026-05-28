@@ -7,6 +7,7 @@ import (
 	"bytes"
 	"errors"
 	"fmt"
+	"sync"
 )
 
 // ErrOrphanBlock is returned by AddBlock when the block's parent is not yet
@@ -22,6 +23,7 @@ type Blockchain struct {
 	Storage      *Storage
 	UTXOSet      *UTXOSet
 	VerifyEngine *RandomXEngine // RandomX engine used to authenticate received blocks
+	verifyMu     sync.Mutex    // guards VerifyEngine — RandomX VM is not goroutine-safe
 	Tip          []byte         // hash of the current best (highest) block
 	Height       uint64         // height of the current best block
 }
@@ -121,9 +123,14 @@ func (bc *Blockchain) AddBlock(b *Block) error {
 	// bytes and confirms it equals b.Hash. The VerifyEngine reuses its Argon2d
 	// cache for all 64 blocks in the same epoch, so IBD cost is amortised to
 	// one cache rebuild per epoch rather than one per block.
+	// The mutex is required: RandomX VM state is not goroutine-safe, and multiple
+	// peer goroutines may call AddBlock concurrently during IBD.
 	if bc.VerifyEngine != nil {
 		key := bc.epochKey(b.Header.Height)
-		if !VerifyBlock(b, bc.VerifyEngine, key) {
+		bc.verifyMu.Lock()
+		valid := VerifyBlock(b, bc.VerifyEngine, key)
+		bc.verifyMu.Unlock()
+		if !valid {
 			return fmt.Errorf("%w (height %d hash %x)", ErrInvalidPoW, b.Header.Height, b.Hash)
 		}
 	}
