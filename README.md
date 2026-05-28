@@ -2,6 +2,8 @@
 
 > ചക്രം — The heritage of Kerala, reborn in the digital age.
 
+> ⚠️ **Note:** Code signing certificates are on our roadmap. For now, Mac and Windows users may see security warnings — this is normal for open-source software without paid certificates. See installation instructions below.
+
 Chakram is a fast, CPU-mineable cryptocurrency inspired by the ancient Travancore kingdom coins of Kerala, India. Anyone can mine it — on a laptop, desktop, or spare Android phone.
 
 ## Features
@@ -14,24 +16,53 @@ Chakram is a fast, CPU-mineable cryptocurrency inspired by the ancient Travancor
 - 🏛 **Cultural Heritage** — Named after the real Travancore Chakram coin.  
   1 CHK = 1,000,000 Cash. The word "cash" comes from the Malayalam "Kasu".
 
+## Installation
+
+Download the latest binary for your platform from [Releases](https://github.com/anandhusathe/chakram/releases).
+
+### macOS
+
+1. Download `chakram-mac`
+2. Open Terminal (search "Terminal" in Spotlight)
+3. Run these commands:
+
+```bash
+cd ~/Downloads
+chmod +x chakram-mac
+xattr -d com.apple.quarantine chakram-mac
+./chakram-mac node --testnet
+```
+
+> If you see "cannot be opened" — right-click the file, select **Open**, then click **Open** in the dialog.
+
+### Windows
+
+1. Download `chakram-windows.exe`
+2. Double-click to run
+3. If Windows SmartScreen appears:
+   - Click **More info**
+   - Click **Run anyway**
+4. A terminal window will open with your node running
+
+### Linux
+
+1. Download `chakram-linux`
+2. Open terminal:
+
+```bash
+chmod +x chakram-linux
+./chakram-linux node --testnet
+```
+
 ## Quick Start
-
-### Download
-
-Download the latest binary for your platform from [Releases](https://github.com/anandhusathe/chakram/releases):
-
-- `chakram-windows.exe` — Windows
-- `chakram-mac` — macOS
-- `chakram-linux` — Linux
 
 ### Run a Node
 
 ```bash
-# macOS/Linux
-chmod +x chakram-mac
+# macOS/Linux — after installation steps above
 ./chakram-mac node --testnet
 
-# Windows
+# Windows — double-click or run in terminal
 chakram-windows.exe node --testnet
 ```
 
