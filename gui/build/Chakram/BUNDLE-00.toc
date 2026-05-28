@@ -1,0 +1,1 @@
+([('Chakram', '/Users/admina/chakram/gui/dist/Chakram', 'EXECUTABLE')],)

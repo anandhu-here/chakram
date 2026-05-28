@@ -38,7 +38,7 @@ echo "  ✓ chakram-mac"
 echo "  ✓ chakram-linux"
 echo "  ✓ chakram-windows.exe"
 
-# Step 4 — GitHub release
+# Step 4 — GitHub release (node binaries only first)
 echo "Creating GitHub release..."
 gh release create $VERSION \
   chakram-mac \
@@ -46,6 +46,36 @@ gh release create $VERSION \
   chakram-windows.exe \
   --title "Chakram $VERSION" \
   --notes "$NOTES"
+
+# Step 5 — Build Mac GUI app and upload to release
+echo "Building GUI (Mac)..."
+cd gui
+cp ../chakram-mac ./chakram
+chmod +x ./chakram
+rm -rf dist/ build/ Chakram.spec 2>/dev/null || true
+pip3 install pyinstaller customtkinter requests pillow -q 2>/dev/null
+python3 -m PyInstaller \
+  --onedir \
+  --windowed \
+  --name "Chakram" \
+  --add-binary "chakram:." \
+  --hidden-import customtkinter \
+  --hidden-import PIL \
+  --hidden-import PIL._tkinter_finder \
+  chakram_gui.py 2>/dev/null
+# Package .app as zip for GitHub upload
+if [ -d "dist/Chakram.app" ]; then
+  zip -r dist/Chakram-mac.zip dist/Chakram.app 2>/dev/null
+fi
+cd ..
+
+if [ -f "gui/dist/Chakram-mac.zip" ]; then
+  gh release upload $VERSION gui/dist/Chakram-mac.zip --clobber 2>/dev/null \
+    && echo "  ✓ Chakram GUI (Mac) added to release"
+else
+  echo "  ⚠ GUI build failed — skipping upload (node binaries already uploaded)"
+fi
+echo "  Note: Windows GUI must be built on Windows — see gui/README.md"
 
 echo ""
 echo "=== Release $VERSION complete ==="
