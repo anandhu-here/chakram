@@ -3,6 +3,7 @@
 package main
 
 import (
+	"bytes"
 	"encoding/hex"
 	"fmt"
 	"strings"
@@ -107,17 +108,19 @@ func (sm *SyncManager) doSync() {
 			best = p
 		}
 	}
-
-	if sm.blockchain.GetHeight() >= best.Height {
-		sm.SetState(SyncComplete)
-		return
-	}
-
-	sm.SetState(SyncBlocks)
 	sm.bestPeer = best
 
+	ourHeight := sm.blockchain.GetHeight()
+	if ourHeight < best.Height {
+		sm.SetState(SyncBlocks)
+	} else {
+		sm.SetState(SyncComplete)
+	}
+
+	// Always poll — peer.Height is set at handshake time and may be stale.
+	// The miner could have hundreds of blocks we don't know about.
 	req, err := NewMessage(sm.server.magic, MsgGetBlocks, GetBlocksPayload{
-		FromHeight: sm.blockchain.GetHeight(),
+		FromHeight: ourHeight,
 		Count:      500,
 	})
 	if err != nil {
@@ -131,6 +134,20 @@ func (sm *SyncManager) doSync() {
 // OnBlockReceived is called by p2p handleBlock instead of bc.AddBlock directly.
 // It handles orphans, broadcasts new blocks, and updates sync state.
 func (sm *SyncManager) OnBlockReceived(b *Block, from *Peer) {
+	// Already have this block — genesis re-send, duplicate broadcast, etc.
+	if sm.blockchain.HasBlock(b.Hash) {
+		return
+	}
+
+	// A genesis block with an unknown hash means a different chain entirely.
+	if b.Header.Height == 0 {
+		ours, err := sm.blockchain.GetBlock(0)
+		if err != nil || !bytes.Equal(ours.Hash, b.Hash) {
+			fmt.Printf("peer %s sent genesis with wrong hash — different chain, rejecting\n", peerAddr(from))
+		}
+		return
+	}
+
 	if err := sm.blockchain.AddBlock(b); err != nil {
 		if isOrphanError(err) {
 			sm.AddOrphan(b)
@@ -139,6 +156,11 @@ func (sm *SyncManager) OnBlockReceived(b *Block, from *Peer) {
 			}
 		}
 		return
+	}
+
+	// Keep peer.Height current so doSync has accurate data.
+	if from != nil && b.Header.Height > from.Height {
+		from.Height = b.Header.Height
 	}
 
 	hashHex := hex.EncodeToString(b.Hash)
@@ -226,15 +248,10 @@ func (sm *SyncManager) evictOldOrphans() {
 	sm.orphansMu.Lock()
 	defer sm.orphansMu.Unlock()
 
-	evicted := 0
 	for k, o := range sm.orphans {
 		if o.ReceivedAt.Before(cutoff) {
 			delete(sm.orphans, k)
-			evicted++
 		}
-	}
-	if evicted > 0 {
-		fmt.Printf("[sync] evicted %d stale orphan blocks\n", evicted)
 	}
 }
 
@@ -272,16 +289,20 @@ func (sm *SyncManager) CleanPendingBlocks() {
 // ── Peer events ───────────────────────────────────────────────────────────────
 
 // OnPeerConnected is called after the handshake completes.
-// If the peer is ahead of us, sync starts immediately without waiting for the next tick.
+// Always sends MsgGetBlocks immediately — peer.Height at handshake time may be
+// stale (e.g. miner was at 0 when we connected but has since mined many blocks).
 func (sm *SyncManager) OnPeerConnected(p *Peer) {
-	if p.Height <= sm.blockchain.GetHeight() {
-		return
-	}
-	sm.bestPeer = p
-	sm.SetState(SyncBlocks)
+	ourHeight := sm.blockchain.GetHeight()
 
+	if p.Height > ourHeight {
+		sm.bestPeer = p
+		sm.SetState(SyncBlocks)
+	}
+
+	// Send MsgGetBlocks unconditionally: peer height is only known at handshake
+	// time. The peer may have mined more blocks since then.
 	req, err := NewMessage(sm.server.magic, MsgGetBlocks, GetBlocksPayload{
-		FromHeight: sm.blockchain.GetHeight(),
+		FromHeight: ourHeight,
 		Count:      500,
 	})
 	if err != nil {
@@ -312,6 +333,14 @@ func (sm *SyncManager) OnPeerDisconnected(p *Peer) {
 }
 
 // ── Status ────────────────────────────────────────────────────────────────────
+
+// peerAddr returns a short address string safe to call with a nil peer.
+func peerAddr(p *Peer) string {
+	if p == nil {
+		return "<nil>"
+	}
+	return p.Address
+}
 
 // SyncStatus returns a human-readable sync status string.
 func (sm *SyncManager) SyncStatus() string {

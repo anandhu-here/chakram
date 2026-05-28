@@ -373,6 +373,7 @@ func (s *Server) handleVerAck(peer *Peer, msg Message) error {
 		s.SyncManager.OnPeerConnected(peer)
 		return nil
 	}
+	// Fallback (no SyncManager): request blocks if peer is ahead.
 	if peer.Height > s.Blockchain.GetHeight() {
 		req, err := NewMessage(s.magic, MsgGetBlocks, GetBlocksPayload{
 			FromHeight: s.Blockchain.GetHeight(),
@@ -396,8 +397,8 @@ func (s *Server) handleGetBlocks(peer *Peer, msg Message) error {
 		count = 500
 	}
 
-	var items []InvItem
 	ourHeight := s.Blockchain.GetHeight()
+	var items []InvItem
 	for h := gp.FromHeight + 1; h <= ourHeight && uint32(len(items)) < count; h++ {
 		b, err := s.Blockchain.GetBlock(h)
 		if err != nil {

@@ -1,0 +1,809 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Chakram Explorer</title>
+    <style>
+        :root {
+            --bg:     #0a0a0f;
+            --bg2:    #111118;
+            --bg3:    #1a1a24;
+            --gold:   #f0c040;
+            --gold2:  #c9a030;
+            --text:   #e0e0e8;
+            --text2:  #8888a0;
+            --border: #2a2a3a;
+            --orange: #ff8c00;
+            --green:  #40c080;
+            --red:    #c04040;
+        }
+
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+
+        body {
+            background: var(--bg);
+            color: var(--text);
+            font-family: 'Courier New', Courier, monospace;
+            min-height: 100vh;
+        }
+
+        /* ── Header ─────────────────────────────────────────────── */
+        header {
+            background: var(--bg2);
+            border-bottom: 1px solid var(--border);
+            padding: 1rem 2rem;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            flex-wrap: wrap;
+            gap: 1rem;
+        }
+
+        .header-brand { display: flex; flex-direction: column; }
+
+        .logo {
+            font-size: 2rem;
+            font-weight: bold;
+            color: var(--gold);
+            letter-spacing: 4px;
+        }
+
+        .subtitle {
+            color: var(--text2);
+            font-size: 0.85rem;
+            margin-top: 2px;
+        }
+
+        .header-search {
+            flex: 1;
+            max-width: 520px;
+            display: flex;
+            gap: 0.5rem;
+        }
+
+        .header-search input {
+            flex: 1;
+            background: var(--bg3);
+            border: 1px solid var(--border);
+            color: var(--text);
+            padding: 0.65rem 1rem;
+            border-radius: 6px;
+            font-family: inherit;
+            font-size: 0.85rem;
+            outline: none;
+            transition: border-color 0.2s;
+        }
+
+        .header-search input:focus { border-color: var(--gold); }
+        .header-search input::placeholder { color: var(--text2); }
+
+        .btn {
+            background: var(--gold);
+            color: #000;
+            border: none;
+            padding: 0.65rem 1.25rem;
+            border-radius: 6px;
+            cursor: pointer;
+            font-family: inherit;
+            font-weight: bold;
+            font-size: 0.85rem;
+            transition: background 0.2s;
+            white-space: nowrap;
+        }
+
+        .btn:hover { background: var(--gold2); }
+
+        .header-meta {
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+        }
+
+        .badge-testnet {
+            background: var(--orange);
+            color: #000;
+            padding: 4px 12px;
+            border-radius: 999px;
+            font-size: 0.72rem;
+            font-weight: bold;
+            letter-spacing: 1px;
+        }
+
+        .node-status {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            font-size: 0.8rem;
+            color: var(--text2);
+        }
+
+        .dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background: var(--green);
+            flex-shrink: 0;
+        }
+
+        .dot.offline { background: var(--red); }
+
+        .clock {
+            color: var(--text2);
+            font-size: 0.8rem;
+            white-space: nowrap;
+        }
+
+        /* ── Stats bar ──────────────────────────────────────────── */
+        .stats-bar {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 1rem;
+            padding: 1.5rem 2rem;
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+
+        .stat-card {
+            background: var(--bg2);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            padding: 1.25rem;
+            text-align: center;
+        }
+
+        .stat-label {
+            color: var(--text2);
+            font-size: 0.7rem;
+            letter-spacing: 1px;
+            text-transform: uppercase;
+            margin-bottom: 0.5rem;
+        }
+
+        .stat-value {
+            color: var(--gold);
+            font-size: 1.75rem;
+            font-weight: bold;
+        }
+
+        /* ── Main ───────────────────────────────────────────────── */
+        .main {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 0 2rem 3rem;
+        }
+
+        .section-title {
+            color: var(--text2);
+            font-size: 0.7rem;
+            letter-spacing: 2px;
+            text-transform: uppercase;
+            margin-bottom: 1rem;
+            padding-bottom: 0.5rem;
+            border-bottom: 1px solid var(--border);
+        }
+
+        /* ── Blocks table ───────────────────────────────────────── */
+        .blocks-table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+
+        .blocks-table th {
+            text-align: left;
+            padding: 0.7rem 1rem;
+            color: var(--text2);
+            font-size: 0.7rem;
+            letter-spacing: 1px;
+            text-transform: uppercase;
+            border-bottom: 1px solid var(--border);
+        }
+
+        .blocks-table td {
+            padding: 0.75rem 1rem;
+            border-bottom: 1px solid var(--border);
+            font-size: 0.875rem;
+            vertical-align: middle;
+        }
+
+        .blocks-table tbody tr:hover { background: var(--bg3); }
+
+        @keyframes slideIn {
+            from { opacity: 0; transform: translateY(-8px); }
+            to   { opacity: 1; transform: translateY(0); }
+        }
+
+        .block-row { animation: slideIn 0.3s ease-out; }
+
+        .link {
+            color: var(--gold);
+            cursor: pointer;
+            text-decoration: none;
+        }
+
+        .link:hover { text-decoration: underline; }
+
+        .mono { font-family: monospace; font-size: 0.82rem; }
+
+        .time-ago { color: var(--text2); font-size: 0.82rem; }
+
+        .miner-addr { color: var(--green); font-size: 0.82rem; }
+
+        .tx-pill {
+            background: var(--bg3);
+            border: 1px solid var(--border);
+            padding: 2px 10px;
+            border-radius: 4px;
+            font-size: 0.78rem;
+        }
+
+        .status-cell {
+            text-align: center;
+            padding: 2.5rem;
+            color: var(--text2);
+            font-size: 0.9rem;
+        }
+
+        .err { color: var(--red); }
+
+        /* ── Modal ──────────────────────────────────────────────── */
+        .overlay {
+            display: none;
+            position: fixed;
+            inset: 0;
+            background: rgba(0,0,0,0.82);
+            z-index: 200;
+            align-items: center;
+            justify-content: center;
+            padding: 1rem;
+        }
+
+        .overlay.open { display: flex; }
+
+        .modal {
+            background: var(--bg2);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            padding: 2rem;
+            max-width: 680px;
+            width: 100%;
+            max-height: 82vh;
+            overflow-y: auto;
+            position: relative;
+        }
+
+        .modal-close-btn {
+            position: absolute;
+            top: 1rem;
+            right: 1rem;
+            background: none;
+            border: 1px solid var(--border);
+            color: var(--text2);
+            width: 28px;
+            height: 28px;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 1rem;
+            line-height: 1;
+            transition: border-color 0.2s, color 0.2s;
+        }
+
+        .modal-close-btn:hover { border-color: var(--gold); color: var(--gold); }
+
+        .modal-title {
+            color: var(--gold);
+            font-size: 1.05rem;
+            font-weight: bold;
+            letter-spacing: 2px;
+            margin-bottom: 1.5rem;
+        }
+
+        .kv-grid {
+            display: grid;
+            grid-template-columns: auto 1fr;
+            gap: 0.55rem 1.5rem;
+            margin-bottom: 1.5rem;
+        }
+
+        .kv-key {
+            color: var(--text2);
+            font-size: 0.78rem;
+            white-space: nowrap;
+            align-self: start;
+            padding-top: 1px;
+        }
+
+        .kv-val {
+            font-size: 0.8rem;
+            word-break: break-all;
+        }
+
+        .kv-val.gold { color: var(--gold); }
+
+        .tx-card {
+            background: var(--bg3);
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            padding: 1rem;
+            margin-bottom: 0.75rem;
+        }
+
+        .tx-card-label {
+            color: var(--text2);
+            font-size: 0.68rem;
+            letter-spacing: 1px;
+            text-transform: uppercase;
+            margin-bottom: 0.4rem;
+        }
+
+        .tx-card-id {
+            color: var(--gold);
+            font-size: 0.78rem;
+            word-break: break-all;
+            margin-bottom: 0.6rem;
+        }
+
+        .cb-badge {
+            display: inline-block;
+            background: var(--orange);
+            color: #000;
+            padding: 1px 7px;
+            border-radius: 3px;
+            font-size: 0.65rem;
+            font-weight: bold;
+            margin-left: 6px;
+            vertical-align: middle;
+        }
+
+        .io-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            font-size: 0.78rem;
+            padding: 4px 0;
+            border-bottom: 1px solid var(--border);
+            gap: 1rem;
+        }
+
+        .io-row:last-child { border-bottom: none; }
+
+        .io-addr { color: var(--green); word-break: break-all; }
+        .io-val  { color: var(--gold); white-space: nowrap; }
+
+        /* ── Footer ─────────────────────────────────────────────── */
+        footer {
+            text-align: center;
+            padding: 2rem;
+            color: var(--text2);
+            font-size: 0.78rem;
+            border-top: 1px solid var(--border);
+        }
+
+        footer a { color: var(--gold); text-decoration: none; }
+        footer a:hover { text-decoration: underline; }
+
+        .genesis-line {
+            font-size: 0.68rem;
+            margin-top: 0.5rem;
+            color: var(--border);
+            word-break: break-all;
+        }
+
+        /* ── Scrollbar ───────────────────────────────────────────── */
+        ::-webkit-scrollbar { width: 6px; }
+        ::-webkit-scrollbar-track { background: var(--bg); }
+        ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+
+        /* ── Responsive ─────────────────────────────────────────── */
+        @media (max-width: 900px) {
+            .stats-bar { grid-template-columns: repeat(2, 1fr); }
+        }
+
+        @media (max-width: 700px) {
+            header { flex-direction: column; align-items: flex-start; }
+            .header-search { max-width: 100%; width: 100%; }
+            .blocks-table th:nth-child(4),
+            .blocks-table td:nth-child(4) { display: none; }
+        }
+
+        @media (max-width: 480px) {
+            .stats-bar { grid-template-columns: 1fr 1fr; }
+            .blocks-table th:nth-child(3),
+            .blocks-table td:nth-child(3) { display: none; }
+            .logo { font-size: 1.5rem; }
+        }
+    </style>
+</head>
+<body>
+
+<!-- ── Header ──────────────────────────────────────────────────────── -->
+<header>
+    <div class="header-brand">
+        <div class="logo">⬡ CHAKRAM</div>
+        <div class="subtitle">ചക്രം — Kerala's Digital Coin</div>
+    </div>
+
+    <div class="header-search">
+        <input id="searchInput"
+               type="text"
+               placeholder="Block height, hash (64 hex), or CK1 address…"
+               autocomplete="off" />
+        <button class="btn" onclick="doSearch()">Search</button>
+    </div>
+
+    <div class="header-meta">
+        <span class="badge-testnet">TESTNET</span>
+        <div class="node-status">
+            <div class="dot" id="statusDot"></div>
+            <span id="statusText">Connecting…</span>
+        </div>
+        <div class="clock" id="clock"></div>
+    </div>
+</header>
+
+<!-- ── Stats bar ───────────────────────────────────────────────────── -->
+<div class="stats-bar">
+    <div class="stat-card">
+        <div class="stat-label">Latest Block</div>
+        <div class="stat-value" id="statHeight">—</div>
+    </div>
+    <div class="stat-card">
+        <div class="stat-label">Blocks / min</div>
+        <div class="stat-value" id="statBpm">—</div>
+    </div>
+    <div class="stat-card">
+        <div class="stat-label">Total CHK Mined</div>
+        <div class="stat-value" id="statSupply">—</div>
+    </div>
+    <div class="stat-card">
+        <div class="stat-label">Active Peers</div>
+        <div class="stat-value" id="statPeers">—</div>
+    </div>
+</div>
+
+<!-- ── Latest blocks ───────────────────────────────────────────────── -->
+<div class="main">
+    <div class="section-title">Latest Blocks</div>
+    <table class="blocks-table">
+        <thead>
+            <tr>
+                <th>Height</th>
+                <th>Hash</th>
+                <th>Age</th>
+                <th>Miner</th>
+                <th>Txs</th>
+            </tr>
+        </thead>
+        <tbody id="blocksBody">
+            <tr><td colspan="5" class="status-cell">Loading…</td></tr>
+        </tbody>
+    </table>
+</div>
+
+<!-- ── Footer ──────────────────────────────────────────────────────── -->
+<footer>
+    <div>Chakram Testnet — Built with ❤️ in Kerala</div>
+    <div class="genesis-line" id="genesisLine">Genesis: loading…</div>
+    <div style="margin-top:0.6rem;">
+        <a href="https://github.com/anandhusathe/chakram" target="_blank" rel="noopener">GitHub</a>
+    </div>
+</footer>
+
+<!-- ── Modal ───────────────────────────────────────────────────────── -->
+<div class="overlay" id="overlay" onclick="onOverlayClick(event)">
+    <div class="modal" id="modal">
+        <button class="modal-close-btn" onclick="closeModal()" title="Close">✕</button>
+        <div id="modalBody"></div>
+    </div>
+</div>
+
+<script>
+'use strict';
+
+const RPC = 'http://35.207.217.64:18339';
+
+let knownHeights = new Set();
+let genesisHashCache = null;
+
+// ── Clock ──────────────────────────────────────────────────────────
+
+function tickClock() {
+    document.getElementById('clock').textContent =
+        new Date().toUTCString().replace(' GMT', ' UTC');
+}
+setInterval(tickClock, 1000);
+tickClock();
+
+// ── Helpers ────────────────────────────────────────────────────────
+
+function timeAgo(ts) {
+    const d = Math.floor(Date.now() / 1000) - ts;
+    if (d < 5)     return 'just now';
+    if (d < 60)    return d + ' secs ago';
+    if (d < 3600)  return Math.floor(d / 60) + ' mins ago';
+    if (d < 86400) return Math.floor(d / 3600) + ' hrs ago';
+    return Math.floor(d / 86400) + ' days ago';
+}
+
+function trunc(s, n = 16) {
+    if (!s) return '';
+    return s.length > n ? s.slice(0, n) + '…' : s;
+}
+
+function fmtCHK(v) {
+    return (v / 1_000_000).toFixed(6) + ' CHK';
+}
+
+function fmtSupply(v) {
+    const c = v / 1_000_000;
+    if (c >= 1_000_000) return (c / 1_000_000).toFixed(2) + 'M';
+    if (c >= 1000)      return (c / 1000).toFixed(1) + 'K';
+    return c.toFixed(2);
+}
+
+function esc(s) {
+    return String(s)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;');
+}
+
+// ── API ────────────────────────────────────────────────────────────
+
+async function api(path) {
+    const r = await fetch(RPC + path);
+    if (!r.ok) throw new Error('HTTP ' + r.status);
+    return r.json();
+}
+
+// ── Refresh loop ───────────────────────────────────────────────────
+
+async function refresh() {
+    let info, blocks;
+    try {
+        [info, blocks] = await Promise.all([
+            api('/info'),
+            api('/blocks/latest/20'),
+        ]);
+    } catch (e) {
+        setOffline('Node unreachable');
+        document.getElementById('blocksBody').innerHTML =
+            `<tr><td colspan="5" class="status-cell err">⚠ Node unreachable — ${esc(e.message)}</td></tr>`;
+        return;
+    }
+
+    setOnline();
+
+    // Stats
+    document.getElementById('statHeight').textContent =
+        info.height.toLocaleString();
+    document.getElementById('statPeers').textContent = info.peers;
+    document.getElementById('statSupply').textContent =
+        fmtSupply(info.total_supply_mined);
+
+    // Blocks/min from last N blocks
+    if (blocks.length >= 2) {
+        const slice = blocks.slice(0, Math.min(10, blocks.length));
+        const span = slice[0].timestamp - slice[slice.length - 1].timestamp;
+        if (span > 0) {
+            const bpm = ((slice.length - 1) / span * 60).toFixed(2);
+            document.getElementById('statBpm').textContent = bpm;
+        }
+    }
+
+    // Genesis hash (fetch once)
+    if (!genesisHashCache) {
+        try {
+            const g = await api('/block/0');
+            genesisHashCache = g.hash;
+            document.getElementById('genesisLine').textContent =
+                'Genesis: ' + genesisHashCache;
+        } catch (_) {}
+    }
+
+    renderBlocks(blocks);
+}
+
+function setOnline() {
+    document.getElementById('statusDot').className = 'dot';
+    document.getElementById('statusText').textContent = 'Online';
+}
+
+function setOffline(msg) {
+    document.getElementById('statusDot').className = 'dot offline';
+    document.getElementById('statusText').textContent = msg;
+}
+
+// ── Blocks table ───────────────────────────────────────────────────
+
+function renderBlocks(blocks) {
+    const tbody = document.getElementById('blocksBody');
+    const newBlocks = blocks.filter(b => !knownHeights.has(b.height));
+
+    if (newBlocks.length === 0) {
+        updateAges();
+        return;
+    }
+
+    newBlocks.forEach(b => knownHeights.add(b.height));
+
+    // Sort ascending so we prepend highest last → highest ends at top
+    newBlocks.sort((a, b) => a.height - b.height);
+
+    for (const b of newBlocks) {
+        const tr = document.createElement('tr');
+        tr.className = 'block-row';
+        tr.innerHTML = `
+            <td>
+                <a class="link" onclick="openBlock(${b.height})">${b.height}</a>
+            </td>
+            <td>
+                <span class="mono link" title="${esc(b.hash)}"
+                      onclick="openBlock(${b.height})">${trunc(b.hash)}</span>
+            </td>
+            <td class="time-ago" data-ts="${b.timestamp}">${timeAgo(b.timestamp)}</td>
+            <td>
+                <span class="miner-addr mono" title="${esc(b.miner || '')}"
+                >${b.miner ? trunc(b.miner, 14) : '—'}</span>
+            </td>
+            <td><span class="tx-pill">${b.tx_count}</span></td>
+        `;
+        tbody.insertBefore(tr, tbody.firstChild);
+    }
+
+    // Trim to 20 rows
+    while (tbody.rows.length > 20) {
+        const last = tbody.rows[tbody.rows.length - 1];
+        const h = parseInt(last.cells[0].textContent);
+        if (!isNaN(h)) knownHeights.delete(h);
+        tbody.deleteRow(tbody.rows.length - 1);
+    }
+}
+
+function updateAges() {
+    document.querySelectorAll('[data-ts]').forEach(el => {
+        el.textContent = timeAgo(parseInt(el.dataset.ts));
+    });
+}
+
+setInterval(updateAges, 10_000);
+
+// ── Block modal ────────────────────────────────────────────────────
+
+async function openBlock(height) {
+    openModal(`<div class="status-cell">Loading block ${esc(String(height))}…</div>`);
+    try {
+        const b = await api('/block/' + height);
+        openModal(buildBlockHTML(b));
+    } catch (e) {
+        openModal(`<div class="status-cell err">Failed to load block: ${esc(e.message)}</div>`);
+    }
+}
+
+function buildBlockHTML(b) {
+    let html = `
+        <div class="modal-title">⬡ BLOCK #${b.height}</div>
+        <div class="kv-grid">
+            <span class="kv-key">Height</span>
+            <span class="kv-val gold">${b.height}</span>
+            <span class="kv-key">Hash</span>
+            <span class="kv-val">${esc(b.hash)}</span>
+            <span class="kv-key">Previous Hash</span>
+            <span class="kv-val">${esc(b.previous_hash)}</span>
+            <span class="kv-key">Timestamp</span>
+            <span class="kv-val">${new Date(b.timestamp * 1000).toUTCString()}
+                <span style="color:var(--text2)"> (${timeAgo(b.timestamp)})</span>
+            </span>
+            <span class="kv-key">Difficulty</span>
+            <span class="kv-val">${b.difficulty}</span>
+            <span class="kv-key">Nonce</span>
+            <span class="kv-val">${b.nonce}</span>
+            <span class="kv-key">Transactions</span>
+            <span class="kv-val gold">${b.tx_count}</span>
+        </div>
+        <div class="section-title" style="margin-bottom:1rem;">Transactions</div>
+    `;
+
+    for (const tx of (b.transactions || [])) {
+        const cbBadge = tx.is_coinbase ? '<span class="cb-badge">COINBASE</span>' : '';
+        html += `<div class="tx-card">
+            <div class="tx-card-label">TxID ${cbBadge}</div>
+            <div class="tx-card-id">${esc(tx.txid)}</div>
+        `;
+
+        if (tx.outputs && tx.outputs.length > 0) {
+            html += `<div class="tx-card-label" style="margin-top:0.5rem;">Outputs</div>`;
+            for (const out of tx.outputs) {
+                html += `<div class="io-row">
+                    <span class="io-addr">${esc(trunc(out.pubkey_hash, 20))}</span>
+                    <span class="io-val">${(out.value_chk).toFixed(6)} CHK</span>
+                </div>`;
+            }
+        }
+
+        html += `</div>`;
+    }
+
+    return html;
+}
+
+// ── Address modal ──────────────────────────────────────────────────
+
+async function openAddress(addr) {
+    openModal(`<div class="status-cell">Loading address…</div>`);
+    try {
+        const a = await api('/address/' + encodeURIComponent(addr));
+        openModal(`
+            <div class="modal-title">ADDRESS</div>
+            <div class="kv-grid">
+                <span class="kv-key">Address</span>
+                <span class="kv-val gold">${esc(a.address)}</span>
+                <span class="kv-key">Balance</span>
+                <span class="kv-val gold">${a.balance_chk.toFixed(6)} CHK</span>
+                <span class="kv-key">Balance (raw)</span>
+                <span class="kv-val">${a.balance} Cash</span>
+                <span class="kv-key">UTXO Count</span>
+                <span class="kv-val">${a.utxo_count}</span>
+            </div>
+        `);
+    } catch (e) {
+        openModal(`<div class="status-cell err">Failed: ${esc(e.message)}</div>`);
+    }
+}
+
+// ── Search ─────────────────────────────────────────────────────────
+
+async function doSearch() {
+    const raw = document.getElementById('searchInput').value.trim();
+    if (!raw) return;
+
+    if (/^\d+$/.test(raw)) {
+        await openBlock(parseInt(raw, 10));
+    } else if (/^[0-9a-fA-F]{64}$/.test(raw)) {
+        openModal(`<div class="status-cell">Searching by hash…</div>`);
+        try {
+            const b = await api('/block/hash/' + raw);
+            openModal(buildBlockHTML(b));
+        } catch (_) {
+            openModal(`<div class="status-cell err">Block not found</div>`);
+        }
+    } else if (raw.startsWith('CK1')) {
+        await openAddress(raw);
+    } else {
+        openModal(`<div class="status-cell err">
+            Enter a block height (number), block hash (64 hex chars), or CK1 address.
+        </div>`);
+    }
+}
+
+document.getElementById('searchInput').addEventListener('keydown', e => {
+    if (e.key === 'Enter') doSearch();
+});
+
+// ── Modal helpers ──────────────────────────────────────────────────
+
+function openModal(html) {
+    document.getElementById('modalBody').innerHTML = html;
+    document.getElementById('overlay').classList.add('open');
+}
+
+function closeModal() {
+    document.getElementById('overlay').classList.remove('open');
+}
+
+function onOverlayClick(e) {
+    if (e.target === document.getElementById('overlay')) closeModal();
+}
+
+document.addEventListener('keydown', e => {
+    if (e.key === 'Escape') closeModal();
+});
+
+// ── Init ───────────────────────────────────────────────────────────
+
+refresh();
+setInterval(refresh, 5000);
+</script>
+</body>
+</html>

@@ -73,7 +73,7 @@ const (
 const (
 	// GenesisMessage is the coinbase message embedded in the genesis block.
 	// Translation: "Chakram — The heritage of Kerala, reborn in the digital age."
-	GenesisMessage = "ചക്രം — കേരളത്തിന്റെ പൈതൃകം, ഡിജിറ്റൽ യുഗത്തിൽ പുനർജനിക്കുന്നു"
+	GenesisMessage = "ചക്രം — കേരളത്തിന്റെ പൈതൃകം ഡിജിറ്റൽ യുഗത്തിൽ പുനർജനിക്കുന്നു"
 
 	// GenesisTimestamp is the fixed Unix timestamp of the genesis block (2026-05-28 00:00:00 UTC).
 	GenesisTimestamp int64 = 1_779_926_400
@@ -97,3 +97,18 @@ const (
 	// Can be overridden via the node config file in a later phase.
 	MiningThreads = 1
 )
+
+// ── Seed Nodes ────────────────────────────────────────────────────────────────
+
+var TestnetSeeds = []string{
+	"35.207.229.32:18338",
+	"34.1.166.49:18338",
+}
+
+var MainnetSeeds = []string{
+	"35.207.229.32:8338",
+	"34.1.166.49:8338",
+}
+
+// MainnetMinerIP is the dedicated mining node (not a seed)
+const MainnetMinerIP = "35.207.217.64"
