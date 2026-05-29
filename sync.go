@@ -99,6 +99,7 @@ func (sm *SyncManager) doSync() {
 	peers := sm.server.ConnectedPeers()
 	if len(peers) == 0 {
 		sm.SetState(SyncIdle)
+		sm.blockchain.SetSyncing(false, 0)
 		return
 	}
 
@@ -113,8 +114,10 @@ func (sm *SyncManager) doSync() {
 	ourHeight := sm.blockchain.GetHeight()
 	if ourHeight < best.Height {
 		sm.SetState(SyncBlocks)
+		sm.blockchain.SetSyncing(true, best.Height)
 	} else {
 		sm.SetState(SyncComplete)
+		sm.blockchain.SetSyncing(false, 0)
 	}
 
 	// Always poll — peer.Height is set at handshake time and may be stale.
@@ -185,6 +188,7 @@ func (sm *SyncManager) OnBlockReceived(b *Block, from *Peer) {
 
 	if sm.bestPeer != nil && sm.blockchain.GetHeight() >= sm.bestPeer.Height {
 		sm.SetState(SyncComplete)
+		sm.blockchain.SetSyncing(false, 0)
 	}
 }
 
@@ -309,6 +313,7 @@ func (sm *SyncManager) OnPeerConnected(p *Peer) {
 	if p.Height > ourHeight {
 		sm.bestPeer = p
 		sm.SetState(SyncBlocks)
+		sm.blockchain.SetSyncing(true, p.Height)
 	}
 
 	// Send MsgGetBlocks unconditionally: peer height is only known at handshake
@@ -333,6 +338,7 @@ func (sm *SyncManager) OnPeerDisconnected(p *Peer) {
 	if len(peers) == 0 {
 		sm.bestPeer = nil
 		sm.SetState(SyncIdle)
+		sm.blockchain.SetSyncing(false, 0)
 		return
 	}
 	var next *Peer
