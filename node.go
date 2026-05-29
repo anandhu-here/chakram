@@ -228,6 +228,12 @@ func (n *Node) mineLoop() {
 		default:
 		}
 
+		if peers := n.Server.PeerCount(); peers < 2 {
+			fmt.Printf("Mining paused — waiting for peers (have %d, need 2)\n", peers)
+			time.Sleep(5 * time.Second)
+			continue
+		}
+
 		prev, err := n.Blockchain.GetLastBlock()
 		if err != nil {
 			time.Sleep(time.Second)

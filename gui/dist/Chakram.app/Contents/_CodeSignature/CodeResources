@@ -754,7 +754,7 @@
 		</data>
 		<key>Resources/base_library.zip</key>
 		<data>
-		ljPYduLAx2OIEAjnClshFiQcr8E=
+		ehYiMTQL4Um/no7Kbb/1g+0FkNM=
 		</data>
 		<key>Resources/certifi/cacert.pem</key>
 		<data>
@@ -1180,10 +1180,10 @@
 		<dict>
 			<key>cdhash</key>
 			<data>
-			ku7iU7XswZ8alueW5Ea8/gIY5dc=
+			Y1AyfybBRqRSGaaK0iDkM4bHFJM=
 			</data>
 			<key>requirement</key>
-			<string>cdhash H"92eee253b5ecc19f1a96e796e446bcfe0218e5d7"</string>
+			<string>cdhash H"6350327f26c146a45219a68ad220e43386c71493"</string>
 		</dict>
 		<key>Frameworks/charset_normalizer/cd.cpython-313-darwin.so</key>
 		<dict>
@@ -3257,7 +3257,7 @@
 		<dict>
 			<key>hash2</key>
 			<data>
-			uu4HAv0NFNd+e8iJZuUM2wkTE5AfxmIK1cLIUD8n9MI=
+			39vPrGgSvmEZ7yS3NceT8ea1hjAKJIQUP+JoeDf3YmQ=
 			</data>
 		</dict>
 		<key>Resources/certifi/cacert.pem</key>

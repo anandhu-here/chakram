@@ -26,6 +26,7 @@ type Blockchain struct {
 	isSyncing    bool          // true during IBD; skips full RandomX for old blocks
 	syncTarget   uint64        // best peer's height when syncing started
 	syncMu       sync.RWMutex  // guards isSyncing and syncTarget
+	stateMu      sync.RWMutex  // guards Tip and Height — RPC reads never block on mining writes
 	Tip          []byte         // hash of the current best (highest) block
 	Height       uint64         // height of the current best block
 }
@@ -166,12 +167,17 @@ func (bc *Blockchain) AddBlock(b *Block) error {
 		return fmt.Errorf("save block data: %w", err)
 	}
 
+	bc.stateMu.RLock()
+	tip := bc.Tip
+	height := bc.Height
+	bc.stateMu.RUnlock()
+
 	switch {
-	case bytes.Equal(b.Header.PreviousHash, bc.Tip):
+	case bytes.Equal(b.Header.PreviousHash, tip):
 		// Fast path: direct extension of the main chain.
 		return bc.applyBlock(b)
 
-	case b.Header.Height > bc.Height:
+	case b.Header.Height > height:
 		// Longer fork — reorganise to this chain.
 		return bc.reorganize(b)
 
@@ -197,8 +203,10 @@ func (bc *Blockchain) applyBlock(b *Block) error {
 	if err := bc.Storage.SaveChainTip(b.Hash, b.Header.Height); err != nil {
 		return fmt.Errorf("save chain tip: %w", err)
 	}
+	bc.stateMu.Lock()
 	bc.Tip = b.Hash
 	bc.Height = b.Header.Height
+	bc.stateMu.Unlock()
 	return nil
 }
 
@@ -208,7 +216,7 @@ func (bc *Blockchain) applyBlock(b *Block) error {
 //  2. Roll back the old chain (tip → ancestor+1) using stored undo data.
 //  3. Apply the new chain (ancestor+1 → newTip) in order.
 func (bc *Blockchain) reorganize(newTip *Block) error {
-	oldTip, err := bc.Storage.GetBlockByHash(bc.Tip)
+	oldTip, err := bc.Storage.GetBlockByHash(bc.GetTip())
 	if err != nil {
 		return fmt.Errorf("fetch current tip: %w", err)
 	}
@@ -249,10 +257,12 @@ func (bc *Blockchain) reorganize(newTip *Block) error {
 	if err := bc.Storage.SaveChainTip(newTip.Hash, newTip.Header.Height); err != nil {
 		return fmt.Errorf("save chain tip: %w", err)
 	}
+	bc.stateMu.Lock()
 	bc.Tip = newTip.Hash
 	bc.Height = newTip.Header.Height
+	bc.stateMu.Unlock()
 
-	fmt.Printf("⛓  Reorg complete — new tip %x at height %d\n", bc.Tip, bc.Height)
+	fmt.Printf("⛓  Reorg complete — new tip %x at height %d\n", newTip.Hash, newTip.Header.Height)
 	return nil
 }
 
@@ -297,7 +307,7 @@ func (bc *Blockchain) findReorgPath(oldTip, newTip *Block) (ancestor *Block, rol
 
 // GetLastBlock returns the block at the current chain tip.
 func (bc *Blockchain) GetLastBlock() (*Block, error) {
-	b, err := bc.Storage.GetBlockByHash(bc.Tip)
+	b, err := bc.Storage.GetBlockByHash(bc.GetTip())
 	if err != nil {
 		return nil, fmt.Errorf("get tip block: %w", err)
 	}
@@ -316,7 +326,7 @@ func (bc *Blockchain) GetBlock(height uint64) (*Block, error) {
 // IsValid walks the entire main chain from height 1 to bc.Height and verifies
 // linkage, proof-of-work, sequential height, and timestamp ordering.
 func (bc *Blockchain) IsValid() (bool, error) {
-	for h := uint64(1); h <= bc.Height; h++ {
+	for h := uint64(1); h <= bc.GetHeight(); h++ {
 		block, err := bc.GetBlock(h)
 		if err != nil {
 			return false, fmt.Errorf("height %d: %w", h, err)
@@ -342,8 +352,19 @@ func (bc *Blockchain) IsValid() (bool, error) {
 }
 
 // GetHeight returns the current best chain height.
+// Safe for concurrent use — RPC handlers call this without blocking the miner.
 func (bc *Blockchain) GetHeight() uint64 {
+	bc.stateMu.RLock()
+	defer bc.stateMu.RUnlock()
 	return bc.Height
+}
+
+// GetTip returns a copy of the current best block hash.
+// Safe for concurrent use — RPC handlers call this without blocking the miner.
+func (bc *Blockchain) GetTip() []byte {
+	bc.stateMu.RLock()
+	defer bc.stateMu.RUnlock()
+	return append([]byte{}, bc.Tip...)
 }
 
 // HasBlock reports whether the block with the given hash is stored (any chain).
