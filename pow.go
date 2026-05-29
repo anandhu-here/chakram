@@ -45,9 +45,11 @@ func NewRandomXEngine() *RandomXEngine {
 }
 
 // Init initialises the RandomX cache and VM using key as the seed.
-// The expensive Argon2d step runs WITHOUT holding any lock so HTTP handlers
-// are never blocked for the 3-5 seconds it takes on weak VMs. Only the final
-// swap of the new cache/vm into the engine fields holds the lock (nanoseconds).
+// Uses double-checked locking: Argon2d runs with NO lock held, then a write
+// lock re-checks the key before swapping. If another goroutine already swapped
+// in the same epoch key while Argon2d was running, we discard our work and
+// return immediately. The library is pure-Go so discarded cache/vm are GC'd —
+// no explicit free calls needed.
 //
 // Full initialisation has two parts the library does NOT combine:
 //  1. Randomx_init_cache — runs Argon2d to fill the memory blocks.
@@ -55,24 +57,21 @@ func NewRandomXEngine() *RandomXEngine {
 //     superscalar programs used by InitDatasetItem during hashing.
 //     Skipping step 2 causes a nil-pointer panic at hash time.
 func (e *RandomXEngine) Init(key []byte) error {
-	// Fast path: read current key without blocking Hash callers.
+	// Fast path — read lock check.
 	e.mu.RLock()
-	sameKey := len(e.lastKey) > 0 && bytes.Equal(e.lastKey, key)
+	sameKey := bytes.Equal(e.lastKey, key)
 	e.mu.RUnlock()
 	if sameKey {
 		return nil
 	}
 
-	// Build the new cache and VM on local variables — Argon2d runs here,
-	// holding NO lock, so Hash() and the HTTP server remain fully responsive.
+	// Slow path — run Argon2d WITHOUT any lock.
 	newCache := randomx.Randomx_alloc_cache(randomx.RANDOMX_FLAG_DEFAULT)
 	if newCache == nil {
 		return errors.New("randomx: failed to allocate cache")
 	}
 	newCache.Randomx_init_cache(key)
 
-	// Build the superscalar programs required for dataset item generation.
-	// nonce 0 matches the reference RandomX implementation.
 	gen := randomx.Init_Blake2Generator(key, 0)
 	for i := 0; i < randomx.RANDOMX_PROGRAM_COUNT; i++ {
 		newCache.Programs[i] = randomx.Build_SuperScalar_Program(gen)
@@ -83,16 +82,21 @@ func (e *RandomXEngine) Init(key []byte) error {
 		return errors.New("randomx: failed to initialise VM")
 	}
 
-	// Brief exclusive lock just to swap in the new engine — nanoseconds.
-	// Re-check the key: another goroutine may have already re-keyed to the
-	// same epoch while Argon2d was running; skip the swap if so.
+	// Write lock — double-check before swapping.
 	e.mu.Lock()
-	if !bytes.Equal(e.lastKey, key) {
-		e.cache = newCache
-		e.vm = newVM
-		e.lastKey = append([]byte{}, key...)
+	defer e.mu.Unlock()
+
+	// Double-check: another goroutine may have already swapped in this key
+	// while Argon2d was running. Discard our work if so — GC handles cleanup.
+	if bytes.Equal(e.lastKey, key) {
+		return nil
 	}
-	e.mu.Unlock()
+
+	// We won the race — swap in the new engine.
+	e.cache = newCache
+	e.vm = newVM
+	e.lastKey = make([]byte, len(key))
+	copy(e.lastKey, key)
 	return nil
 }
 
