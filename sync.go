@@ -112,7 +112,11 @@ func (sm *SyncManager) doSync() {
 	sm.bestPeer = best
 
 	ourHeight := sm.blockchain.GetHeight()
-	if ourHeight < best.Height {
+	if best.Height == 0 {
+		// Peer height not yet known (version exchange still in flight).
+		// Send GetBlocks anyway so the peer's response populates our chain,
+		// and let the next 5-second tick re-evaluate once peer.Height is set.
+	} else if ourHeight < best.Height {
 		sm.SetState(SyncBlocks)
 		sm.blockchain.SetSyncing(true, best.Height)
 	} else {
