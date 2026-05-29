@@ -39,6 +39,8 @@ type SyncManager struct {
 	bestPeer      *Peer
 	pendingBlocks map[string]time.Time // blocks requested, waiting for response
 	pendingMu     sync.Mutex
+	lastReorg     time.Time
+	reorgMu       sync.Mutex
 	quit          chan struct{}
 }
 
@@ -153,6 +155,21 @@ func (sm *SyncManager) OnBlockReceived(b *Block, from *Peer) {
 			fmt.Printf("peer %s sent genesis with wrong hash — different chain, rejecting\n", peerAddr(from))
 		}
 		return
+	}
+
+	// Reorg rate limiting: a block triggers a reorg when its parent is not
+	// the current tip but its height exceeds ours. Limit to one reorg per 2s
+	// so a fast miner cannot flood seeds with reorganisation work.
+	wouldReorg := !bytes.Equal(b.Header.PreviousHash, sm.blockchain.GetTip()) &&
+		b.Header.Height > sm.blockchain.GetHeight()
+	if wouldReorg {
+		sm.reorgMu.Lock()
+		if time.Since(sm.lastReorg) < 2*time.Second {
+			sm.reorgMu.Unlock()
+			return
+		}
+		sm.lastReorg = time.Now()
+		sm.reorgMu.Unlock()
 	}
 
 	if err := sm.blockchain.AddBlock(b); err != nil {

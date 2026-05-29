@@ -25,6 +25,7 @@ type Blockchain struct {
 	VerifyEngine *RandomXEngine // RandomX engine used to authenticate received blocks
 	isSyncing    bool          // true during IBD; skips full RandomX for old blocks
 	syncTarget   uint64        // best peer's height when syncing started
+	chainMu      sync.Mutex    // serializes all chain state mutations (cs_main equivalent)
 	syncMu       sync.RWMutex  // guards isSyncing and syncTarget
 	stateMu      sync.RWMutex  // guards Tip and Height — RPC reads never block on mining writes
 	Tip          []byte         // hash of the current best (highest) block
@@ -124,6 +125,9 @@ func (bc *Blockchain) epochKey(height uint64) []byte {
 // Returns ErrOrphanBlock when the parent is not yet known; the sync layer uses
 // this signal to request the missing ancestor from the peer.
 func (bc *Blockchain) AddBlock(b *Block) error {
+	bc.chainMu.Lock()
+	defer bc.chainMu.Unlock()
+
 	// Genesis blocks are immutable.
 	if b.Header.Height == 0 {
 		return errors.New("cannot replace genesis block")
