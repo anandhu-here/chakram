@@ -327,8 +327,13 @@ var BIP39=("abandon ability able about above absent absorb abstract absurd abuse
 <script src="https://cdn.jsdelivr.net/npm/qrcodejs@1.0.0/qrcode.min.js"></script>
 
 <script type="module">
-import { getPublicKeyAsync, signAsync } from 'https://esm.sh/@noble/ed25519@2.0.0';
+import { etc, getPublicKey, sign } from 'https://esm.sh/@noble/ed25519@2.0.0';
 import { ripemd160 } from 'https://esm.sh/@noble/hashes@1.3.3/ripemd160';
+import { sha256 as _sha256 } from 'https://esm.sh/@noble/hashes@1.3.3/sha256';
+import { sha512 } from 'https://esm.sh/@noble/hashes@1.3.3/sha512';
+import { pbkdf2Async } from 'https://esm.sh/@noble/hashes@1.3.3/pbkdf2';
+import { gcm } from 'https://esm.sh/@noble/ciphers@1.0.0/aes';
+etc.sha512Sync = sha512;
 
 // ── Constants ─────────────────────────────────────────────────────────────────
 const CASH   = 1_000_000;   // CashPerCHK
@@ -364,36 +369,36 @@ const hex2b = s => { const a=new Uint8Array(s.length/2); for(let i=0;i<a.length;
 const b2hex = b => Array.from(b,x=>x.toString(16).padStart(2,'0')).join('');
 
 // ── Crypto helpers ────────────────────────────────────────────────────────────
-const sha256 = async d => new Uint8Array(await crypto.subtle.digest('SHA-256',d));
-const h160   = async d => ripemd160(await sha256(d));
+const sha256 = d => _sha256(d instanceof Uint8Array ? d : new Uint8Array(d));
+const h160   = d => ripemd160(sha256(d));
 
 // ── Address ───────────────────────────────────────────────────────────────────
-async function pkhToAddr(pkh){
-  const cs=(await sha256(await sha256(pkh))).slice(0,4);
+function pkhToAddr(pkh){
+  const cs=sha256(sha256(pkh)).slice(0,4);
   const p=new Uint8Array(24); p.set(pkh); p.set(cs,20);
   return PREFIX+b58enc(p);
 }
-async function addrToPkh(addr){
+function addrToPkh(addr){
   if(!addr.startsWith(PREFIX)) throw new Error('Address must start with CK1');
   const d=b58dec(addr.slice(PREFIX.length));
   if(d.length!==24) throw new Error('Invalid address');
   const pkh=d.slice(0,20), cs=d.slice(20);
-  const exp=(await sha256(await sha256(pkh))).slice(0,4);
+  const exp=sha256(sha256(pkh)).slice(0,4);
   for(let i=0;i<4;i++) if(cs[i]!==exp[i]) throw new Error('Bad address checksum');
   return pkh;
 }
-const validAddr = async a => { try{await addrToPkh(a);return true;}catch{return false;} };
+const validAddr = a => { try{addrToPkh(a);return true;}catch{return false;} };
 
 // ── Mnemonic ──────────────────────────────────────────────────────────────────
-async function entToMn(ent){
-  const h=await sha256(ent), cs=h[0]>>4;
+function entToMn(ent){
+  const h=sha256(ent), cs=h[0]>>4;
   let n=BigInt('0x'+b2hex(ent));
   n=(n<<4n)|BigInt(cs);
   const w=new Array(12);
   for(let i=11;i>=0;i--){w[i]=BIP39[Number(n&0x7FFn)];n>>=11n;}
   return w.join(' ');
 }
-async function mnToEnt(mn){
+function mnToEnt(mn){
   const parts=mn.trim().toLowerCase().split(/\s+/);
   if(parts.length!==12) throw new Error(`Need 12 words, got ${parts.length}`);
   const idx=new Map(BIP39.map((w,i)=>[w,i]));
@@ -403,33 +408,31 @@ async function mnToEnt(mn){
   const h=ent.toString(16).padStart(32,'0');
   const eb=new Uint8Array(16);
   for(let i=0;i<16;i++) eb[i]=parseInt(h.slice(i*2,i*2+2),16);
-  const hash=await sha256(eb);
+  const hash=sha256(eb);
   if(cs!==(hash[0]>>4)) throw new Error('Mnemonic checksum mismatch');
   return eb;
 }
 
 // ── Key derivation ────────────────────────────────────────────────────────────
-async function walletFromSeed(seed){
-  const pub=await getPublicKeyAsync(seed);
-  const pkh=await h160(pub);
-  return {seed,pub,pkh,address:await pkhToAddr(pkh)};
+function walletFromSeed(seed){
+  const pub=getPublicKey(seed);
+  const pkh=h160(pub);
+  return {seed,pub,pkh,address:pkhToAddr(pkh)};
 }
-const walletFromMn = async mn => walletFromSeed(await sha256(await mnToEnt(mn)));
+const walletFromMn = mn => walletFromSeed(sha256(mnToEnt(mn)));
 
 // ── Encryption (PBKDF2 + AES-GCM) ────────────────────────────────────────────
 async function encSeed(seed,pw){
   const salt=crypto.getRandomValues(new Uint8Array(16));
   const iv  =crypto.getRandomValues(new Uint8Array(12));
-  const km=await crypto.subtle.importKey('raw',new TextEncoder().encode(pw),'PBKDF2',false,['deriveKey']);
-  const key=await crypto.subtle.deriveKey({name:'PBKDF2',salt,iterations:150000,hash:'SHA-256'},km,{name:'AES-GCM',length:256},false,['encrypt']);
-  const ct=new Uint8Array(await crypto.subtle.encrypt({name:'AES-GCM',iv},key,seed));
+  const key=await pbkdf2Async(_sha256,new TextEncoder().encode(pw),salt,{c:150000,dkLen:32});
+  const ct=gcm(key,iv).encrypt(seed);
   return {ct,salt,iv};
 }
 async function decSeed(ctB,saltB,ivB,pw){
   const ct=b64d(ctB),salt=b64d(saltB),iv=b64d(ivB);
-  const km=await crypto.subtle.importKey('raw',new TextEncoder().encode(pw),'PBKDF2',false,['deriveKey']);
-  const key=await crypto.subtle.deriveKey({name:'PBKDF2',salt,iterations:150000,hash:'SHA-256'},km,{name:'AES-GCM',length:256},false,['decrypt']);
-  try{return new Uint8Array(await crypto.subtle.decrypt({name:'AES-GCM',iv},key,ct));}
+  const key=await pbkdf2Async(_sha256,new TextEncoder().encode(pw),salt,{c:150000,dkLen:32});
+  try{return gcm(key,iv).decrypt(ct);}
   catch{throw new Error('Wrong password');}
 }
 
@@ -462,7 +465,7 @@ async function txID(tx){
   const tot=p.reduce((a,x)=>a+x.length,0);
   const data=new Uint8Array(tot);let off=0;
   for(const x of p){data.set(x,off);off+=x.length;}
-  return sha256(await sha256(data));
+  return sha256(sha256(data));
 }
 async function buildSignTx(utxos,toAddr,amtCash,seed){
   const needed=amtCash+FEE;
@@ -477,13 +480,13 @@ async function buildSignTx(utxos,toAddr,amtCash,seed){
   const tx={TxID:'',Inputs:inputs,Outputs:outputs,Timestamp:Math.floor(Date.now()/1000),IsCoinbase:false};
   const idBytes=await txID(tx);
   tx.TxID=b64e(idBytes);
-  const pub=await getPublicKeyAsync(seed);
+  const pub=getPublicKey(seed);
   for(let i=0;i<inputs.length;i++){
     const tid=b64d(inputs[i].TxID);
     const ib=new ArrayBuffer(4);new DataView(ib).setUint32(0,inputs[i].OutputIndex,true);
     const pre=new Uint8Array(tid.length+4);pre.set(tid);pre.set(new Uint8Array(ib),tid.length);
-    const msg=await sha256(pre);
-    tx.Inputs[i].Signature=b64e(await signAsync(msg,seed));
+    const msg=sha256(pre);
+    tx.Inputs[i].Signature=b64e(sign(msg,seed));
     tx.Inputs[i].PublicKey =b64e(pub);
   }
   return {tx,txIDHex:b2hex(idBytes)};
