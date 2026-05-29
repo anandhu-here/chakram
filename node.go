@@ -194,7 +194,7 @@ func (n *Node) Start() error {
 		for {
 			select {
 			case <-ticker.C:
-				if n.Server.PeerCount() < MinPeers {
+				if len(n.Server.ConnectedPeers()) < MinPeers {
 					for _, seed := range n.Config.Seeds {
 						if !n.Server.IsConnected(seed) {
 							n.Server.ConnectToPeer(seed) //nolint:errcheck
@@ -215,6 +215,8 @@ func (n *Node) Start() error {
 // Guarantees completion within 5 seconds.
 func (n *Node) Stop() {
 	n.stopOnce.Do(func() {
+		close(n.quit)
+
 		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 		defer cancel()
 
