@@ -61,10 +61,11 @@ type Node struct {
 	Server      *Server
 	SyncManager *SyncManager
 	RPCServer   *RPCServer
-	Engine      *RandomXEngine
-	quit        chan struct{}
-	miningQuit  chan struct{}
-	stopOnce    sync.Once
+	Engine        *RandomXEngine
+	quit          chan struct{}
+	miningQuit    chan struct{}
+	mineLoopDone  chan struct{}
+	stopOnce      sync.Once
 }
 
 // NewNode constructs a fully wired node from cfg.
@@ -130,6 +131,7 @@ func NewNode(cfg NodeConfig) (*Node, error) {
 	if cfg.Mine {
 		node.Engine = &RandomXEngine{}
 		node.miningQuit = make(chan struct{})
+		node.mineLoopDone = make(chan struct{})
 	}
 
 	return node, nil
@@ -199,6 +201,15 @@ func (n *Node) Stop() {
 			defer close(done)
 			if n.Config.Mine && n.miningQuit != nil {
 				close(n.miningQuit)
+				// Wait for mineLoop to exit before closing the engine to
+				// prevent Close() racing with a Hash() call inside MineBlock.
+				if n.mineLoopDone != nil {
+					select {
+					case <-n.mineLoopDone:
+					case <-time.After(10 * time.Second):
+						fmt.Println("WARNING: mineLoop did not exit within 10s")
+					}
+				}
 			}
 			n.RPCServer.Stop()
 			n.SyncManager.Stop()
@@ -221,6 +232,7 @@ func (n *Node) Stop() {
 // ── Mining ────────────────────────────────────────────────────────────────────
 
 func (n *Node) mineLoop() {
+	defer close(n.mineLoopDone)
 	for {
 		select {
 		case <-n.miningQuit:
@@ -264,7 +276,7 @@ func (n *Node) mineLoop() {
 		}
 
 		epochKey := n.epochKey(height)
-		if err := MineBlock(b, n.Engine, epochKey); err != nil {
+		if err := MineBlock(b, n.Engine, epochKey, n.miningQuit); err != nil {
 			continue
 		}
 

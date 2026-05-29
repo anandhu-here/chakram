@@ -99,6 +99,8 @@ func (e *RandomXEngine) Hash(input []byte) []byte {
 
 // Close releases the RandomX resources. Always call this when mining finishes.
 func (e *RandomXEngine) Close() {
+	e.mu.Lock()
+	defer e.mu.Unlock()
 	e.vm = nil
 	e.cache = nil
 }
@@ -139,6 +141,8 @@ func VerifyBlock(b *Block, engine PoWEngine, key []byte) bool {
 // target, using engine for the RandomX hash function. key is the RandomX epoch
 // seed — callers should derive it from the epoch boundary block hash so that
 // Argon2d is only re-run once per epoch rather than once per block.
+// quit is checked after every hash; closing it causes MineBlock to return
+// immediately with an error so the caller's goroutine can exit cleanly.
 //
 // Steps:
 //  1. Keys the engine to key (no-op when key matches the last Init call).
@@ -147,14 +151,20 @@ func VerifyBlock(b *Block, engine PoWEngine, key []byte) bool {
 //  4. Increments Nonce and repeats until a valid hash is found or Nonce wraps.
 //
 // Returns nil when a valid hash is found; returns an error only if the nonce
-// space is exhausted (astronomically unlikely in practice).
-func MineBlock(b *Block, engine PoWEngine, key []byte) error {
+// space is exhausted or quit is closed.
+func MineBlock(b *Block, engine PoWEngine, key []byte, quit <-chan struct{}) error {
 	if err := engine.Init(key); err != nil {
 		return fmt.Errorf("mine: init engine: %w", err)
 	}
 
 	startNonce := b.Header.Nonce
 	for {
+		select {
+		case <-quit:
+			return errors.New("mining cancelled")
+		default:
+		}
+
 		data := serializeHeader(b.Header)
 		b.Hash = engine.Hash(data)
 		runtime.Gosched() // yield after each ~500ms hash so RPC goroutines can run
