@@ -23,7 +23,6 @@ type Blockchain struct {
 	Storage      *Storage
 	UTXOSet      *UTXOSet
 	VerifyEngine *RandomXEngine // RandomX engine used to authenticate received blocks
-	verifyMu     sync.Mutex    // guards VerifyEngine — RandomX VM is not goroutine-safe
 	isSyncing    bool          // true during IBD; skips full RandomX for old blocks
 	syncTarget   uint64        // best peer's height when syncing started
 	syncMu       sync.RWMutex  // guards isSyncing and syncTarget
@@ -156,10 +155,7 @@ func (bc *Blockchain) AddBlock(b *Block) error {
 
 		if !skipPoW {
 			key := bc.epochKey(b.Header.Height)
-			bc.verifyMu.Lock()
-			valid := VerifyBlock(b, bc.VerifyEngine, key)
-			bc.verifyMu.Unlock()
-			if !valid {
+			if !VerifyBlock(b, bc.VerifyEngine, key) {
 				return fmt.Errorf("%w (height %d hash %x)", ErrInvalidPoW, b.Header.Height, b.Hash)
 			}
 		}

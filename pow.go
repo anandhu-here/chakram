@@ -10,6 +10,7 @@ import (
 	"errors"
 	"fmt"
 	"runtime"
+	"sync"
 
 	randomx "git.gammaspectra.live/P2Pool/go-randomx"
 )
@@ -31,6 +32,7 @@ type PoWEngine interface {
 // It operates in light mode (cache-only, ~256 MB) which is required for mobile
 // and sufficient for consensus verification on all platforms.
 type RandomXEngine struct {
+	mu      sync.Mutex // serialises Init+Hash — RandomX VM is not goroutine-safe
 	cache   *randomx.Randomx_Cache
 	vm      *randomx.VM
 	lastKey []byte // last key used for Init; skip re-init when unchanged
@@ -54,6 +56,9 @@ func NewRandomXEngine() *RandomXEngine {
 //     superscalar programs used by InitDatasetItem during hashing.
 //     Skipping step 2 causes a nil-pointer panic at hash time.
 func (e *RandomXEngine) Init(key []byte) error {
+	e.mu.Lock()
+	defer e.mu.Unlock()
+
 	if len(e.lastKey) > 0 && bytes.Equal(key, e.lastKey) {
 		return nil // same epoch key — reuse existing cache and VM
 	}
@@ -85,6 +90,8 @@ func (e *RandomXEngine) Init(key []byte) error {
 // Hash runs the RandomX hash function on input and returns a 32-byte digest.
 // Init must have been called before Hash.
 func (e *RandomXEngine) Hash(input []byte) []byte {
+	e.mu.Lock()
+	defer e.mu.Unlock()
 	out := make([]byte, 32)
 	e.vm.CalculateHash(input, out)
 	return out
