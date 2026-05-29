@@ -687,6 +687,14 @@ func (s *Server) PeerCount() int {
 	return len(s.peers)
 }
 
+// IsConnected reports whether a peer with the given address is currently registered.
+func (s *Server) IsConnected(address string) bool {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	_, exists := s.peers[address]
+	return exists
+}
+
 // ConnectedPeers returns a snapshot of all peers that have completed the handshake.
 func (s *Server) ConnectedPeers() []*Peer {
 	s.mu.RLock()

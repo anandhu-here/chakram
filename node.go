@@ -188,6 +188,25 @@ func (n *Node) Start() error {
 		go n.mineLoop()
 	}
 
+	go func() {
+		ticker := time.NewTicker(30 * time.Second)
+		defer ticker.Stop()
+		for {
+			select {
+			case <-ticker.C:
+				if n.Server.PeerCount() < MinPeers {
+					for _, seed := range n.Config.Seeds {
+						if !n.Server.IsConnected(seed) {
+							n.Server.ConnectToPeer(seed) //nolint:errcheck
+						}
+					}
+				}
+			case <-n.quit:
+				return
+			}
+		}
+	}()
+
 	fmt.Println("Node started. Press Ctrl+C to stop.")
 	return nil
 }
