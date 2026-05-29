@@ -1,626 +1,735 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Chakram Wallet</title>
-    <style>
-        :root {
-            --bg:     #0a0a0f;
-            --bg2:    #111118;
-            --bg3:    #1a1a24;
-            --gold:   #f0c040;
-            --gold2:  #c9a030;
-            --text:   #e0e0e8;
-            --text2:  #8888a0;
-            --border: #2a2a3a;
-            --orange: #ff8c00;
-            --green:  #40c080;
-            --red:    #c04040;
-            --purple: #a080f0;
-        }
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Chakram Wallet</title>
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+html,body{height:100%;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;background:#f0f2f5;color:#1a1a2e;-webkit-font-smoothing:antialiased}
+.screen{display:none;min-height:100vh}
+.screen.active{display:flex}
 
-        * { margin: 0; padding: 0; box-sizing: border-box; }
+/* Welcome */
+#screen-welcome{flex-direction:column;align-items:center;justify-content:center;background:linear-gradient(145deg,#0a1628 0%,#0d2137 60%,#1a3a5c 100%)}
+.welcome-card{background:#fff;border-radius:20px;padding:48px 40px;width:100%;max-width:400px;text-align:center;box-shadow:0 24px 80px rgba(0,0,0,.4);margin:16px}
+.logo-icon{font-size:52px;margin-bottom:6px;line-height:1}
+.logo-name{font-size:30px;font-weight:800;color:#0d2137;letter-spacing:-.5px}
+.logo-sub{color:#94a3b8;font-size:13px;margin-bottom:36px;margin-top:4px}
+.divider-text{color:#cbd5e1;font-size:12px;margin:14px 0;position:relative;text-align:center}
+.divider-text::before,.divider-text::after{content:'';position:absolute;top:50%;width:42%;height:1px;background:#e2e8f0}
+.divider-text::before{left:0}.divider-text::after{right:0}
 
-        body {
-            background: var(--bg);
-            color: var(--text);
-            font-family: 'Courier New', Courier, monospace;
-            min-height: 100vh;
-        }
+/* Buttons */
+.btn{display:block;width:100%;padding:13px 20px;border-radius:10px;font-size:15px;font-weight:600;cursor:pointer;border:none;transition:all .18s;text-align:center}
+.btn+.btn{margin-top:10px}
+.btn-primary{background:#0d2137;color:#fff}
+.btn-primary:hover{background:#162d4a;transform:translateY(-1px);box-shadow:0 4px 14px rgba(13,33,55,.3)}
+.btn-outline{background:transparent;color:#0d2137;border:2px solid #0d2137}
+.btn-outline:hover{background:#f1f5f9}
+.btn-gold{background:linear-gradient(135deg,#c9a840,#a8892e);color:#fff}
+.btn-gold:hover{transform:translateY(-1px);box-shadow:0 4px 14px rgba(168,137,46,.35)}
+.btn-sm{padding:7px 16px;font-size:13px;width:auto;display:inline-block;border-radius:8px}
+.btn:disabled{opacity:.5;cursor:not-allowed;transform:none!important;box-shadow:none!important}
 
-        /* ── Header ─────────────────────────────────────────────── */
-        header {
-            background: var(--bg2);
-            border-bottom: 1px solid var(--border);
-            padding: 1rem 2rem;
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            flex-wrap: wrap;
-            gap: 1rem;
-        }
+/* Create/Restore screens */
+#screen-create,#screen-restore{flex-direction:column;align-items:center;justify-content:center;background:linear-gradient(145deg,#0a1628 0%,#0d2137 60%,#1a3a5c 100%);padding:16px}
+.flow-card{background:#fff;border-radius:20px;padding:36px 32px;width:100%;max-width:500px;box-shadow:0 24px 80px rgba(0,0,0,.4)}
+.flow-title{font-size:22px;font-weight:700;color:#0d2137;margin-bottom:6px}
+.flow-sub{color:#64748b;font-size:14px;margin-bottom:24px;line-height:1.5}
+.back-btn{background:none;border:none;color:#94a3b8;cursor:pointer;font-size:13px;padding:0;margin-bottom:20px;display:flex;align-items:center;gap:5px;transition:color .15s}
+.back-btn:hover{color:#475569}
 
-        .header-brand { display: flex; flex-direction: column; }
+/* Step dots */
+.steps{display:flex;gap:6px;margin-bottom:22px}
+.step-dot{width:8px;height:8px;border-radius:50%;background:#e2e8f0;transition:background .2s}
+.step-dot.active{background:#0d2137}.step-dot.done{background:#c9a840}
 
-        .logo {
-            font-size: 2rem;
-            font-weight: bold;
-            color: var(--gold);
-            letter-spacing: 4px;
-        }
+/* Mnemonic display */
+.mnemonic-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin:18px 0}
+.mnemonic-word{background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:9px 10px;font-size:14px;font-family:'SF Mono',Monaco,monospace;color:#0d2137;display:flex;align-items:center;gap:6px;user-select:all}
+.word-num{color:#94a3b8;font-size:11px;min-width:16px}
 
-        .subtitle { color: var(--text2); font-size: 0.85rem; margin-top: 2px; }
+/* Warning */
+.warning{background:#fffbeb;border:1px solid #fcd34d;border-radius:10px;padding:12px 14px;font-size:13px;color:#92400e;margin:14px 0;display:flex;gap:10px;line-height:1.5}
 
-        nav { display: flex; gap: 0; }
+/* Form */
+.form-group{margin-bottom:14px}
+.form-label{display:block;font-size:13px;font-weight:600;color:#374151;margin-bottom:5px}
+.form-input{width:100%;padding:11px 14px;border:1.5px solid #d1d5db;border-radius:9px;font-size:14px;outline:none;transition:border-color .18s;background:#fff;color:#0d2137}
+.form-input:focus{border-color:#0d2137}
+.form-hint{font-size:12px;color:#9ca3af;margin-top:4px}
+.form-err{font-size:12px;color:#dc2626;margin-top:4px}
 
-        .nav-link {
-            color: var(--text2);
-            text-decoration: none;
-            padding: 6px 14px;
-            border-radius: 5px;
-            font-size: 0.82rem;
-            transition: color 0.2s, background 0.2s;
-        }
+/* Restore mnemonic inputs */
+.mnemonic-inputs{display:grid;grid-template-columns:repeat(4,1fr);gap:7px;margin:14px 0}
+.m-inp-wrap{position:relative}
+.m-inp-num{position:absolute;left:7px;top:50%;transform:translateY(-50%);font-size:10px;color:#9ca3af;pointer-events:none}
+.m-inp{width:100%;padding:8px 6px 8px 20px;border:1.5px solid #d1d5db;border-radius:7px;font-size:12px;font-family:'SF Mono',Monaco,monospace;outline:none;transition:border-color .15s;background:#fff}
+.m-inp:focus{border-color:#0d2137}
+.m-inp.ok{border-color:#16a34a;background:#f0fdf4}
+.m-inp.bad{border-color:#ef4444;background:#fef2f2}
 
-        .nav-link:hover { color: var(--gold); background: var(--bg3); }
-        .nav-link.active { color: var(--gold); background: var(--bg3); }
+/* Checkbox */
+.check-wrap{display:flex;align-items:flex-start;gap:10px;margin:14px 0;cursor:pointer}
+.check-wrap input{width:16px;height:16px;margin-top:2px;flex-shrink:0;accent-color:#0d2137;cursor:pointer}
+.check-label{font-size:14px;color:#374151;line-height:1.45}
 
-        .badge {
-            padding: 4px 12px;
-            border-radius: 999px;
-            font-size: 0.72rem;
-            font-weight: bold;
-            letter-spacing: 1px;
-        }
+/* Wallet screen */
+#screen-wallet{flex-direction:column;background:#f0f2f5;min-height:100vh}
+.wallet-header{background:linear-gradient(145deg,#0a1628 0%,#0d2137 60%,#1a3a5c 100%);padding:18px 20px 22px;color:#fff}
+.header-top{display:flex;align-items:center;justify-content:space-between;margin-bottom:18px}
+.brand{font-size:17px;font-weight:700}
+.header-actions{display:flex;gap:8px}
+.icon-btn{background:rgba(255,255,255,.12);border:none;color:#fff;border-radius:8px;padding:8px 13px;cursor:pointer;font-size:13px;font-weight:600;transition:background .15s;white-space:nowrap}
+.icon-btn:hover{background:rgba(255,255,255,.22)}
+.balance-block{text-align:center;padding:4px 0 14px}
+.bal-label{font-size:11px;opacity:.6;letter-spacing:1px;text-transform:uppercase;margin-bottom:6px}
+.bal-amount{font-size:38px;font-weight:700;letter-spacing:-1px}
+.bal-ticker{font-size:16px;opacity:.75;margin-left:4px}
+.net-badge{display:inline-block;background:rgba(255,255,255,.14);border-radius:20px;padding:3px 11px;font-size:11px;margin-top:7px}
+.addr-bar{background:rgba(255,255,255,.1);border-radius:9px;padding:9px 12px;margin-top:14px;display:flex;align-items:center;justify-content:space-between;gap:8px}
+.addr-text{font-size:12px;font-family:'SF Mono',Monaco,monospace;opacity:.9;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex:1}
+.addr-copy{background:rgba(255,255,255,.18);border:none;color:#fff;border-radius:6px;padding:4px 11px;font-size:11px;font-weight:600;cursor:pointer;flex-shrink:0;transition:background .15s}
+.addr-copy:hover{background:rgba(255,255,255,.32)}
 
-        .badge-testnet { background: var(--orange); color: #000; }
-        .badge-wallet  { background: var(--purple); color: #fff; }
+/* Tabs */
+.wallet-tabs{display:flex;background:#fff;border-bottom:1px solid #e5e7eb;position:sticky;top:0;z-index:10}
+.tab-btn{flex:1;padding:14px;background:none;border:none;font-size:14px;font-weight:600;color:#9ca3af;cursor:pointer;border-bottom:2px solid transparent;transition:all .18s}
+.tab-btn.active{color:#0d2137;border-bottom-color:#0d2137}
+.tab-content{display:none;padding:22px 20px;max-width:560px;margin:0 auto;width:100%}
+.tab-content.active{display:block}
 
-        /* ── Layout ─────────────────────────────────────────────── */
-        .layout {
-            max-width: 1100px;
-            margin: 0 auto;
-            padding: 2rem;
-            display: grid;
-            grid-template-columns: 1fr 300px;
-            gap: 1.5rem;
-            align-items: start;
-        }
+/* Receive */
+.qr-wrap{display:flex;justify-content:center;margin:14px 0;padding:20px;background:#fff;border-radius:14px;box-shadow:0 2px 12px rgba(0,0,0,.07)}
+.full-addr{background:#f8fafc;border:1px solid #e2e8f0;border-radius:10px;padding:14px;font-family:'SF Mono',Monaco,monospace;font-size:12px;word-break:break-all;color:#0d2137;line-height:1.7;margin-bottom:12px}
+.receive-note{font-size:13px;color:#64748b;text-align:center}
 
-        /* ── Cards ──────────────────────────────────────────────── */
-        .card {
-            background: var(--bg2);
-            border: 1px solid var(--border);
-            border-radius: 10px;
-            padding: 1.5rem;
-            margin-bottom: 1.5rem;
-        }
+/* Send */
+.fee-note{background:#eff6ff;border:1px solid #bfdbfe;border-radius:8px;padding:10px 14px;font-size:13px;color:#1e40af;margin:10px 0}
+.tx-summary{background:#f8fafc;border:1px solid #e2e8f0;border-radius:10px;padding:14px;margin:14px 0}
+.sum-row{display:flex;justify-content:space-between;font-size:14px;margin-bottom:7px;color:#374151}
+.sum-row:last-child{margin:0;border-top:1px solid #e2e8f0;padding-top:9px;font-weight:700;color:#0d2137}
+.sum-label{color:#64748b;font-weight:400}
+.max-link{float:right;font-size:11px;color:#0d2137;background:none;border:none;cursor:pointer;font-weight:600;text-decoration:underline;padding:0}
 
-        .card:last-child { margin-bottom: 0; }
+/* Modal */
+.modal-bg{position:fixed;inset:0;background:rgba(0,0,0,.55);display:none;align-items:center;justify-content:center;z-index:1000;padding:16px}
+.modal-bg.open{display:flex}
+.modal{background:#fff;border-radius:18px;padding:30px 26px;width:100%;max-width:380px;box-shadow:0 24px 60px rgba(0,0,0,.35)}
+.modal-title{font-size:19px;font-weight:700;color:#0d2137;margin-bottom:6px}
+.modal-sub{font-size:13px;color:#64748b;margin-bottom:20px;line-height:1.5}
+.modal-btns{display:flex;gap:10px;margin-top:18px}
+.modal-btns .btn{margin:0;flex:1}
 
-        .card-title {
-            color: var(--text2);
-            font-size: 0.7rem;
-            letter-spacing: 2px;
-            text-transform: uppercase;
-            margin-bottom: 1.25rem;
-            padding-bottom: 0.75rem;
-            border-bottom: 1px solid var(--border);
-        }
+/* Toast */
+#toast{position:fixed;bottom:24px;left:50%;transform:translateX(-50%) translateY(80px);background:#1a1a2e;color:#fff;padding:12px 22px;border-radius:10px;font-size:14px;font-weight:500;box-shadow:0 4px 20px rgba(0,0,0,.3);z-index:9999;transition:transform .28s cubic-bezier(.34,1.56,.64,1);white-space:nowrap;max-width:90vw;text-align:center}
+#toast.show{transform:translateX(-50%) translateY(0)}
+#toast.ok{background:#15803d}
+#toast.err{background:#b91c1c}
 
-        /* ── Address lookup ─────────────────────────────────────── */
-        .page-title {
-            text-align: center;
-            margin-bottom: 2rem;
-        }
+/* Spinner */
+.spin{display:inline-block;width:16px;height:16px;border:2px solid rgba(255,255,255,.3);border-top-color:#fff;border-radius:50%;animation:spin .7s linear infinite;vertical-align:middle;margin-right:7px}
+@keyframes spin{to{transform:rotate(360deg)}}
 
-        .page-title h1 {
-            color: var(--gold);
-            font-size: 1.8rem;
-            letter-spacing: 4px;
-            margin-bottom: 0.4rem;
-        }
+/* Settings danger */
+.danger-zone{margin-top:30px;padding-top:20px;border-top:1px solid #e5e7eb}
 
-        .page-title p { color: var(--text2); font-size: 0.88rem; }
-
-        .input-group {
-            display: flex;
-            gap: 0.5rem;
-            margin-bottom: 1rem;
-        }
-
-        .input-group input {
-            flex: 1;
-            background: var(--bg3);
-            border: 1px solid var(--border);
-            color: var(--text);
-            padding: 0.75rem 1rem;
-            border-radius: 6px;
-            font-family: inherit;
-            font-size: 0.9rem;
-            outline: none;
-            transition: border-color 0.2s;
-        }
-
-        .input-group input:focus { border-color: var(--gold); }
-        .input-group input::placeholder { color: var(--text2); }
-
-        .btn {
-            background: var(--gold);
-            color: #000;
-            border: none;
-            padding: 0.75rem 1.5rem;
-            border-radius: 6px;
-            cursor: pointer;
-            font-family: inherit;
-            font-weight: bold;
-            font-size: 0.9rem;
-            transition: background 0.2s;
-            white-space: nowrap;
-        }
-
-        .btn:hover { background: var(--gold2); }
-
-        /* ── Balance display ────────────────────────────────────── */
-        .balance-display {
-            display: none;
-            text-align: center;
-            padding: 2rem 1rem;
-            background: var(--bg3);
-            border-radius: 8px;
-            margin-top: 1rem;
-        }
-
-        .balance-address {
-            color: var(--text2);
-            font-size: 0.78rem;
-            word-break: break-all;
-            margin-bottom: 1rem;
-        }
-
-        .balance-amount {
-            color: var(--gold);
-            font-size: 2.5rem;
-            font-weight: bold;
-            margin-bottom: 0.25rem;
-        }
-
-        .balance-unit { color: var(--text2); font-size: 0.9rem; margin-bottom: 1rem; }
-
-        .balance-meta {
-            display: flex;
-            justify-content: center;
-            gap: 2rem;
-            font-size: 0.8rem;
-            color: var(--text2);
-        }
-
-        .balance-meta span b { color: var(--text); }
-
-        .rich-msg {
-            margin-top: 1rem;
-            font-size: 1.1rem;
-        }
-
-        .error-msg {
-            color: var(--red);
-            text-align: center;
-            padding: 1rem;
-            display: none;
-        }
-
-        /* ── Transactions table ─────────────────────────────────── */
-        .tx-table { width: 100%; border-collapse: collapse; }
-
-        .tx-table th {
-            text-align: left;
-            padding: 0.6rem 0.75rem;
-            color: var(--text2);
-            font-size: 0.68rem;
-            letter-spacing: 1px;
-            text-transform: uppercase;
-            border-bottom: 1px solid var(--border);
-        }
-
-        .tx-table td {
-            padding: 0.7rem 0.75rem;
-            border-bottom: 1px solid var(--border);
-            font-size: 0.82rem;
-            vertical-align: middle;
-        }
-
-        .tx-table tr:last-child td { border-bottom: none; }
-        .tx-table tbody tr:hover { background: var(--bg3); }
-
-        .miner-col { color: var(--green); font-family: monospace; }
-        .reward-col { color: var(--gold); }
-        .time-col { color: var(--text2); font-size: 0.75rem; }
-
-        /* ── Sidebar stats ──────────────────────────────────────── */
-        .stat-row {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            padding: 0.6rem 0;
-            border-bottom: 1px solid var(--border);
-            font-size: 0.85rem;
-        }
-
-        .stat-row:last-child { border-bottom: none; }
-        .stat-key { color: var(--text2); }
-        .stat-val { color: var(--gold); font-weight: bold; }
-
-        /* ── About section ──────────────────────────────────────── */
-        .steps { list-style: none; }
-
-        .steps li {
-            display: flex;
-            gap: 0.75rem;
-            padding: 0.55rem 0;
-            border-bottom: 1px solid var(--border);
-            font-size: 0.82rem;
-            align-items: flex-start;
-            line-height: 1.5;
-        }
-
-        .steps li:last-child { border-bottom: none; }
-        .step-num { color: var(--gold); font-weight: bold; min-width: 18px; flex-shrink: 0; }
-
-        .dl-link {
-            display: inline-block;
-            margin-top: 1rem;
-            background: var(--gold);
-            color: #000;
-            padding: 0.6rem 1.25rem;
-            border-radius: 6px;
-            text-decoration: none;
-            font-weight: bold;
-            font-size: 0.85rem;
-            transition: background 0.2s;
-        }
-
-        .dl-link:hover { background: var(--gold2); }
-
-        .loading-msg {
-            text-align: center;
-            padding: 1.5rem;
-            color: var(--text2);
-            font-size: 0.85rem;
-        }
-
-        /* ── Footer ─────────────────────────────────────────────── */
-        footer {
-            text-align: center;
-            padding: 2rem;
-            color: var(--text2);
-            font-size: 0.78rem;
-            border-top: 1px solid var(--border);
-            margin-top: 1rem;
-        }
-
-        footer a { color: var(--gold); text-decoration: none; }
-
-        ::-webkit-scrollbar { width: 6px; }
-        ::-webkit-scrollbar-track { background: var(--bg); }
-        ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
-
-        @media (max-width: 800px) {
-            .layout { grid-template-columns: 1fr; }
-            .logo { font-size: 1.5rem; }
-        }
-
-        @media (max-width: 500px) {
-            .input-group { flex-direction: column; }
-        }
-    </style>
+@media(max-width:420px){
+  .welcome-card,.flow-card{padding:28px 20px}
+  .mnemonic-grid{grid-template-columns:repeat(2,1fr)}
+  .mnemonic-inputs{grid-template-columns:repeat(3,1fr)}
+  .bal-amount{font-size:30px}
+}
+</style>
 </head>
 <body>
 
-<header>
-    <div class="header-brand">
-        <div class="logo">⬡ CHAKRAM</div>
-        <div class="subtitle">ചക്രം — Kerala's Digital Coin</div>
-    </div>
-    <nav>
-        <a class="nav-link" href="/">Explorer</a>
-        <a class="nav-link active" href="/wallet">Wallet</a>
-        <a class="nav-link" href="/faucet">Faucet</a>
-    </nav>
-    <div class="header-meta">
-        <span class="badge badge-wallet">WALLET</span>
-        <span class="badge badge-testnet">TESTNET</span>
-    </div>
-</header>
-
-<div class="layout">
-
-    <!-- ── Main column ─────────────────────────────────────── -->
-    <div class="main-col">
-
-        <div class="page-title">
-            <h1>⬡ CHAKRAM WALLET</h1>
-            <p>Check your CHK balance</p>
-        </div>
-
-        <!-- Address lookup -->
-        <div class="card">
-            <div class="card-title">Address Lookup</div>
-            <div class="input-group">
-                <input id="addrInput"
-                       type="text"
-                       placeholder="Enter CK1 address…"
-                       autocomplete="off" />
-                <button class="btn" onclick="lookupAddress()">Check Balance</button>
-            </div>
-
-            <div class="balance-display" id="balanceDisplay">
-                <div class="balance-address" id="balanceAddr"></div>
-                <div class="balance-amount" id="balanceAmt"></div>
-                <div class="balance-unit">CHK</div>
-                <div class="balance-meta">
-                    <span><b id="utxoCount">—</b> UTXOs</span>
-                    <span><b id="rawBalance">—</b> Cash</span>
-                </div>
-                <div class="rich-msg" id="richMsg"></div>
-            </div>
-            <div class="error-msg" id="errorMsg"></div>
-        </div>
-
-        <!-- Recent mined blocks -->
-        <div class="card">
-            <div class="card-title">Recent Block Rewards</div>
-            <div id="txSection">
-                <div class="loading-msg">Loading…</div>
-            </div>
-        </div>
-
-        <!-- About / how to get wallet -->
-        <div class="card">
-            <div class="card-title">Get the Chakram Wallet</div>
-            <ol class="steps">
-                <li>
-                    <span class="step-num">1.</span>
-                    <span>Download the Chakram binary for your platform from GitHub Releases</span>
-                </li>
-                <li>
-                    <span class="step-num">2.</span>
-                    <span>Run: <code style="color:var(--gold)">./chakram node --testnet</code> — a wallet is created automatically on first run</span>
-                </li>
-                <li>
-                    <span class="step-num">3.</span>
-                    <span>Your CK1 address is shown at startup. <strong style="color:var(--red)">Back up your 12-word mnemonic immediately.</strong></span>
-                </li>
-                <li>
-                    <span class="step-num">4.</span>
-                    <span>Paste your CK1 address in the lookup above to check your balance anytime</span>
-                </li>
-                <li>
-                    <span class="step-num">5.</span>
-                    <span>Need testnet CHK? Visit the <a href="/faucet" style="color:var(--gold)">Faucet →</a></span>
-                </li>
-            </ol>
-            <a class="dl-link"
-               href="https://github.com/anandhusathe/chakram/releases"
-               target="_blank" rel="noopener">
-                Download Chakram →
-            </a>
-        </div>
-
-    </div>
-
-    <!-- ── Sidebar ──────────────────────────────────────────── -->
-    <div class="sidebar-col">
-        <div class="card">
-            <div class="card-title">Network Stats</div>
-            <div class="stat-row">
-                <span class="stat-key">Height</span>
-                <span class="stat-val" id="sHeight">—</span>
-            </div>
-            <div class="stat-row">
-                <span class="stat-key">Total Mined</span>
-                <span class="stat-val" id="sSupply">—</span>
-            </div>
-            <div class="stat-row">
-                <span class="stat-key">Active Peers</span>
-                <span class="stat-val" id="sPeers">—</span>
-            </div>
-            <div class="stat-row">
-                <span class="stat-key">Latest Block</span>
-                <span class="stat-val" id="sLatest">—</span>
-            </div>
-            <div class="stat-row">
-                <span class="stat-key">Network</span>
-                <span class="stat-val" id="sNetwork">—</span>
-            </div>
-        </div>
-
-        <div class="card">
-            <div class="card-title">Coin Info</div>
-            <div class="stat-row">
-                <span class="stat-key">Name</span>
-                <span class="stat-val">Chakram</span>
-            </div>
-            <div class="stat-row">
-                <span class="stat-key">Ticker</span>
-                <span class="stat-val">CHK</span>
-            </div>
-            <div class="stat-row">
-                <span class="stat-key">Algorithm</span>
-                <span class="stat-val">RandomX</span>
-            </div>
-            <div class="stat-row">
-                <span class="stat-key">Block Time</span>
-                <span class="stat-val">~60s</span>
-            </div>
-            <div class="stat-row">
-                <span class="stat-key">Block Reward</span>
-                <span class="stat-val">50 CHK</span>
-            </div>
-            <div class="stat-row">
-                <span class="stat-key">1 CHK</span>
-                <span class="stat-val">1,000,000 Cash</span>
-            </div>
-        </div>
-    </div>
-
+<!-- WELCOME -->
+<div id="screen-welcome" class="screen">
+  <div class="welcome-card">
+    <div class="logo-icon">⬡</div>
+    <div class="logo-name">Chakram</div>
+    <div class="logo-sub">ചക്രം · Kerala's Digital Currency</div>
+    <button class="btn btn-primary" onclick="UI.showCreate()">Create New Wallet</button>
+    <div class="divider-text">or</div>
+    <button class="btn btn-outline" onclick="UI.showRestore()">Restore from Recovery Phrase</button>
+  </div>
 </div>
 
-<footer>
-    <div>Chakram Testnet — Built with ❤️ in Kerala</div>
-    <div style="margin-top:0.5rem;">
-        <a href="/">Explorer</a> &nbsp;·&nbsp;
-        <a href="/faucet">Faucet</a> &nbsp;·&nbsp;
-        <a href="https://github.com/anandhusathe/chakram" target="_blank" rel="noopener">GitHub</a>
+<!-- CREATE -->
+<div id="screen-create" class="screen">
+  <div class="flow-card">
+    <button class="back-btn" onclick="UI.showWelcome()">← Back</button>
+
+    <div id="create-s1">
+      <div class="steps"><div class="step-dot active" id="d1"></div><div class="step-dot" id="d2"></div></div>
+      <div class="flow-title">Recovery Phrase</div>
+      <div class="flow-sub">Write these 12 words down in order. This is the <strong>only</strong> way to recover your wallet.</div>
+      <div class="mnemonic-grid" id="mnemonic-display"></div>
+      <div class="warning">⚠️&nbsp; Never share your recovery phrase. Store it offline — not in a screenshot or cloud note.</div>
+      <label class="check-wrap">
+        <input type="checkbox" id="backup-confirm" onchange="document.getElementById('btn-to-s2').disabled=!this.checked">
+        <span class="check-label">I have written down all 12 words in order and stored them safely</span>
+      </label>
+      <button class="btn btn-primary" id="btn-to-s2" onclick="UI.goToStep2()" disabled>Continue →</button>
     </div>
-</footer>
 
+    <div id="create-s2" style="display:none">
+      <div class="steps"><div class="step-dot done"></div><div class="step-dot active"></div></div>
+      <div class="flow-title">Protect Your Wallet</div>
+      <div class="flow-sub">Set a password to encrypt your wallet locally. You will need it to send transactions.</div>
+      <div class="form-group">
+        <label class="form-label">Password</label>
+        <input type="password" id="c-pw" class="form-input" placeholder="At least 8 characters" oninput="UI.checkPW('c')">
+      </div>
+      <div class="form-group">
+        <label class="form-label">Confirm Password</label>
+        <input type="password" id="c-pw2" class="form-input" placeholder="Repeat password" oninput="UI.checkPW('c')">
+        <div class="form-err" id="c-pw-err" style="display:none">Passwords do not match</div>
+      </div>
+      <div class="form-hint" style="margin-bottom:16px">Forgot your password? Restore using your recovery phrase.</div>
+      <button class="btn btn-primary" id="btn-create" onclick="Actions.createWallet()" disabled>Create Wallet</button>
+    </div>
+  </div>
+</div>
+
+<!-- RESTORE -->
+<div id="screen-restore" class="screen">
+  <div class="flow-card">
+    <button class="back-btn" onclick="UI.showWelcome()">← Back</button>
+    <div class="flow-title">Restore Wallet</div>
+    <div class="flow-sub">Enter your 12-word recovery phrase in order. Words are lowercase.</div>
+    <div class="mnemonic-inputs" id="restore-grid"></div>
+    <div class="form-err" id="restore-phrase-err" style="display:none;margin-bottom:10px"></div>
+    <div class="form-group">
+      <label class="form-label">New Password</label>
+      <input type="password" id="r-pw" class="form-input" placeholder="At least 8 characters" oninput="UI.checkPW('r')">
+    </div>
+    <div class="form-group">
+      <label class="form-label">Confirm Password</label>
+      <input type="password" id="r-pw2" class="form-input" placeholder="Repeat password" oninput="UI.checkPW('r')">
+      <div class="form-err" id="r-pw-err" style="display:none">Passwords do not match</div>
+    </div>
+    <button class="btn btn-primary" id="btn-restore" onclick="Actions.restoreWallet()" style="margin-top:6px">Restore Wallet</button>
+  </div>
+</div>
+
+<!-- WALLET -->
+<div id="screen-wallet" class="screen">
+  <div class="wallet-header">
+    <div class="header-top">
+      <div class="brand">⬡ Chakram Wallet</div>
+      <div class="header-actions">
+        <button class="icon-btn" onclick="Actions.refresh()">↻ Refresh</button>
+        <button class="icon-btn" onclick="Actions.lock()">🔒 Lock</button>
+      </div>
+    </div>
+    <div class="balance-block">
+      <div class="bal-label">Balance</div>
+      <div><span class="bal-amount" id="bal-amt">—</span><span class="bal-ticker">CHK</span></div>
+      <div><span class="net-badge" id="net-badge">Testnet</span></div>
+    </div>
+    <div class="addr-bar">
+      <div class="addr-text" id="hdr-addr">—</div>
+      <button class="addr-copy" onclick="Actions.copyAddr()">Copy</button>
+    </div>
+  </div>
+
+  <div class="wallet-tabs">
+    <button class="tab-btn active" id="t-receive" onclick="UI.tab('receive')">Receive</button>
+    <button class="tab-btn"        id="t-send"    onclick="UI.tab('send')">Send</button>
+    <button class="tab-btn"        id="t-settings"onclick="UI.tab('settings')">Settings</button>
+  </div>
+
+  <div id="tab-receive" class="tab-content active">
+    <div class="qr-wrap"><div id="qrcode"></div></div>
+    <div class="full-addr" id="recv-addr">—</div>
+    <button class="btn btn-outline btn-sm" onclick="Actions.copyAddr()" style="display:block;margin:0 auto 10px">Copy Address</button>
+    <div class="receive-note">Share this address to receive CHK payments</div>
+  </div>
+
+  <div id="tab-send" class="tab-content">
+    <div class="form-group">
+      <label class="form-label">Recipient Address</label>
+      <input type="text" id="s-to" class="form-input" placeholder="CK1…" autocomplete="off" oninput="UI.sendPreview()">
+      <div class="form-err" id="s-to-err" style="display:none"></div>
+    </div>
+    <div class="form-group">
+      <label class="form-label">
+        Amount (CHK)
+        <button class="max-link" onclick="UI.fillMax()">MAX</button>
+      </label>
+      <input type="number" id="s-amt" class="form-input" placeholder="0.000000" step="0.000001" min="0" oninput="UI.sendPreview()">
+      <div class="form-hint" id="s-avail">Available: —</div>
+    </div>
+    <div class="fee-note">⛽ Network fee: <strong>0.001000 CHK</strong></div>
+    <div class="tx-summary" id="s-summary" style="display:none">
+      <div class="sum-row"><span class="sum-label">You send</span><span id="sum-send">—</span></div>
+      <div class="sum-row"><span class="sum-label">Network fee</span><span>0.001000 CHK</span></div>
+      <div class="sum-row"><span class="sum-label">Total deducted</span><span id="sum-total">—</span></div>
+    </div>
+    <div class="form-err" id="s-err" style="display:none"></div>
+    <button class="btn btn-gold" id="btn-send" onclick="Actions.initSend()" style="margin-top:4px">Send CHK</button>
+  </div>
+
+  <div id="tab-settings" class="tab-content">
+    <div class="form-group">
+      <div class="form-label" style="margin-bottom:8px">Wallet Address</div>
+      <div class="full-addr" id="settings-addr">—</div>
+    </div>
+    <div class="form-group">
+      <div class="form-label" style="margin-bottom:6px">Recovery Phrase</div>
+      <div class="form-hint" style="margin-bottom:10px">View your 12-word recovery phrase. Keep it private — it gives full access to your funds.</div>
+      <button class="btn btn-outline btn-sm" onclick="Actions.showMnemonic()">Reveal Recovery Phrase</button>
+    </div>
+    <div class="danger-zone">
+      <div class="form-label" style="color:#dc2626;margin-bottom:8px">Danger Zone</div>
+      <button class="btn btn-sm" style="background:#fef2f2;color:#dc2626;border:1px solid #fecaca" onclick="Actions.removeWallet()">Remove Wallet from This Browser</button>
+    </div>
+  </div>
+</div>
+
+<!-- PASSWORD MODAL -->
+<div class="modal-bg" id="modal-pw">
+  <div class="modal">
+    <div class="modal-title" id="modal-pw-title">Enter Password</div>
+    <div class="modal-sub"   id="modal-pw-sub">Enter your wallet password to continue.</div>
+    <div class="form-group">
+      <input type="password" id="modal-pw-input" class="form-input" placeholder="Password"
+             onkeydown="if(event.key==='Enter')Actions.confirmPW()">
+      <div class="form-err" id="modal-pw-err" style="display:none">Incorrect password</div>
+    </div>
+    <div class="modal-btns">
+      <button class="btn btn-outline" onclick="UI.closePWModal()">Cancel</button>
+      <button class="btn btn-primary" id="btn-confirm-pw" onclick="Actions.confirmPW()">Confirm</button>
+    </div>
+  </div>
+</div>
+
+<!-- MNEMONIC MODAL -->
+<div class="modal-bg" id="modal-mn">
+  <div class="modal">
+    <div class="modal-title">Recovery Phrase</div>
+    <div class="modal-sub">Keep this private. Anyone with these words controls your wallet.</div>
+    <div class="mnemonic-grid" id="modal-mn-grid" style="margin-bottom:16px"></div>
+    <button class="btn btn-primary" onclick="document.getElementById('modal-mn').classList.remove('open')">Done</button>
+  </div>
+</div>
+
+<div id="toast"></div>
+
+<!-- BIP39 English wordlist (standard, 2048 words) -->
 <script>
-'use strict';
+var BIP39=("abandon ability able about above absent absorb abstract absurd abuse access accident account accuse achieve acid acoustic acquire across act action actor actress actual adapt add addict address adjust admit adult advance advice aerobic afford afraid again age agent agree ahead aim air airport aisle alarm album alcohol alert alien all alley allow almost alone alpha already also alter always amateur amazing among amount amused analyst anchor ancient anger angle angry animal ankle announce annual another answer antenna antique anxiety any apart apology appear apple approve april arch arctic area arena argue arm armed armor army around arrange arrest arrive arrow art artefact artist artwork ask aspect assault asset assist assume asthma athlete atom attack attend attitude attract auction audit august aunt author auto autumn average avocado avoid awake aware away awesome awful awkward axis baby balance bamboo banana banner bar barely bargain barrel base basic basket battle beach bean beauty because become beef before begin behave behind believe below bench benefit best betray better between beyond bicycle bid bike bind biology bird birth bitter black blade blame blanket blast bleak bless blind blood blossom blouse blue blur blush board boat body boil bomb bone bonus book boost border boring borrow boss bottom bounce box boy bracket brain brand brave breeze brick bridge brief bright bring brisk broccoli broken bronze broom brother brown brush bubble buddy budget buffalo build bulb bulk bullet bundle bunker burden burger burst bus business busy butter buyer buzz cabbage cabin cable cactus cage cake call calm camera camp can canal cancel candy cannon canvas canyon capable capital captain car carbon card cargo carpet carry cart case cash casino castle casual cat catalog catch category cattle caught cause caution cave ceiling celery cement census chair chaos chapter charge chase chat cheap check cheese chef cherry chest chicken chief child chimney choice choose chronic chuckle chunk cinnamon circle citizen city civil claim clap clarify claw clay clean clerk clever click client cliff climb clinic clip clock clog close cloth cloud clown club clump cluster clutch coach coast coconut code coffee coil coin collect color column combine come comfort comic common company concert conduct confirm congress connect consider control convince cook cool copper copy coral core corn correct cost cotton couch country courier cover coyote crack cradle craft cram crane crash crater crawl crazy cream credit creek crew cricket crime crisp critic cross crouch crowd crucial cruel cruise crumble crunch crush cry crystal cube culture cup cupboard curious current curtain curve cushion custom cute cycle dad damage damp dance danger daring dash daughter dawn day deal debate debris decade december decide decline decorate decrease deer defense define defy degree delay deliver demand demise denial dentist deny depart depend deposit depth deputy derive describe desert design desk despair destroy detail detect develop device devote diagram dial diamond diary dice diesel diet differ digital dignity dilemma dinner dinosaur direct dirt disagree discover disease dish dismiss disorder display distance divert divide divorce dizzy doctor document dog doll dolphin domain donate donkey donor door dose double dove draft dragon drama drastic draw dream dress drift drill drink drip drive drop drum dry duck dumb dune during dust dutch duty dwarf dynamic eager eagle early earn earth easily east easy echo ecology edge edit educate effort egg eight either elbow elder electric elegant element elephant elevator elite else embark embody embrace emerge emotion employ empower empty enable enact endless endorse enemy enhance enjoy enlist enough enrich enroll ensure enter entire entry envelope episode equal equip erase erode erosion error erupt escape essay essence estate eternal ethics evidence evil evoke evolve exact example excess exchange excite exclude exercise exhaust exhibit exile exist exit exotic expand expire explain expose express extend extra eye fable face faculty fade faint faith fall false fame family famous fan fancy fantasy far fashion fat fatal father fatigue fault favorite feature february federal fee feed feel feet fellow felt fence festival fetch fever few fiber fiction field figure file film filter final find fine finger finish fire firm first fiscal fish fit fitness fix flag flame flash flat flavor flee flight flip float flock floor flower fluid flush fly foam focus fog foil follow food force forest forget fork fortune forum forward fossil foster found fox fragile frame frequent fresh friend fringe frog front frost frown frozen fruit fuel fun funny furnace fury future gadget gain galaxy gallery game gap garage garbage garden garlic garment gas gasp gate gather gauge gaze general genius genre gentle genuine gesture ghost ginger giraffe girl give glad glance glare glass glide glimpse globe gloom glory glove glow glue goat goddess gold good goose gorilla gospel gossip govern gown grab grace grain grant grape grasp grass gravity great green grid grief grit grocery group grow grunt guard guide guilt guitar gun gym habit hair half hammer hamster hand happy harsh harvest hat have hawk hazard head health heart heavy hedgehog height hello helmet help hen hero hidden high hill hint hip hire history hobby hockey hold hole holiday hollow home honey hood hope horn hospital host hour hover hub huge human humble humor hundred hungry hunt hurdle hurry hurt husband hybrid ice icon ignore ill illegal image imitate immense immune impact impose improve impulse inbox income increase index indicate indoor industry infant inflict inform inhale inject injury inmate inner innocent input inquiry insane insect inside inspire install intact interest into invest invite involve iron island isolate issue item ivory jacket jaguar jar jazz jealous jeans jelly jewel job join joke journey joy judge juice jump jungle junior junk just kangaroo keen keep ketchup key kick kid kingdom kiss kit kitchen kite kitten kiwi knee knife knock know lab ladder lady lake lamp language laptop large later laugh laundry lava law lawn lawsuit layer lazy leader learn leave lecture left leg legal legend leisure lemon lend length lens leopard lesson letter level liar liberty library license life lift light like limb limit link lion liquid list little live lizard load loan lobster local lock logic lonely long loop lottery loud lounge love loyal lucky luggage lumber lunar lunch luxury lyrics magic magnet maid main major make mammal mango mansion manual maple marble march margin marine marriage mask master match material math matrix matter maximum maze meadow mean medal media melody melt member memory mention menu mercy merge merit merry mesh message metal method middle midnight milk million mimic mind minimum minor miracle miss mixed mixture mobile model modify mom monitor monkey monster month moon moral more morning mosquito mother motion motor mountain mouse move movie much muffin mule multiply muscle museum mushroom music must mutual myself mystery naive name napkin narrow nasty natural nature near neck need negative neglect neither nephew nerve network news next nice night noble noise nominee noodle normal north notable note nothing notice novel now nuclear nurse nut oak obey object oblige obscure observe obtain ocean october odor off offer office often oil okay old olive olympic omit once onion open oppose option orange orbit orchard order ordinary organ orient original orphan ostrich other outdoor outside oval over own oyster ozone packet page pair palace palm panda panel panic panther paper parade parent park parrot party pass patch path patrol pause pave payment peace peanut peasant pelican pen penalty pencil people pepper perfect permit person pet phone photo phrase physical piano picnic picture piece pig pigeon pill pilot pink pioneer pipe pistol pitch pizza place planet plastic plate play please pledge pluck plug plunge poem poet point polar pole police pond pony popular portion position possible post potato pottery poverty powder power practice praise predict prefer prepare present pretty prevent price pride primary print priority prison private prize problem process produce profit program project promote proof property prosper protect proud provide public pudding pull pulp pulse pumpkin punch pupil puppy purchase purity purpose push put puzzle pyramid quality quantum quarter question quick quit quiz quote rabbit raccoon race rack radar radio rage rail rain raise rally ramp ranch random range rapid rare rate rather raven reach ready real reason rebel rebuild recall receive recipe record recycle reduce reflect reform refuse region regret regular reject relax release relief rely remain remember remind remove render renew rent reopen repair repeat replace report require rescue resemble resist resource response result retire retreat return reunion reveal review reward rhythm ribbon rice rich ride rifle right rigid ring riot ripple risk ritual rival river road roast robot robust rocket romance roof rookie rotate rough round route royal rubber rude rug rule run runway rural sad saddle sadness safe sail salad salmon salon salt salute same sample sand satisfy satoshi sauce sausage save say scale scan scare scatter scene scheme school science scissors scorpion scout scrap screen script scrub sea search season seat second secret section security seed seek segment select sell seminar senior sense sentence series service session settle setup seven shadow shaft shallow share shed shell sheriff shield shift shine ship shiver shock shoe shoot shop short shoulder shove shrimp shrug shuffle shy sibling siege sight sign silent silk silly silver similar simple since sing siren sister situate six size sketch skill skin skirt skull slab slam sleep slender slice slide slight slim slogan slot slow slush small smart smile smoke smooth snack snake snap sniff snow soap soccer social sock solar soldier solid solution solve someone song soon sorry soul sound soup source south space spare spatial spawn speak special speed sphere spice spider spike spin spirit split spoil sponsor spoon spray spread spring spy square squeeze squirrel stable stadium staff stage stairs stamp stand start state stay steak steel stem step stereo stick still sting stock stomach stone stop storage store storm story stove strategy street strike strong struggle student stuff stumble style subject submit subway success such sudden suffer sugar suggest suit summer sun sunny sunset super supply supreme sure surface surge surprise sustain swallow swamp swap swear sweet swift swim swing switch sword symbol symptom syrup table tackle tag tail talent tamper tank tape target task tattoo taxi teach team tell ten tenant tennis tent term test text thank that theme then theory there they thing this thought three thrive throw thumb thunder ticket tilt timber time tiny tip tired title toast tobacco today together toilet token tomato tomorrow tone tongue tonight tool tooth top topic topple torch tornado tortoise toss total tourist toward tower town toy track trade traffic tragic train transfer trap trash travel tray treat tree trend trial tribe trick trigger trim trip trophy trouble truck truly trumpet trust truth tube tuition tumble tuna tunnel turkey turn turtle twelve twenty twice twin twist two type typical ugly umbrella unable unaware uncle uncover under undo unfair unfold unhappy uniform unique universe unknown unlock until unusual unveil update upgrade uphold upon upper upset urban usage use used useful useless usual utility vacant vacuum vague valid valley valve van vanish vapor various vast vault vehicle velvet vendor venture venue verb verify version very vessel veteran viable vibrant vicious victory video view village vintage violin virtual virus visa visit visual vital vivid vocal voice void volcano volume vote voyage wage wagon wait walk wall walnut want warfare warm warrior wash wasp waste water wave way wealth weapon wear weasel weather web wedding weekend weird welcome well west wet whale wheat wheel when where whip whisper wide width wife wild will win window wine wing wink winner winter wire wisdom wise wish witness wolf woman wonder wood wool word world worry worth wrap wreck wrestle wrist write wrong yard year yellow you young youth zebra zero zone zoo").split(' ');
+</script>
 
-const RPC = 'http://34.1.166.49:18339';
+<script src="https://cdn.jsdelivr.net/npm/qrcodejs@1.0.0/qrcode.min.js"></script>
 
-function timeAgo(ts) {
-    const d = Math.floor(Date.now() / 1000) - ts;
-    if (d < 5)     return 'just now';
-    if (d < 60)    return d + ' secs ago';
-    if (d < 3600)  return Math.floor(d / 60) + ' mins ago';
-    if (d < 86400) return Math.floor(d / 3600) + ' hrs ago';
-    return Math.floor(d / 86400) + ' days ago';
+<script type="module">
+import { getPublicKeyAsync, signAsync } from 'https://esm.sh/@noble/ed25519@2.0.0';
+import { ripemd160 } from 'https://esm.sh/@noble/hashes@1.3.3/ripemd160';
+
+// ── Constants ─────────────────────────────────────────────────────────────────
+const CASH   = 1_000_000;   // CashPerCHK
+const FEE    = 1_000;       // MinTxFee in Cash
+const PREFIX = 'CK1';
+const B58    = '123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz';
+
+// ── App state ─────────────────────────────────────────────────────────────────
+const S = { address:null, seed:null, pubKeyHash:null, balance:null };
+let pendingSend=null, pwAction=null, qrDone=false;
+
+// ── Base58 ────────────────────────────────────────────────────────────────────
+function b58enc(b){
+  let z=0; for(const x of b){if(x===0)z++;else break;}
+  let n=0n; for(const x of b) n=n*256n+BigInt(x);
+  let s=''; while(n>0n){const m=n%58n;s=B58[Number(m)]+s;n/=58n;}
+  return B58[0].repeat(z)+s;
+}
+function b58dec(s){
+  let z=0; for(const c of s){if(c==='1')z++;else break;}
+  let n=0n;
+  for(const c of s){const i=B58.indexOf(c);if(i<0)throw new Error('Bad base58: '+c);n=n*58n+BigInt(i);}
+  let h=n.toString(16); if(h.length%2)h='0'+h;
+  const o=new Uint8Array(z+h.length/2);
+  for(let i=0;i<h.length/2;i++) o[z+i]=parseInt(h.slice(i*2,i*2+2),16);
+  return o;
 }
 
-function trunc(s, n = 16) {
-    return s && s.length > n ? s.slice(0, n) + '…' : s;
+// ── Byte helpers ──────────────────────────────────────────────────────────────
+const b64e = b => btoa(String.fromCharCode(...b));
+const b64d = s => Uint8Array.from(atob(s),c=>c.charCodeAt(0));
+const hex2b = s => { const a=new Uint8Array(s.length/2); for(let i=0;i<a.length;i++) a[i]=parseInt(s.slice(i*2,i*2+2),16); return a; };
+const b2hex = b => Array.from(b,x=>x.toString(16).padStart(2,'0')).join('');
+
+// ── Crypto helpers ────────────────────────────────────────────────────────────
+const sha256 = async d => new Uint8Array(await crypto.subtle.digest('SHA-256',d));
+const h160   = async d => ripemd160(await sha256(d));
+
+// ── Address ───────────────────────────────────────────────────────────────────
+async function pkhToAddr(pkh){
+  const cs=(await sha256(await sha256(pkh))).slice(0,4);
+  const p=new Uint8Array(24); p.set(pkh); p.set(cs,20);
+  return PREFIX+b58enc(p);
+}
+async function addrToPkh(addr){
+  if(!addr.startsWith(PREFIX)) throw new Error('Address must start with CK1');
+  const d=b58dec(addr.slice(PREFIX.length));
+  if(d.length!==24) throw new Error('Invalid address');
+  const pkh=d.slice(0,20), cs=d.slice(20);
+  const exp=(await sha256(await sha256(pkh))).slice(0,4);
+  for(let i=0;i<4;i++) if(cs[i]!==exp[i]) throw new Error('Bad address checksum');
+  return pkh;
+}
+const validAddr = async a => { try{await addrToPkh(a);return true;}catch{return false;} };
+
+// ── Mnemonic ──────────────────────────────────────────────────────────────────
+async function entToMn(ent){
+  const h=await sha256(ent), cs=h[0]>>4;
+  let n=BigInt('0x'+b2hex(ent));
+  n=(n<<4n)|BigInt(cs);
+  const w=new Array(12);
+  for(let i=11;i>=0;i--){w[i]=BIP39[Number(n&0x7FFn)];n>>=11n;}
+  return w.join(' ');
+}
+async function mnToEnt(mn){
+  const parts=mn.trim().toLowerCase().split(/\s+/);
+  if(parts.length!==12) throw new Error(`Need 12 words, got ${parts.length}`);
+  const idx=new Map(BIP39.map((w,i)=>[w,i]));
+  let n=0n;
+  for(const w of parts){const i=idx.get(w);if(i===undefined)throw new Error(`Unknown word: "${w}"`);n=(n<<11n)|BigInt(i);}
+  const cs=Number(n&0xFn), ent=n>>4n;
+  const h=ent.toString(16).padStart(32,'0');
+  const eb=new Uint8Array(16);
+  for(let i=0;i<16;i++) eb[i]=parseInt(h.slice(i*2,i*2+2),16);
+  const hash=await sha256(eb);
+  if(cs!==(hash[0]>>4)) throw new Error('Mnemonic checksum mismatch');
+  return eb;
 }
 
-function esc(s) {
-    return String(s)
-        .replace(/&/g, '&amp;').replace(/</g, '&lt;')
-        .replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+// ── Key derivation ────────────────────────────────────────────────────────────
+async function walletFromSeed(seed){
+  const pub=await getPublicKeyAsync(seed);
+  const pkh=await h160(pub);
+  return {seed,pub,pkh,address:await pkhToAddr(pkh)};
+}
+const walletFromMn = async mn => walletFromSeed(await sha256(await mnToEnt(mn)));
+
+// ── Encryption (PBKDF2 + AES-GCM) ────────────────────────────────────────────
+async function encSeed(seed,pw){
+  const salt=crypto.getRandomValues(new Uint8Array(16));
+  const iv  =crypto.getRandomValues(new Uint8Array(12));
+  const km=await crypto.subtle.importKey('raw',new TextEncoder().encode(pw),'PBKDF2',false,['deriveKey']);
+  const key=await crypto.subtle.deriveKey({name:'PBKDF2',salt,iterations:150000,hash:'SHA-256'},km,{name:'AES-GCM',length:256},false,['encrypt']);
+  const ct=new Uint8Array(await crypto.subtle.encrypt({name:'AES-GCM',iv},key,seed));
+  return {ct,salt,iv};
+}
+async function decSeed(ctB,saltB,ivB,pw){
+  const ct=b64d(ctB),salt=b64d(saltB),iv=b64d(ivB);
+  const km=await crypto.subtle.importKey('raw',new TextEncoder().encode(pw),'PBKDF2',false,['deriveKey']);
+  const key=await crypto.subtle.deriveKey({name:'PBKDF2',salt,iterations:150000,hash:'SHA-256'},km,{name:'AES-GCM',length:256},false,['decrypt']);
+  try{return new Uint8Array(await crypto.subtle.decrypt({name:'AES-GCM',iv},key,ct));}
+  catch{throw new Error('Wrong password');}
 }
 
-function richMessage(balanceCHK) {
-    if (balanceCHK === 0)     return '😢 Empty wallet — visit the Faucet to get some CHK!';
-    if (balanceCHK < 10)      return '🌱 Just getting started!';
-    if (balanceCHK < 100)     return '💰 Building up nicely!';
-    if (balanceCHK < 1000)    return '🤑 Looking good!';
-    if (balanceCHK < 10000)   return '🚀 Whale in the making!';
-    return '🐳 Chakram whale detected!';
+// ── Storage ───────────────────────────────────────────────────────────────────
+const KEY='chakram_wallet';
+const storeW=(addr,mn,ct,salt,iv)=>localStorage.setItem(KEY,JSON.stringify({v:1,addr,mn,ct:b64e(ct),salt:b64e(salt),iv:b64e(iv)}));
+const loadW =()=>{const r=localStorage.getItem(KEY);return r?JSON.parse(r):null;};
+const clearW=()=>localStorage.removeItem(KEY);
+
+// ── RPC ───────────────────────────────────────────────────────────────────────
+const rpc=async(p,o)=>{const r=await fetch(p,o);const d=await r.json();if(d.error)throw new Error(d.error);return d;};
+const getInfo   =()   =>rpc('/info');
+const getBal    =addr =>rpc(`/address/${addr}`);
+const getUTXOs  =addr =>rpc(`/utxos/${addr}`);
+const postTx    =tx   =>rpc('/tx/submit',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(tx)});
+
+// ── Transaction ───────────────────────────────────────────────────────────────
+async function txID(tx){
+  const p=[];
+  p.push(new Uint8Array([0])); // IsCoinbase=false
+  for(const inp of tx.Inputs){
+    p.push(b64d(inp.TxID));
+    const b=new ArrayBuffer(4);new DataView(b).setUint32(0,inp.OutputIndex,true);p.push(new Uint8Array(b));
+  }
+  for(const out of tx.Outputs){
+    const b=new ArrayBuffer(8);new DataView(b).setBigUint64(0,BigInt(out.Value),true);p.push(new Uint8Array(b));
+    p.push(b64d(out.PublicKeyHash));
+  }
+  const tb=new ArrayBuffer(8);new DataView(tb).setBigInt64(0,BigInt(tx.Timestamp),true);p.push(new Uint8Array(tb));
+  const tot=p.reduce((a,x)=>a+x.length,0);
+  const data=new Uint8Array(tot);let off=0;
+  for(const x of p){data.set(x,off);off+=x.length;}
+  return sha256(await sha256(data));
+}
+async function buildSignTx(utxos,toAddr,amtCash,seed){
+  const needed=amtCash+FEE;
+  const sel=[];let total=0;
+  for(const u of utxos){if(!u.mature)continue;if(total<needed){sel.push(u);total+=u.value;}}
+  if(total<needed) throw new Error(`Need ${fmt(needed)} CHK, mature balance is ${fmt(total)} CHK`);
+  const inputs=sel.map(u=>({TxID:b64e(hex2b(u.txid)),OutputIndex:u.output_index,Signature:b64e(new Uint8Array(64)),PublicKey:b64e(new Uint8Array(32))}));
+  const toPKH=await addrToPkh(toAddr);
+  const outputs=[{Value:amtCash,PublicKeyHash:b64e(toPKH)}];
+  const change=total-amtCash-FEE;
+  if(change>0) outputs.push({Value:change,PublicKeyHash:b64e(S.pubKeyHash)});
+  const tx={TxID:'',Inputs:inputs,Outputs:outputs,Timestamp:Math.floor(Date.now()/1000),IsCoinbase:false};
+  const idBytes=await txID(tx);
+  tx.TxID=b64e(idBytes);
+  const pub=await getPublicKeyAsync(seed);
+  for(let i=0;i<inputs.length;i++){
+    const tid=b64d(inputs[i].TxID);
+    const ib=new ArrayBuffer(4);new DataView(ib).setUint32(0,inputs[i].OutputIndex,true);
+    const pre=new Uint8Array(tid.length+4);pre.set(tid);pre.set(new Uint8Array(ib),tid.length);
+    const msg=await sha256(pre);
+    tx.Inputs[i].Signature=b64e(await signAsync(msg,seed));
+    tx.Inputs[i].PublicKey =b64e(pub);
+  }
+  return {tx,txIDHex:b2hex(idBytes)};
 }
 
-// ── Network stats ──────────────────────────────────────────────────
+// ── Helpers ───────────────────────────────────────────────────────────────────
+const fmt=c=>(c/CASH).toFixed(6);
+const $=id=>document.getElementById(id);
+const show=id=>$(id).style.display='';
+const hide=id=>$(id).style.display='none';
 
-async function loadStats() {
-    try {
-        const [info, blocks] = await Promise.all([
-            fetch(RPC + '/info').then(r => r.json()),
-            fetch(RPC + '/blocks/latest/10').then(r => r.json()),
-        ]);
+let _toastT;
+function toast(msg,type=''){
+  const el=$('toast'); el.textContent=msg; el.className='show '+type;
+  clearTimeout(_toastT); _toastT=setTimeout(()=>el.className='',3000);
+}
+function setBtn(id,html,dis=false){const e=$(id);e.innerHTML=html;e.disabled=dis;}
 
-        document.getElementById('sHeight').textContent =
-            info.height.toLocaleString();
-        document.getElementById('sSupply').textContent =
-            (info.total_supply_mined / 1_000_000).toFixed(2) + ' CHK';
-        document.getElementById('sPeers').textContent = info.peers;
-        document.getElementById('sNetwork').textContent =
-            info.network.charAt(0).toUpperCase() + info.network.slice(1);
+function showScreen(id){
+  document.querySelectorAll('.screen').forEach(s=>s.classList.remove('active'));
+  $(id).classList.add('active');
+}
+function genQR(addr){
+  if(qrDone)return;
+  const el=$('qrcode');el.innerHTML='';
+  try{new QRCode(el,{text:addr,width:200,height:200,colorDark:'#0d2137',colorLight:'#fff'});qrDone=true;}
+  catch{el.style.cssText='font-family:monospace;font-size:11px;word-break:break-all;color:#0d2137';el.textContent=addr;}
+}
+async function openWallet(){
+  const a=S.address;
+  $('hdr-addr').textContent=$('recv-addr').textContent=$('settings-addr').textContent=a;
+  $('bal-amt').textContent='…';
+  showScreen('screen-wallet');
+  UI.tab('receive'); genQR(a);
+  await Actions.refresh();
+  try{const info=await getInfo();$('net-badge').textContent=info.network==='testnet'?'Testnet':'Mainnet';}catch{}
+}
 
-        if (blocks.length > 0) {
-            document.getElementById('sLatest').textContent =
-                timeAgo(blocks[0].timestamp);
-        }
+// ── UI namespace (called from onclick attrs) ──────────────────────────────────
+window.UI={
+  showWelcome(){showScreen('screen-welcome');},
 
-        renderRecentBlocks(blocks);
-    } catch (e) {
-        ['sHeight', 'sSupply', 'sPeers', 'sLatest', 'sNetwork'].forEach(id => {
-            document.getElementById(id).textContent = 'offline';
-        });
-        document.getElementById('txSection').innerHTML =
-            '<div class="loading-msg" style="color:var(--red)">⚠ Node unreachable</div>';
+  async showCreate(){
+    const ent=crypto.getRandomValues(new Uint8Array(16));
+    const seed=await sha256(ent);
+    const mn=await entToMn(ent);
+    const {pkh,address}=await walletFromSeed(seed);
+    sessionStorage.setItem('_s',b64e(seed));
+    sessionStorage.setItem('_mn',mn);
+    sessionStorage.setItem('_a',address);
+    sessionStorage.setItem('_pkh',b64e(pkh));
+    $('mnemonic-display').innerHTML=mn.split(' ').map((w,i)=>`<div class="mnemonic-word"><span class="word-num">${i+1}</span>${w}</div>`).join('');
+    $('backup-confirm').checked=false;
+    $('btn-to-s2').disabled=true;
+    show('create-s1');hide('create-s2');
+    showScreen('screen-create');
+  },
+
+  showRestore(){
+    $('restore-grid').innerHTML=Array.from({length:12},(_,i)=>`<div class="m-inp-wrap"><span class="m-inp-num">${i+1}</span><input class="m-inp" type="text" autocomplete="off" autocorrect="off" spellcheck="false" oninput="UI.chkW(this)"></div>`).join('');
+    $('r-pw').value='';$('r-pw2').value='';
+    hide('restore-phrase-err');hide('r-pw-err');
+    showScreen('screen-restore');
+  },
+
+  chkW(el){const w=el.value.trim().toLowerCase();if(!w){el.className='m-inp';return;}el.className='m-inp '+(BIP39.includes(w)?'ok':'bad');},
+
+  goToStep2(){
+    hide('create-s1');show('create-s2');
+    $('c-pw').value='';$('c-pw2').value='';
+    $('btn-create').disabled=true;hide('c-pw-err');
+  },
+
+  checkPW(p){
+    const a=$(p+'-pw').value,b=$(p+'-pw2').value;
+    const ok=a.length>=8&&a===b;
+    $(p+'-pw-err').style.display=(b&&a!==b)?'':'none';
+    if(p==='c')$('btn-create').disabled=!ok;
+  },
+
+  tab(n){
+    ['receive','send','settings'].forEach(t=>{
+      $('tab-'+t).classList.toggle('active',t===n);
+      $('t-'+t).classList.toggle('active',t===n);
+    });
+    if(n==='receive')genQR(S.address);
+    if(n==='send')$('s-avail').textContent=S.balance!==null?`Available: ${fmt(S.balance)} CHK`:'Available: …';
+  },
+
+  sendPreview(){
+    const to=$('s-to').value.trim(),amt=parseFloat($('s-amt').value);
+    hide('s-to-err');hide('s-err');
+    if(!to||!$('s-amt').value||isNaN(amt)||amt<=0){hide('s-summary');return;}
+    const c=Math.round(amt*CASH);
+    $('sum-send').textContent=fmt(c)+' CHK';
+    $('sum-total').textContent=fmt(c+FEE)+' CHK';
+    show('s-summary');
+  },
+
+  fillMax(){
+    if(S.balance===null)return;
+    const max=Math.max(0,S.balance-FEE);
+    $('s-amt').value=fmt(max);UI.sendPreview();
+  },
+
+  closePWModal(){$('modal-pw').classList.remove('open');pendingSend=null;pwAction=null;},
+};
+
+// ── Actions namespace ─────────────────────────────────────────────────────────
+window.Actions={
+  async createWallet(){
+    const pw=$('c-pw').value;
+    if(pw.length<8){toast('Password must be at least 8 characters','err');return;}
+    setBtn('btn-create','<span class="spin"></span>Creating…',true);
+    try{
+      const seed=b64d(sessionStorage.getItem('_s'));
+      const mn  =sessionStorage.getItem('_mn');
+      const addr=sessionStorage.getItem('_a');
+      const pkh =b64d(sessionStorage.getItem('_pkh'));
+      const {ct,salt,iv}=await encSeed(seed,pw);
+      storeW(addr,mn,ct,salt,iv);
+      Object.assign(S,{address:addr,seed,pubKeyHash:pkh,balance:null});
+      sessionStorage.clear();
+      await openWallet();
+    }catch(e){toast(e.message,'err');setBtn('btn-create','Create Wallet');}
+  },
+
+  async restoreWallet(){
+    const inps=document.querySelectorAll('.m-inp');
+    const mn=Array.from(inps,el=>el.value.trim().toLowerCase()).join(' ');
+    const p1=$('r-pw').value,p2=$('r-pw2').value;
+    hide('restore-phrase-err');hide('r-pw-err');
+    if(p1!==p2){show('r-pw-err');return;}
+    if(p1.length<8){toast('Password must be at least 8 characters','err');return;}
+    setBtn('btn-restore','<span class="spin"></span>Restoring…',true);
+    try{
+      const {seed,pkh,address}=await walletFromMn(mn);
+      const {ct,salt,iv}=await encSeed(seed,p1);
+      storeW(address,mn,ct,salt,iv);
+      Object.assign(S,{address,seed,pubKeyHash:pkh,balance:null});
+      await openWallet();
+    }catch(e){
+      $('restore-phrase-err').textContent=e.message;
+      show('restore-phrase-err');
+      setBtn('btn-restore','Restore Wallet');
     }
+  },
+
+  async refresh(){
+    if(!S.address)return;
+    try{const d=await getBal(S.address);S.balance=d.balance;$('bal-amt').textContent=fmt(d.balance);$('s-avail').textContent=`Available: ${fmt(d.balance)} CHK`;}
+    catch{$('bal-amt').textContent='Error';}
+  },
+
+  copyAddr(){
+    const a=S.address;if(!a)return;
+    navigator.clipboard.writeText(a).then(()=>toast('Address copied!','ok')).catch(()=>{
+      const el=document.createElement('textarea');el.value=a;document.body.appendChild(el);el.select();document.execCommand('copy');document.body.removeChild(el);toast('Address copied!','ok');
+    });
+  },
+
+  lock(){S.seed=null;toast('Wallet locked');},
+
+  async initSend(){
+    const to=$('s-to').value.trim();
+    const amt=parseFloat($('s-amt').value);
+    hide('s-to-err');hide('s-err');
+    if(!to){show('s-to-err');$('s-to-err').textContent='Enter recipient address';return;}
+    if(!await validAddr(to)){show('s-to-err');$('s-to-err').textContent='Invalid address';return;}
+    if(to===S.address){show('s-to-err');$('s-to-err').textContent='Cannot send to own address';return;}
+    if(isNaN(amt)||amt<=0){show('s-err');$('s-err').textContent='Enter a valid amount';return;}
+    const cash=Math.round(amt*CASH),needed=cash+FEE;
+    if(S.balance!==null&&needed>S.balance){show('s-err');$('s-err').textContent=`Not enough balance. Need ${fmt(needed)} CHK`;return;}
+    pendingSend={to,cash};
+    if(S.seed){await execSend();}
+    else{
+      pwAction='send';
+      $('modal-pw-title').textContent='Confirm Transaction';
+      $('modal-pw-sub').textContent=`Enter password to send ${fmt(cash)} CHK to ${to.slice(0,12)}…`;
+      $('modal-pw-input').value='';hide('modal-pw-err');
+      $('modal-pw').classList.add('open');
+      setTimeout(()=>$('modal-pw-input').focus(),100);
+    }
+  },
+
+  async confirmPW(){
+    const pw=$('modal-pw-input').value;
+    hide('modal-pw-err');
+    setBtn('btn-confirm-pw','<span class="spin"></span>',true);
+    try{
+      const data=loadW();
+      S.seed=await decSeed(data.ct,data.salt,data.iv,pw);
+      $('modal-pw').classList.remove('open');
+      setBtn('btn-confirm-pw','Confirm');
+      if(pwAction==='send')await execSend();
+      else if(pwAction==='showMnemonic'){
+        const mn=loadW().mn;
+        $('modal-mn-grid').innerHTML=mn.split(' ').map((w,i)=>`<div class="mnemonic-word"><span class="word-num">${i+1}</span>${w}</div>`).join('');
+        $('modal-mn').classList.add('open');
+      }
+      pwAction=null;
+    }catch(e){show('modal-pw-err');setBtn('btn-confirm-pw','Confirm');}
+  },
+
+  showMnemonic(){
+    pwAction='showMnemonic';
+    $('modal-pw-title').textContent='Reveal Recovery Phrase';
+    $('modal-pw-sub').textContent='Enter your password to view your recovery phrase.';
+    $('modal-pw-input').value='';hide('modal-pw-err');
+    $('modal-pw').classList.add('open');
+    setTimeout(()=>$('modal-pw-input').focus(),100);
+  },
+
+  removeWallet(){
+    if(!confirm('Remove this wallet from this browser? Make sure your recovery phrase is safely backed up.'))return;
+    clearW();Object.assign(S,{address:null,seed:null,pubKeyHash:null,balance:null});
+    qrDone=false;showScreen('screen-welcome');toast('Wallet removed');
+  },
+};
+
+async function execSend(){
+  const {to,cash}=pendingSend;
+  setBtn('btn-send','<span class="spin"></span>Sending…',true);
+  try{
+    const utxos=await getUTXOs(S.address);
+    const {tx,txIDHex}=await buildSignTx(utxos,to,cash,S.seed);
+    await postTx(tx);
+    toast(`Sent! TxID: ${txIDHex.slice(0,16)}…`,'ok');
+    $('s-to').value='';$('s-amt').value='';hide('s-summary');hide('s-err');
+    pendingSend=null;
+    await Actions.refresh();
+  }catch(e){show('s-err');$('s-err').textContent=e.message;}
+  finally{setBtn('btn-send','Send CHK');}
 }
 
-function renderRecentBlocks(blocks) {
-    if (!blocks || blocks.length === 0) {
-        document.getElementById('txSection').innerHTML =
-            '<div class="loading-msg">No blocks found</div>';
-        return;
-    }
-
-    const rows = blocks.map(b => `
-        <tr>
-            <td style="color:var(--gold)">${b.height}</td>
-            <td class="miner-col" title="${esc(b.miner || '')}">${b.miner ? trunc(b.miner, 14) : '—'}</td>
-            <td class="reward-col">50 CHK</td>
-            <td class="time-col">${timeAgo(b.timestamp)}</td>
-        </tr>
-    `).join('');
-
-    document.getElementById('txSection').innerHTML = `
-        <table class="tx-table">
-            <thead>
-                <tr>
-                    <th>Block</th>
-                    <th>Miner</th>
-                    <th>Reward</th>
-                    <th>Age</th>
-                </tr>
-            </thead>
-            <tbody>${rows}</tbody>
-        </table>
-    `;
-}
-
-// ── Address lookup ─────────────────────────────────────────────────
-
-async function lookupAddress() {
-    const addr = document.getElementById('addrInput').value.trim();
-    const displayEl = document.getElementById('balanceDisplay');
-    const errorEl   = document.getElementById('errorMsg');
-
-    displayEl.style.display = 'none';
-    errorEl.style.display   = 'none';
-
-    if (!addr) {
-        errorEl.textContent = 'Please enter a CK1 address.';
-        errorEl.style.display = 'block';
-        return;
-    }
-
-    if (!addr.startsWith('CK1')) {
-        errorEl.textContent = 'Invalid address — must start with CK1.';
-        errorEl.style.display = 'block';
-        return;
-    }
-
-    try {
-        const data = await fetch(RPC + '/address/' + encodeURIComponent(addr))
-            .then(r => { if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); });
-
-        const chk = data.balance_chk;
-
-        document.getElementById('balanceAddr').textContent = data.address;
-        document.getElementById('balanceAmt').textContent  = chk.toFixed(6);
-        document.getElementById('utxoCount').textContent   = data.utxo_count;
-        document.getElementById('rawBalance').textContent  =
-            data.balance.toLocaleString();
-        document.getElementById('richMsg').textContent     = richMessage(chk);
-
-        displayEl.style.display = 'block';
-    } catch (e) {
-        errorEl.textContent = 'Address not found or node unreachable.';
-        errorEl.style.display = 'block';
-    }
-}
-
-document.getElementById('addrInput').addEventListener('keydown', e => {
-    if (e.key === 'Enter') lookupAddress();
-});
-
-// ── Init ───────────────────────────────────────────────────────────
-
-loadStats();
-setInterval(loadStats, 30_000);
+// ── Boot ──────────────────────────────────────────────────────────────────────
+(async()=>{
+  const data=loadW();
+  if(data){
+    S.address=data.addr;
+    try{S.pubKeyHash=await addrToPkh(data.addr);}catch{}
+    await openWallet();
+  }else{
+    showScreen('screen-welcome');
+  }
+})();
 </script>
 </body>
 </html>
