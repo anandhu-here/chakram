@@ -133,6 +133,8 @@ func (u *UTXOSet) GetUTXO(txID []byte, outputIndex uint32) (*UTXO, error) {
 // GetUTXOsForAddress returns all unspent outputs locked to the given public key hash.
 // Used to enumerate a wallet's spendable outputs.
 func (u *UTXOSet) GetUTXOsForAddress(pubKeyHash []byte) ([]UTXO, error) {
+	fmt.Printf("[UTXO] GetUTXOs start\n")
+	defer fmt.Printf("[UTXO] GetUTXOs done\n")
 	var results []UTXO
 	err := u.Storage.IteratePrefix("utxo:", func(_, value []byte) error {
 		var j utxoJSON
@@ -237,6 +239,8 @@ func (u *UTXOSet) ValidateAndSpendInputs(tx *Transaction, currentHeight uint64) 
 // The coinbase transaction is processed last to prevent spending the block
 // reward in the same block it is created.
 func (u *UTXOSet) ProcessBlock(b *Block, height uint64) (*BlockUndo, error) {
+	fmt.Printf("[UTXO] ProcessBlock h=%d start\n", height)
+	defer fmt.Printf("[UTXO] ProcessBlock h=%d done\n", height)
 	undo := &BlockUndo{}
 	var coinbaseTx *Transaction
 

@@ -143,6 +143,8 @@ func (sm *SyncManager) doSync() {
 // OnBlockReceived is called by p2p handleBlock instead of bc.AddBlock directly.
 // It handles orphans, broadcasts new blocks, and updates sync state.
 func (sm *SyncManager) OnBlockReceived(b *Block, from *Peer) {
+	fmt.Printf("[SYNC] OnBlockReceived h=%d start\n", b.Header.Height)
+	defer fmt.Printf("[SYNC] OnBlockReceived h=%d done\n", b.Header.Height)
 	// Already have this block — genesis re-send, duplicate broadcast, etc.
 	if sm.blockchain.HasBlock(b.Hash) {
 		return

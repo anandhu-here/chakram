@@ -125,6 +125,8 @@ func (bc *Blockchain) epochKey(height uint64) []byte {
 // Returns ErrOrphanBlock when the parent is not yet known; the sync layer uses
 // this signal to request the missing ancestor from the peer.
 func (bc *Blockchain) AddBlock(b *Block) error {
+	fmt.Printf("[CHAIN] AddBlock h=%d start\n", b.Header.Height)
+	defer fmt.Printf("[CHAIN] AddBlock h=%d done\n", b.Header.Height)
 	bc.chainMu.Lock()
 	defer bc.chainMu.Unlock()
 
@@ -173,10 +175,12 @@ func (bc *Blockchain) AddBlock(b *Block) error {
 		skipPoW := syncing && target > 10 && b.Header.Height+10 < target
 
 		if !skipPoW {
+			fmt.Printf("[CHAIN] AddBlock h=%d verifying PoW\n", b.Header.Height)
 			key := bc.epochKey(b.Header.Height)
 			if !VerifyBlock(b, bc.VerifyEngine, key) {
 				return fmt.Errorf("%w (height %d hash %x)", ErrInvalidPoW, b.Header.Height, b.Hash)
 			}
+			fmt.Printf("[CHAIN] AddBlock h=%d PoW ok, writing\n", b.Header.Height)
 		}
 	}
 
@@ -197,6 +201,7 @@ func (bc *Blockchain) AddBlock(b *Block) error {
 
 	case b.Header.Height > height:
 		// Longer fork — reorganise to this chain.
+		fmt.Printf("[CHAIN] REORG h=%d triggered\n", b.Header.Height)
 		return bc.reorganize(b)
 
 	default:

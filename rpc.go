@@ -211,6 +211,8 @@ func coinbaseAddress(b *Block) string {
 // ── Handlers ──────────────────────────────────────────────────────────────────
 
 func (r *RPCServer) handleInfo(w http.ResponseWriter) {
+	fmt.Printf("[RPC] handleInfo start\n")
+	defer fmt.Printf("[RPC] handleInfo done\n")
 	bc := r.node.Blockchain
 	network := "mainnet"
 	if r.node.Config.Testnet {
@@ -345,6 +347,8 @@ func (r *RPCServer) handleTx(w http.ResponseWriter, txidStr string) {
 }
 
 func (r *RPCServer) handleAddress(w http.ResponseWriter, address string) {
+	fmt.Printf("[RPC] handleAddress start\n")
+	defer fmt.Printf("[RPC] handleAddress done\n")
 	pkh, err := AddressToPubKeyHash(address)
 	if err != nil {
 		writeError(w, http.StatusBadRequest, "invalid address")

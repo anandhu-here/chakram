@@ -648,9 +648,11 @@ func (s *Server) handlePeers(peer *Peer, msg Message) error {
 // ── Broadcast and peer management ─────────────────────────────────────────────
 
 // Broadcast sends msg to all connected peers except exclude (may be nil).
+// Snapshot the target list under RLock, then release before sending so the
+// lock is not held during channel operations.
 func (s *Server) Broadcast(msg Message, exclude *Peer) {
 	s.mu.RLock()
-	defer s.mu.RUnlock()
+	targets := make([]*Peer, 0, len(s.peers))
 	for _, p := range s.peers {
 		if !p.Connected {
 			continue
@@ -658,8 +660,14 @@ func (s *Server) Broadcast(msg Message, exclude *Peer) {
 		if exclude != nil && p.Address == exclude.Address {
 			continue
 		}
+		targets = append(targets, p)
+	}
+	s.mu.RUnlock()
+	fmt.Printf("[P2P] Broadcast start peers=%d\n", len(targets))
+	for _, p := range targets {
 		p.Send(msg) //nolint:errcheck
 	}
+	fmt.Printf("[P2P] Broadcast done\n")
 }
 
 // AddPeer registers a peer under its address.
@@ -670,10 +678,14 @@ func (s *Server) AddPeer(p *Peer) {
 }
 
 // RemovePeer unregisters and closes a peer's connection.
+// s.mu must be released BEFORE calling OnPeerDisconnected — that callback calls
+// ConnectedPeers() which acquires s.mu.RLock(), and Go's RWMutex is not
+// reentrant: holding Lock() and then calling RLock() in the same goroutine
+// deadlocks permanently.
 func (s *Server) RemovePeer(p *Peer) {
 	s.mu.Lock()
-	defer s.mu.Unlock()
 	delete(s.peers, p.Address)
+	s.mu.Unlock()
 	p.Conn.Close()
 	if s.SyncManager != nil {
 		s.SyncManager.OnPeerDisconnected(p)
