@@ -32,7 +32,7 @@ type PoWEngine interface {
 // It operates in light mode (cache-only, ~256 MB) which is required for mobile
 // and sufficient for consensus verification on all platforms.
 type RandomXEngine struct {
-	mu      sync.Mutex // serialises Init+Hash — RandomX VM is not goroutine-safe
+	mu      sync.RWMutex // RLock for key check; Lock for Hash and engine swap
 	cache   *randomx.Randomx_Cache
 	vm      *randomx.VM
 	lastKey []byte // last key used for Init; skip re-init when unchanged
@@ -45,10 +45,9 @@ func NewRandomXEngine() *RandomXEngine {
 }
 
 // Init initialises the RandomX cache and VM using key as the seed.
-// For Chakram, key is always the previous block's hash, so the PoW
-// function changes with every block — preventing pre-computation attacks.
-// This is the expensive step (~seconds on first call); subsequent calls
-// with the same key reuse the existing cache if possible.
+// The expensive Argon2d step runs WITHOUT holding any lock so HTTP handlers
+// are never blocked for the 3-5 seconds it takes on weak VMs. Only the final
+// swap of the new cache/vm into the engine fields holds the lock (nanoseconds).
 //
 // Full initialisation has two parts the library does NOT combine:
 //  1. Randomx_init_cache — runs Argon2d to fill the memory blocks.
@@ -56,34 +55,44 @@ func NewRandomXEngine() *RandomXEngine {
 //     superscalar programs used by InitDatasetItem during hashing.
 //     Skipping step 2 causes a nil-pointer panic at hash time.
 func (e *RandomXEngine) Init(key []byte) error {
-	e.mu.Lock()
-	defer e.mu.Unlock()
-
-	if len(e.lastKey) > 0 && bytes.Equal(key, e.lastKey) {
-		return nil // same epoch key — reuse existing cache and VM
+	// Fast path: read current key without blocking Hash callers.
+	e.mu.RLock()
+	sameKey := len(e.lastKey) > 0 && bytes.Equal(e.lastKey, key)
+	e.mu.RUnlock()
+	if sameKey {
+		return nil
 	}
 
-	cache := randomx.Randomx_alloc_cache(randomx.RANDOMX_FLAG_DEFAULT)
-	if cache == nil {
+	// Build the new cache and VM on local variables — Argon2d runs here,
+	// holding NO lock, so Hash() and the HTTP server remain fully responsive.
+	newCache := randomx.Randomx_alloc_cache(randomx.RANDOMX_FLAG_DEFAULT)
+	if newCache == nil {
 		return errors.New("randomx: failed to allocate cache")
 	}
-	cache.Randomx_init_cache(key)
+	newCache.Randomx_init_cache(key)
 
 	// Build the superscalar programs required for dataset item generation.
 	// nonce 0 matches the reference RandomX implementation.
 	gen := randomx.Init_Blake2Generator(key, 0)
 	for i := 0; i < randomx.RANDOMX_PROGRAM_COUNT; i++ {
-		cache.Programs[i] = randomx.Build_SuperScalar_Program(gen)
+		newCache.Programs[i] = randomx.Build_SuperScalar_Program(gen)
 	}
 
-	vm := cache.VM_Initialize()
-	if vm == nil {
+	newVM := newCache.VM_Initialize()
+	if newVM == nil {
 		return errors.New("randomx: failed to initialise VM")
 	}
 
-	e.cache = cache // old cache released to GC
-	e.vm = vm
-	e.lastKey = append([]byte{}, key...)
+	// Brief exclusive lock just to swap in the new engine — nanoseconds.
+	// Re-check the key: another goroutine may have already re-keyed to the
+	// same epoch while Argon2d was running; skip the swap if so.
+	e.mu.Lock()
+	if !bytes.Equal(e.lastKey, key) {
+		e.cache = newCache
+		e.vm = newVM
+		e.lastKey = append([]byte{}, key...)
+	}
+	e.mu.Unlock()
 	return nil
 }
 

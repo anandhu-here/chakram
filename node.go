@@ -75,7 +75,9 @@ func NewNode(cfg NodeConfig) (*Node, error) {
 		return nil, fmt.Errorf("create data dir: %w", err)
 	}
 
-	bc, err := NewBlockchain(cfg.DataDir)
+	// Mining nodes share their engine with the verifier (Fix 2); seed nodes
+	// create their own. Pass createVerifyEngine = !cfg.Mine.
+	bc, err := NewBlockchain(cfg.DataDir, !cfg.Mine)
 	if err != nil {
 		return nil, fmt.Errorf("open blockchain: %w", err)
 	}
@@ -129,7 +131,8 @@ func NewNode(cfg NodeConfig) (*Node, error) {
 	node.RPCServer = NewRPCServer(node, rpcPort)
 
 	if cfg.Mine {
-		node.Engine = &RandomXEngine{}
+		node.Engine = NewRandomXEngine()
+		bc.SetVerifyEngine(node.Engine) // share engine — one Argon2d init per epoch
 		node.miningQuit = make(chan struct{})
 		node.mineLoopDone = make(chan struct{})
 	}

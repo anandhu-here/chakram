@@ -36,7 +36,7 @@ RPC_BASE  = "http://localhost:18339"
 RPC_PORT  = 18339
 PID_FILE  = os.path.expanduser("~/.chakram/testnet/gui.pid")
 POLL_SECS = 5
-VERSION   = "v0.2.14"
+VERSION   = "v0.3.2"
 
 
 # ── Binary detection ───────────────────────────────────────────────────────────

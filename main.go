@@ -143,7 +143,7 @@ func runWallet(args []string) {
 
 	case "balance":
 		cfg := DefaultConfig(testnet)
-		bc, err := NewBlockchain(cfg.DataDir)
+		bc, err := NewBlockchain(cfg.DataDir, false) // read-only; AddBlock never called
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "FATAL: %v\n", err)
 			os.Exit(1)
@@ -272,7 +272,7 @@ func runStatus(args []string) {
 		}
 	}
 	cfg := DefaultConfig(testnet)
-	bc, err := NewBlockchain(cfg.DataDir)
+	bc, err := NewBlockchain(cfg.DataDir, false) // read-only; AddBlock never called
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "FATAL: %v\n", err)
 		os.Exit(1)

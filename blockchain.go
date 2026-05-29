@@ -34,16 +34,23 @@ type Blockchain struct {
 // NewBlockchain opens (or resumes) the blockchain stored at dataDir.
 // On a fresh database it creates and persists the genesis block automatically.
 // On an existing database it loads the chain tip and height from storage.
-func NewBlockchain(dataDir string) (*Blockchain, error) {
+// Pass createVerifyEngine=true for nodes that verify incoming blocks (seed
+// nodes). Mining nodes pass false and call SetVerifyEngine to share the
+// mining engine, eliminating the second Argon2d stall at epoch boundaries.
+func NewBlockchain(dataDir string, createVerifyEngine bool) (*Blockchain, error) {
 	storage, err := NewStorage(dataDir)
 	if err != nil {
 		return nil, fmt.Errorf("open storage: %w", err)
 	}
 
+	var engine *RandomXEngine
+	if createVerifyEngine {
+		engine = NewRandomXEngine()
+	}
 	bc := &Blockchain{
 		Storage:      storage,
 		UTXOSet:      NewUTXOSet(storage),
-		VerifyEngine: NewRandomXEngine(),
+		VerifyEngine: engine,
 	}
 
 	tip, height, err := storage.GetChainTip()
@@ -72,6 +79,13 @@ func NewBlockchain(dataDir string) (*Blockchain, error) {
 // Always defer this after a successful NewBlockchain call.
 func (bc *Blockchain) Close() error {
 	return bc.Storage.Close()
+}
+
+// SetVerifyEngine wires an existing RandomXEngine into the blockchain for
+// PoW verification. Mining nodes call this to share their mining engine so
+// only one Argon2d initialisation occurs per epoch instead of two.
+func (bc *Blockchain) SetVerifyEngine(engine *RandomXEngine) {
+	bc.VerifyEngine = engine
 }
 
 // SetSyncing marks the blockchain as in IBD mode.
