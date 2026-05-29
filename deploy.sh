@@ -25,11 +25,14 @@ fi
 echo "Building Linux binary..."
 GOOS=linux GOARCH=amd64 go build -o chakram-linux .
 
-# Stop all services before copying
+# Stop all services first
 echo "Stopping services..."
 ssh $SSH_OPTS anandhusathe@$SEED1 "sudo systemctl stop chakram-seed || true"
 ssh $SSH_OPTS anandhusathe@$SEED2 "sudo systemctl stop chakram-seed || true"
 ssh $SSH_OPTS anandhusathe@$MINER "sudo systemctl stop chakram-miner || true"
+
+# Wait for clean shutdown
+sleep 10
 
 # Copy binary to all VMs
 echo "Copying binary..."
@@ -56,10 +59,18 @@ if [ "$WIPE" = true ]; then
     "find ~/.chakram/testnet/ -mindepth 1 -not -name 'wallet.json' -delete 2>/dev/null; echo '  miner wiped (wallet kept)'"
 fi
 
-# Start all services
-echo "Starting services..."
+# Start in order: seeds first, then miner
+echo "Starting seed-1..."
 ssh $SSH_OPTS anandhusathe@$SEED1 "sudo systemctl start chakram-seed"
+echo "Starting seed-2..."
 ssh $SSH_OPTS anandhusathe@$SEED2 "sudo systemctl start chakram-seed"
+
+# Wait for seeds to initialize
+echo "Waiting for seeds to initialize..."
+sleep 15
+
+# Start miner last so it connects to ready seeds
+echo "Starting miner..."
 ssh $SSH_OPTS anandhusathe@$MINER "sudo systemctl start chakram-miner"
 
 echo "=== Deployment complete ==="

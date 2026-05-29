@@ -161,12 +161,15 @@ func (sm *SyncManager) OnBlockReceived(b *Block, from *Peer) {
 			if from != nil {
 				sm.RequestBlock(b.Header.PreviousHash, from)
 			}
-		} else if isPoWError(err) && from != nil {
-			// Sending a block with a fabricated hash is a protocol violation.
-			// Penalize the peer — five violations triggers a 24-hour ban.
+		} else if isPoWError(err) && from != nil && !sm.blockchain.IsSyncing() {
+			// Only penalize for a cryptographically proven fake hash — never for
+			// local state issues (empty chain after wipe, still syncing, db errors).
 			fmt.Printf("peer %s sent block with invalid PoW at height %d — penalizing\n",
 				peerAddr(from), b.Header.Height)
 			sm.server.penalizePeer(from)
+		} else {
+			fmt.Printf("block %d from peer %s rejected (local state): %v\n",
+				b.Header.Height, peerAddr(from), err)
 		}
 		return
 	}
