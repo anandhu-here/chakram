@@ -93,44 +93,12 @@ gh release create "$VERSION" \
   --title "Chakram $VERSION" \
   --notes "$NOTES"
 
-# ── Build and upload Mac GUI app ──────────────────────────────────────────────
-
-echo "Building GUI (Mac)..."
-cd gui
-cp ../chakram-mac ./chakram
-chmod +x ./chakram
-rm -rf dist/ build/ Chakram.spec 2>/dev/null || true
-pip3 install pyinstaller customtkinter requests pillow -q 2>/dev/null
-python3 -m PyInstaller \
-  --onedir \
-  --windowed \
-  --name "Chakram" \
-  --add-binary "chakram:." \
-  --hidden-import customtkinter \
-  --hidden-import PIL \
-  --hidden-import PIL._tkinter_finder \
-  chakram_gui.py 2>/dev/null
-if [ -d "dist/Chakram.app" ]; then
-  zip -r dist/Chakram-mac.zip dist/Chakram.app 2>/dev/null
-fi
-cd ..
-
-if [ -f "gui/dist/Chakram-mac.zip" ]; then
-  gh release upload "$VERSION" gui/dist/Chakram-mac.zip --clobber 2>/dev/null \
-    && echo "  ✓ Chakram GUI (Mac) added to release"
-else
-  echo "  ⚠ GUI build failed — skipping upload (node binaries already uploaded)"
-fi
-
-# Clean up the binary copy used by PyInstaller — prevents stale binary in dev sessions
-rm -f gui/chakram
-echo "  Note: Windows GUI must be built on Windows — see gui/README.md"
+# GUI apps (Mac + Windows) are built automatically by GitHub Actions
+# (.github/workflows/build-gui.yml) and uploaded to this release within ~5 minutes.
 
 echo ""
 echo "=== Release $VERSION complete ==="
 echo "GitHub: https://github.com/anandhu-here/chakram/releases/tag/$VERSION"
 echo ""
-echo "Download and test:"
-echo "  Mac:     chmod +x chakram-mac && xattr -d com.apple.quarantine chakram-mac && ./chakram-mac node --testnet"
-echo "  Linux:   chmod +x chakram-linux && ./chakram-linux node --testnet"
-echo "  Windows: chakram-windows.exe node --testnet"
+echo "CLI binaries ready. GUI apps building via GitHub Actions (~5 min):"
+echo "  https://github.com/anandhu-here/chakram/actions"
