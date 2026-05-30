@@ -35,6 +35,14 @@ if [ -z "$NOTES" ]; then
   NOTES="$(date '+%Y-%m-%d %H:%M') release $VERSION"
 fi
 
+# Collect any extra flags (e.g. --wipe) to forward to deploy.sh
+DEPLOY_FLAGS=""
+for arg in "$@"; do
+  if [[ "$arg" == --* ]]; then
+    DEPLOY_FLAGS="$DEPLOY_FLAGS $arg"
+  fi
+done
+
 echo "=== Chakram Release $VERSION ==="
 echo "  Previous : $LATEST"
 echo "  Message  : $NOTES"
@@ -62,7 +70,7 @@ git push origin "refs/tags/$VERSION" --force
 # ── Deploy to GCP ─────────────────────────────────────────────────────────────
 
 echo "Deploying to GCP..."
-./deploy.sh
+./deploy.sh $DEPLOY_FLAGS
 
 # ── Build all 3 platform binaries ─────────────────────────────────────────────
 # Done AFTER deploy so deploy.sh can't overwrite chakram-linux mid-upload

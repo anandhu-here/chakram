@@ -1,0 +1,15 @@
+[Unit]
+Description=Chakram Mainnet Node
+After=network.target
+
+[Service]
+Type=simple
+User=anandhusathe
+ExecStart=/home/anandhusathe/chakram node
+Restart=always
+RestartSec=10
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=multi-user.target

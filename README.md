@@ -1,5 +1,7 @@
 # ⬡ Chakram (CHK)
 
+**Website:** https://chakram.one
+
 > ചക്രം — The heritage of Kerala, reborn in the digital age.
 
 > ⚠️ **Note:** Code signing certificates are on our roadmap. For now, Mac and Windows users may see security warnings — this is normal for open-source software without paid certificates. See installation instructions below.

@@ -3,12 +3,13 @@ set -e
 
 SEED1="35.207.229.32"
 SEED2="34.1.166.49"
-MINER="35.207.217.64"
+SEED3="35.207.217.64"
 BINARY="./chakram-linux"
-REMOTE_PATH="/home/anandhusathe/chakram"
+REMOTE_BIN="/home/anandhusathe/chakram"
 SSH_OPTS="-o StrictHostKeyChecking=no -o ConnectTimeout=10 -o BatchMode=yes"
 
-# Parse --wipe flag. Only needed when storage format, genesis, or serialization changes.
+# --wipe flag: erases all mainnet chain data for a clean genesis start.
+# Use only for initial mainnet launch or a full reset. Never use in normal updates.
 WIPE=false
 for arg in "$@"; do
   if [ "$arg" = "--wipe" ]; then
@@ -16,61 +17,89 @@ for arg in "$@"; do
   fi
 done
 
-echo "=== Deploying Chakram to GCP VMs ==="
+echo "=== Deploying Chakram Mainnet to GCP VMs ==="
 if [ "$WIPE" = true ]; then
-  echo "    (--wipe: testnet chain data will be erased)"
+  echo "    (--wipe: all chain data will be erased for clean genesis)"
 fi
 
-# Build fresh Linux binary first
+# ── Build ─────────────────────────────────────────────────────────────────────
+
 echo "Building Linux binary..."
 GOOS=linux GOARCH=amd64 go build -o chakram-linux .
 
-# Stop all services first
+# ── Stop services ─────────────────────────────────────────────────────────────
+
 echo "Stopping services..."
-ssh $SSH_OPTS anandhusathe@$SEED1 "sudo systemctl stop chakram-seed || true"
-ssh $SSH_OPTS anandhusathe@$SEED2 "sudo systemctl stop chakram-seed || true"
-ssh $SSH_OPTS anandhusathe@$MINER "sudo systemctl stop chakram-miner || true"
+ssh $SSH_OPTS anandhusathe@$SEED1 "sudo systemctl stop chakram-mainnet 2>/dev/null || sudo systemctl stop chakram-seed 2>/dev/null || true"
+ssh $SSH_OPTS anandhusathe@$SEED2 "sudo systemctl stop chakram-mainnet 2>/dev/null || sudo systemctl stop chakram-seed 2>/dev/null || true"
+ssh $SSH_OPTS anandhusathe@$SEED3 "sudo systemctl stop chakram-mainnet 2>/dev/null || sudo systemctl stop chakram-miner 2>/dev/null || true"
+sleep 5
 
-# Wait for clean shutdown
-sleep 10
+# ── Copy binary ───────────────────────────────────────────────────────────────
 
-# Copy binary to all VMs
 echo "Copying binary..."
-scp $SSH_OPTS $BINARY anandhusathe@$SEED1:$REMOTE_PATH
-ssh $SSH_OPTS anandhusathe@$SEED1 "chmod +x $REMOTE_PATH"
-echo "  chakram-seed-1 done"
+scp $SSH_OPTS $BINARY anandhusathe@$SEED1:$REMOTE_BIN && ssh $SSH_OPTS anandhusathe@$SEED1 "chmod +x $REMOTE_BIN" && echo "  seed-1 done"
+scp $SSH_OPTS $BINARY anandhusathe@$SEED2:$REMOTE_BIN && ssh $SSH_OPTS anandhusathe@$SEED2 "chmod +x $REMOTE_BIN" && echo "  seed-2 done"
+scp $SSH_OPTS $BINARY anandhusathe@$SEED3:$REMOTE_BIN && ssh $SSH_OPTS anandhusathe@$SEED3 "chmod +x $REMOTE_BIN" && echo "  seed-3 done"
 
-scp $SSH_OPTS $BINARY anandhusathe@$SEED2:$REMOTE_PATH
-ssh $SSH_OPTS anandhusathe@$SEED2 "chmod +x $REMOTE_PATH"
-echo "  chakram-seed-2 done"
+# ── Install mainnet service ───────────────────────────────────────────────────
 
-scp $SSH_OPTS $BINARY anandhusathe@$MINER:$REMOTE_PATH
-ssh $SSH_OPTS anandhusathe@$MINER "chmod +x $REMOTE_PATH"
-echo "  chakram-miner-1 done"
+echo "Installing mainnet service..."
+for HOST in $SEED1 $SEED2 $SEED3; do
+  scp $SSH_OPTS deploy/chakram-mainnet.service anandhusathe@$HOST:~/chakram-mainnet.service
+  ssh $SSH_OPTS anandhusathe@$HOST \
+    "sudo cp ~/chakram-mainnet.service /etc/systemd/system/chakram-mainnet.service && \
+     sudo systemctl daemon-reload && \
+     sudo systemctl enable chakram-mainnet"
+done
+echo "  service installed on all 3 nodes"
 
-# Wipe testnet chain data only when explicitly requested.
-# Required for: storage format changes, genesis block changes, serialization changes.
-# NOT required for: bug fixes, performance improvements, new RPC endpoints.
+# ── Wipe chain data (launch only) ────────────────────────────────────────────
+
 if [ "$WIPE" = true ]; then
-  echo "Wiping testnet chain data..."
-  ssh $SSH_OPTS anandhusathe@$SEED1 "rm -rf ~/.chakram/testnet/ && echo '  seed-1 wiped'"
-  ssh $SSH_OPTS anandhusathe@$SEED2 "rm -rf ~/.chakram/testnet/ && echo '  seed-2 wiped'"
-  ssh $SSH_OPTS anandhusathe@$MINER \
-    "find ~/.chakram/testnet/ -mindepth 1 -not -name 'wallet.json' -delete 2>/dev/null; echo '  miner wiped (wallet kept)'"
+  echo "Wiping chain data..."
+  ssh $SSH_OPTS anandhusathe@$SEED1 "rm -rf ~/.chakram/ && echo '  seed-1 wiped'"
+  ssh $SSH_OPTS anandhusathe@$SEED2 "rm -rf ~/.chakram/ && echo '  seed-2 wiped'"
+  ssh $SSH_OPTS anandhusathe@$SEED3 "rm -rf ~/.chakram/ && echo '  seed-3 wiped'"
 fi
 
-# Start in order: seeds first, then miner
-echo "Starting seed-1..."
-ssh $SSH_OPTS anandhusathe@$SEED1 "sudo systemctl start chakram-seed"
-echo "Starting seed-2..."
-ssh $SSH_OPTS anandhusathe@$SEED2 "sudo systemctl start chakram-seed"
+# ── Nginx on seed-2 (chakram.one) ─────────────────────────────────────────────
 
-# Wait for seeds to initialize
+echo "Configuring nginx on seed-2..."
+ssh $SSH_OPTS anandhusathe@$SEED2 "which nginx >/dev/null 2>&1 || sudo apt-get install -y nginx -q"
+scp $SSH_OPTS deploy/nginx-chakram.one.conf anandhusathe@$SEED2:~/nginx-chakram.one.conf
+ssh $SSH_OPTS anandhusathe@$SEED2 \
+  "sudo cp ~/nginx-chakram.one.conf /etc/nginx/sites-available/chakram.one && \
+   sudo ln -sf /etc/nginx/sites-available/chakram.one /etc/nginx/sites-enabled/chakram.one && \
+   sudo rm -f /etc/nginx/sites-enabled/default && \
+   sudo nginx -t && \
+   sudo systemctl enable --now nginx && \
+   sudo systemctl reload nginx && \
+   echo '  nginx configured'"
+
+# ── Start nodes in order ──────────────────────────────────────────────────────
+
+echo "Starting seed-1..."
+ssh $SSH_OPTS anandhusathe@$SEED1 "sudo systemctl start chakram-mainnet"
+
+echo "Starting seed-2..."
+ssh $SSH_OPTS anandhusathe@$SEED2 "sudo systemctl start chakram-mainnet"
+
 echo "Waiting for seeds to initialize..."
 sleep 15
 
-# Start miner last so it connects to ready seeds
-echo "Starting miner..."
-ssh $SSH_OPTS anandhusathe@$MINER "sudo systemctl start chakram-miner"
+echo "Starting seed-3..."
+ssh $SSH_OPTS anandhusathe@$SEED3 "sudo systemctl start chakram-mainnet"
 
+# ── Done ──────────────────────────────────────────────────────────────────────
+
+echo ""
 echo "=== Deployment complete ==="
+echo ""
+echo "Health check:"
+echo "  curl http://$SEED1:8339/info"
+echo "  curl http://$SEED2:8339/info"
+echo "  curl http://$SEED3:8339/info"
+echo ""
+echo "  Note: HTTPS for chakram.one requires a one-time certbot run on seed-2:"
+echo "  ssh anandhusathe@$SEED2 'sudo certbot --nginx -d chakram.one -d www.chakram.one'"

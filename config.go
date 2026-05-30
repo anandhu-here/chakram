@@ -122,5 +122,6 @@ var TestnetSeeds = []string{
 var MainnetSeeds = []string{
 	"35.207.229.32:8338",
 	"34.1.166.49:8338",
+	"35.207.217.64:8338",
 }
 
