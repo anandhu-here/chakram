@@ -93,12 +93,44 @@ gh release create "$VERSION" \
   --title "Chakram $VERSION" \
   --notes "$NOTES"
 
-# GUI apps (Mac + Windows) are built automatically by GitHub Actions
-# (.github/workflows/build-gui.yml) and uploaded to this release within ~5 minutes.
+# ── Build Intel Mac GUI and upload to GCS ─────────────────────────────────────
+
+GCP_KEY="$(dirname "$0")/gcp-key.json"
+if [ ! -f "$GCP_KEY" ]; then
+  echo ""
+  echo "  ⚠  gcp-key.json not found — skipping Intel Mac GUI build."
+  echo "     Place your GCP service account key at: $GCP_KEY"
+else
+  echo "Building Intel Mac GUI..."
+  cp chakram-mac gui/chakram
+  chmod +x gui/chakram
+  cd gui
+  rm -rf dist/ build/ Chakram.spec
+  python3 -m PyInstaller \
+    --onedir \
+    --windowed \
+    --name "Chakram" \
+    --add-binary "chakram:." \
+    --hidden-import customtkinter \
+    --hidden-import PIL \
+    --hidden-import "PIL._tkinter_finder" \
+    chakram_gui.py
+  cd dist && zip -r Chakram-mac-intel.zip Chakram.app && cd ../..
+  echo "  ✓ Chakram-mac-intel.zip"
+
+  echo "Uploading Intel Mac GUI to GCS..."
+  gcloud auth activate-service-account --key-file="$GCP_KEY" --quiet
+  gsutil cp gui/dist/Chakram-mac-intel.zip "gs://chakram-dist/$VERSION/Chakram-mac-intel.zip"
+  gsutil cp gui/dist/Chakram-mac-intel.zip "gs://chakram-dist/latest/Chakram-mac-intel.zip"
+  gsutil setmeta -h "Cache-Control:no-cache, no-store" \
+    "gs://chakram-dist/latest/Chakram-mac-intel.zip" 2>/dev/null || true
+  echo "  ✓ uploaded to gs://chakram-dist/latest/Chakram-mac-intel.zip"
+fi
 
 echo ""
 echo "=== Release $VERSION complete ==="
 echo "GitHub: https://github.com/anandhu-here/chakram/releases/tag/$VERSION"
 echo ""
-echo "CLI binaries ready. GUI apps building via GitHub Actions (~5 min):"
+echo "Intel Mac GUI: built locally and uploaded to GCS."
+echo "Apple Silicon + Windows GUI building via GitHub Actions (~5 min):"
 echo "  https://github.com/anandhu-here/chakram/actions"
