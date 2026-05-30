@@ -206,6 +206,10 @@ func (sm *SyncManager) OnBlockReceived(b *Block, from *Peer) {
 	delete(sm.pendingBlocks, hashHex)
 	sm.pendingMu.Unlock()
 
+	sm.server.pendingInvMu.Lock()
+	delete(sm.server.pendingInv, hashHex)
+	sm.server.pendingInvMu.Unlock()
+
 	sm.ProcessOrphans(b.Hash)
 
 	inv, err := NewMessage(sm.server.magic, MsgInv, InvPayload{

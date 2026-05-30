@@ -7,6 +7,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"math/rand"
 	"net"
 	"sync"
 	"time"
@@ -44,6 +45,7 @@ type VersionPayload struct {
 	Height    uint64 `json:"height"`
 	UserAgent string `json:"user_agent"`
 	Timestamp int64  `json:"timestamp"`
+	Nonce     uint64 `json:"nonce"`
 }
 
 // InvItem announces a single block (Type=1) or transaction (Type=2) by hash.
@@ -197,17 +199,20 @@ func (p *Peer) writeLoop() {
 // Server is the Chakram P2P node. It listens for incoming connections, manages
 // peers, and routes messages to the appropriate handlers.
 type Server struct {
-	Blockchain  *Blockchain
-	Mempool     *Mempool
-	SyncManager *SyncManager
-	peers       map[string]*Peer
-	banned      map[string]time.Time // IP address → ban expiry
-	mu          sync.RWMutex
-	port        int
-	magic       [4]byte
-	quit        chan struct{}
-	listener    net.Listener
-	listenAddr  string // canonical listen address set in Start()
+	Blockchain   *Blockchain
+	Mempool      *Mempool
+	SyncManager  *SyncManager
+	peers        map[string]*Peer
+	banned       map[string]time.Time // IP address → ban expiry
+	mu           sync.RWMutex
+	port         int
+	magic        [4]byte
+	quit         chan struct{}
+	listener     net.Listener
+	listenAddr   string // canonical listen address set in Start()
+	nonce        uint64 // random nonce to detect self-connections
+	pendingInv   map[string]time.Time // hashes we have sent GetData for, awaiting block
+	pendingInvMu sync.Mutex
 }
 
 // SetSyncManager wires a SyncManager into the server after construction.
@@ -229,6 +234,8 @@ func NewServer(bc *Blockchain, mp *Mempool, port int, testnet bool) *Server {
 		port:       port,
 		magic:      magic,
 		quit:       make(chan struct{}),
+		nonce:      rand.Uint64(),
+		pendingInv: make(map[string]time.Time),
 	}
 }
 
@@ -436,6 +443,7 @@ func (s *Server) sendVersion(peer *Peer) error {
 		Height:    s.Blockchain.GetHeight(),
 		UserAgent: "Chakram/1.0",
 		Timestamp: time.Now().Unix(),
+		Nonce:     s.nonce,
 	}
 	msg, err := NewMessage(s.magic, MsgVersion, vp)
 	if err != nil {
@@ -480,6 +488,10 @@ func (s *Server) handleVersion(peer *Peer, msg Message) error {
 	var vp VersionPayload
 	if err := json.Unmarshal(msg.Payload, &vp); err != nil {
 		return fmt.Errorf("decode version: %w", err)
+	}
+	if vp.Nonce == s.nonce {
+		fmt.Printf("[P2P] disconnecting self-connection from %s\n", peer.Address)
+		return fmt.Errorf("self-connection detected")
 	}
 	peer.Height = vp.Height
 	peer.Version = vp.Version
@@ -558,6 +570,14 @@ func (s *Server) handleInv(peer *Peer, msg Message) error {
 		case 1: // block
 			fmt.Printf("[P2P] handleInv from %s hash=%x\n", peer.Address, item.Hash[:8])
 			if !s.Blockchain.HasBlock(item.Hash) {
+				hashStr := fmt.Sprintf("%x", item.Hash)
+				s.pendingInvMu.Lock()
+				if _, exists := s.pendingInv[hashStr]; exists {
+					s.pendingInvMu.Unlock()
+					continue // already sent GetData for this hash, ignore duplicate
+				}
+				s.pendingInv[hashStr] = time.Now()
+				s.pendingInvMu.Unlock()
 				req, err := NewMessage(s.magic, MsgGetData, GetDataPayload{Type: 1, Hash: item.Hash})
 				if err == nil {
 					peer.Send(req) //nolint:errcheck
@@ -797,6 +817,16 @@ func (s *Server) pingLoop() {
 			for _, p := range stale {
 				s.RemovePeer(p)
 			}
+
+			// Evict pendingInv entries older than 30 s so a missed block can be re-requested.
+			invCutoff := time.Now().Add(-30 * time.Second)
+			s.pendingInvMu.Lock()
+			for k, t := range s.pendingInv {
+				if t.Before(invCutoff) {
+					delete(s.pendingInv, k)
+				}
+			}
+			s.pendingInvMu.Unlock()
 		}
 	}
 }
