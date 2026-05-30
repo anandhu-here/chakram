@@ -1,0 +1,54 @@
+---
+kind: pipeline
+type: docker
+name: from-source-amd64
+platform:
+  os: linux
+  arch: amd64
+
+environment:
+  GOPROXY: direct
+  GOARCH: amd64
+  GOAMD64: v3
+  GOOS: linux
+  GOTRACEBACK: 2
+  GOEXPERIMENT: "cgocheck2,newinliner"
+  CGO_ENABLED: "0"
+
+workspace:
+  path: /drone/src
+
+steps:
+  - name: test
+    image: golang:1.22-alpine3.19
+    commands:
+      - apk update
+      - apk add --no-cache git
+      - go test -p 1 -failfast -timeout 20m -cover -gcflags=-d=checkptr -v .
+---
+kind: pipeline
+type: docker
+name: from-source-arm64
+platform:
+  os: linux
+  arch: arm64
+
+environment:
+  GOPROXY: direct
+  GOARCH: arm64
+  GOOS: linux
+  GOTRACEBACK: 2
+  GOEXPERIMENT: "cgocheck2,newinliner"
+  CGO_ENABLED: "0"
+
+workspace:
+  path: /drone/src
+
+steps:
+  - name: test
+    image: golang:1.22-alpine3.19
+    commands:
+      - apk update
+      - apk add --no-cache git
+      - go test -p 1 -failfast -timeout 20m -cover -gcflags=-d=checkptr -v .
+...

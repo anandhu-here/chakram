@@ -1,0 +1,52 @@
+# Chakram Node Configuration File
+# Copy this file to ~/.chakram/chakram.conf and edit as needed
+# Lines starting with # are comments
+
+# ── Network ──────────────────────────────────────────────
+# Run on testnet (true) or mainnet (false)
+testnet=true
+
+# ── Node ─────────────────────────────────────────────────
+# Directory to store blockchain data
+# Default: ~/.chakram/testnet or ~/.chakram/mainnet
+# datadir=/home/user/.chakram
+
+# Port to listen for incoming peer connections
+# Default: 8338 (mainnet) or 18338 (testnet)
+# port=18338
+
+# Maximum number of peer connections
+# Default: 12
+# maxpeers=12
+
+# ── Mining ───────────────────────────────────────────────
+# Enable mining (true/false)
+mine=false
+
+# Address to receive mining rewards
+# Default: auto-generated wallet address
+# mineraddress=CK1...
+
+# Number of mining threads
+# Default: 1
+# threads=1
+
+# ── Wallet ───────────────────────────────────────────────
+# Path to wallet file
+# Default: ~/.chakram/wallet.json
+# wallet=/home/user/.chakram/wallet.json
+
+# Wallet encryption password
+# IMPORTANT: Change this from the default!
+# Default: "chakram" (insecure — always set your own password)
+# password=your-secure-password-here
+
+# ── RPC ──────────────────────────────────────────────────
+# RPC server port (block explorer and API)
+# Default: 8339 (mainnet) or 18339 (testnet)
+# rpcport=18339
+
+# ── Logging ──────────────────────────────────────────────
+# Log level: debug, info, error
+# Default: info
+# loglevel=info

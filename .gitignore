@@ -1,0 +1,28 @@
+# Chain data
+chakram-data/
+chakram-data-node*/
+
+# Compiled binaries
+chakram
+chakram-linux
+chakram-mac
+chakram-windows.exe
+
+# Wallet / key material
+pnemonic.txt
+*.json
+wallet.json
+
+# Internal docs
+docs/
+HARDENING.md
+DEPLOY.md
+
+# GUI build artifacts
+gui/build/
+gui/dist/
+gui/chakram
+gui/Chakram.spec
+
+# Claude Code
+.claude/

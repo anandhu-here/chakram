@@ -1,0 +1,757 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Chakram Documentation</title>
+<style>
+:root{
+  --bg:#0a0a0f;--bg2:#111118;--bg3:#1a1a24;
+  --text:#e0e0e8;--text2:#8888a0;--border:#2a2a3a;
+  --gold:#f0c040;--green:#40c080;--red:#c04040;--blue:#5588ff;
+}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+html{scroll-behavior:smooth}
+body{font-family:'Courier New',Courier,monospace;background:var(--bg);color:var(--text);font-size:14px;line-height:1.7}
+
+/* ── Layout ───────────────────────────────────────────────────────────────── */
+.layout{display:flex;min-height:100vh}
+.sidebar{width:240px;flex-shrink:0;background:var(--bg2);border-right:1px solid var(--border);position:sticky;top:0;height:100vh;overflow-y:auto;padding:0 0 32px}
+.content{flex:1;max-width:860px;padding:48px 40px;overflow-x:hidden}
+
+/* ── Sidebar ──────────────────────────────────────────────────────────────── */
+.sidebar-brand{padding:22px 20px 18px;border-bottom:1px solid var(--border)}
+.sidebar-logo{font-size:18px;font-weight:700;color:var(--gold);letter-spacing:2px}
+.sidebar-sub{font-size:10px;color:var(--text2);margin-top:2px;letter-spacing:.5px}
+.sidebar-nav{padding:12px 0}
+.nav-section{font-size:9px;font-weight:700;color:var(--text2);letter-spacing:2px;text-transform:uppercase;padding:14px 20px 5px}
+.nav-link{display:block;padding:5px 20px;font-size:12px;color:var(--text2);text-decoration:none;transition:color .15s;border-left:2px solid transparent}
+.nav-link:hover{color:var(--gold)}
+.nav-link.active{color:var(--gold);border-left-color:var(--gold);background:rgba(240,192,64,.04)}
+.nav-link.sub{padding-left:32px;font-size:11px}
+
+/* ── Content ──────────────────────────────────────────────────────────────── */
+h1{font-size:26px;font-weight:700;color:var(--gold);letter-spacing:1px;margin-bottom:8px}
+h2{font-size:19px;font-weight:700;color:var(--gold);margin:52px 0 14px;padding-top:8px;border-bottom:1px solid var(--border);padding-bottom:10px}
+h3{font-size:15px;font-weight:700;color:var(--text);margin:28px 0 10px}
+h4{font-size:13px;font-weight:700;color:var(--text2);margin:18px 0 7px;letter-spacing:.5px;text-transform:uppercase}
+p{color:var(--text2);margin-bottom:12px;line-height:1.7}
+p strong{color:var(--text)}
+a{color:var(--gold);text-decoration:none}
+a:hover{text-decoration:underline}
+.page-sub{font-size:14px;color:var(--text2);margin-bottom:40px;line-height:1.6}
+
+/* ── Badge / tags ─────────────────────────────────────────────────────────── */
+.badge{display:inline-block;padding:2px 8px;border-radius:4px;font-size:11px;font-weight:700;letter-spacing:.5px;vertical-align:middle;margin-right:6px}
+.badge-get{background:rgba(85,136,255,.15);color:var(--blue);border:1px solid rgba(85,136,255,.3)}
+.badge-post{background:rgba(64,192,128,.12);color:var(--green);border:1px solid rgba(64,192,128,.3)}
+.badge-new{background:rgba(240,192,64,.12);color:var(--gold);border:1px solid rgba(240,192,64,.3);font-size:10px}
+
+/* ── Code blocks ──────────────────────────────────────────────────────────── */
+pre{background:var(--bg3);border:1px solid var(--border);border-radius:8px;padding:16px 18px;overflow-x:auto;margin:12px 0 20px;font-family:'Courier New',Courier,monospace;font-size:12px;line-height:1.6}
+code{font-family:'Courier New',Courier,monospace;font-size:12px;background:var(--bg3);border:1px solid var(--border);padding:1px 6px;border-radius:3px;color:var(--text)}
+pre code{background:none;border:none;padding:0;color:var(--text)}
+.k{color:var(--gold)}   /* key / keyword */
+.s{color:var(--green)}  /* string value */
+.n{color:#88ccff}       /* number */
+.c{color:var(--text2)}  /* comment */
+.url{color:var(--blue)} /* url/method */
+
+/* ── Tables ───────────────────────────────────────────────────────────────── */
+table{width:100%;border-collapse:collapse;margin:12px 0 22px;font-size:13px}
+th{text-align:left;padding:8px 12px;font-size:10px;font-weight:700;color:var(--text2);letter-spacing:1px;text-transform:uppercase;border-bottom:1px solid var(--border)}
+td{padding:9px 12px;border-bottom:1px solid rgba(42,42,58,.5);color:var(--text2);vertical-align:top}
+td:first-child{color:var(--text);font-weight:600;white-space:nowrap}
+tr:last-child td{border-bottom:none}
+
+/* ── Info / warning boxes ─────────────────────────────────────────────────── */
+.box{border-radius:7px;padding:13px 16px;margin:14px 0;font-size:13px;line-height:1.6}
+.box-info{background:rgba(85,136,255,.07);border:1px solid rgba(85,136,255,.2);color:#aabbff}
+.box-warn{background:rgba(240,192,64,.06);border:1px solid rgba(240,192,64,.2);color:var(--gold)}
+.box-tip{background:rgba(64,192,128,.06);border:1px solid rgba(64,192,128,.2);color:var(--green)}
+
+/* ── Endpoint block ───────────────────────────────────────────────────────── */
+.endpoint{background:var(--bg2);border:1px solid var(--border);border-radius:9px;padding:20px 22px;margin:20px 0}
+.endpoint-title{font-size:14px;font-weight:700;color:var(--text);margin-bottom:6px;display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.endpoint-desc{font-size:13px;color:var(--text2);margin-bottom:14px;line-height:1.6}
+.endpoint-path{font-family:'Courier New',Courier,monospace;font-size:13px;color:var(--text)}
+
+/* ── Params list ──────────────────────────────────────────────────────────── */
+.params{list-style:none;padding:0;margin:8px 0 14px}
+.params li{padding:5px 0;border-bottom:1px solid rgba(42,42,58,.4);font-size:12px;color:var(--text2);display:flex;gap:10px;flex-wrap:wrap}
+.params li:last-child{border-bottom:none}
+.param-name{color:var(--text);font-weight:600;min-width:120px;flex-shrink:0}
+.param-type{color:var(--blue);min-width:60px;flex-shrink:0}
+
+/* ── Mobile ───────────────────────────────────────────────────────────────── */
+.mob-menu{display:none;background:var(--bg2);border-bottom:1px solid var(--border);padding:14px 20px;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:100}
+.mob-brand{font-size:15px;font-weight:700;color:var(--gold);letter-spacing:2px}
+.mob-btn{background:var(--bg3);border:1px solid var(--border);color:var(--text2);padding:5px 12px;border-radius:5px;cursor:pointer;font-family:'Courier New',Courier,monospace;font-size:12px}
+.sidebar.open{display:block}
+
+/* ── Scrollbar ────────────────────────────────────────────────────────────── */
+::-webkit-scrollbar{width:5px}::-webkit-scrollbar-track{background:var(--bg)}
+::-webkit-scrollbar-thumb{background:var(--border);border-radius:3px}
+
+@media(max-width:720px){
+  .mob-menu{display:flex}
+  .layout{flex-direction:column}
+  .sidebar{width:100%;height:auto;position:static;display:none}
+  .sidebar.open{display:block}
+  .content{padding:28px 18px}
+  h2{margin:36px 0 12px}
+}
+</style>
+</head>
+<body>
+
+<div class="mob-menu">
+  <span class="mob-brand">⬡ CHAKRAM DOCS</span>
+  <button class="mob-btn" onclick="document.querySelector('.sidebar').classList.toggle('open')">Menu</button>
+</div>
+
+<div class="layout">
+
+<!-- SIDEBAR -->
+<nav class="sidebar">
+  <div class="sidebar-brand">
+    <div class="sidebar-logo">⬡ CHAKRAM</div>
+    <div class="sidebar-sub">Protocol Documentation</div>
+  </div>
+  <div class="sidebar-nav">
+    <div class="nav-section">Introduction</div>
+    <a class="nav-link" href="#overview">Overview</a>
+    <a class="nav-link" href="#network">Network Parameters</a>
+    <a class="nav-link" href="#units">Units &amp; Supply</a>
+
+    <div class="nav-section">HTTP API</div>
+    <a class="nav-link" href="#api">API Reference</a>
+    <a class="nav-link sub" href="#api-info">GET /info</a>
+    <a class="nav-link sub" href="#api-block">GET /block</a>
+    <a class="nav-link sub" href="#api-blocks-latest">GET /blocks/latest</a>
+    <a class="nav-link sub" href="#api-tx">GET /tx</a>
+    <a class="nav-link sub" href="#api-address">GET /address</a>
+    <a class="nav-link sub" href="#api-utxos">GET /utxos</a>
+    <a class="nav-link sub" href="#api-peers">GET /peers</a>
+    <a class="nav-link sub" href="#api-submit">POST /tx/submit</a>
+
+    <div class="nav-section">Protocol</div>
+    <a class="nav-link" href="#keys">Keys &amp; Addresses</a>
+    <a class="nav-link" href="#transactions">Transactions</a>
+    <a class="nav-link" href="#signing">Signing</a>
+    <a class="nav-link" href="#utxo-model">UTXO Model</a>
+
+    <div class="nav-section">Node</div>
+    <a class="nav-link" href="#running">Running a Node</a>
+    <a class="nav-link" href="#mining">Mining</a>
+    <a class="nav-link" href="#p2p">P2P Protocol</a>
+
+    <div class="nav-section">Developer</div>
+    <a class="nav-link" href="#integration">Integration Guide</a>
+    <a class="nav-link" href="#errors">Error Reference</a>
+  </div>
+</nav>
+
+<!-- CONTENT -->
+<main class="content">
+
+<!-- ── Overview ────────────────────────────────────────────────────────────── -->
+<section id="overview">
+<h1>Chakram Protocol Documentation</h1>
+<p class="page-sub">Chakram (CHK) is a Kerala-inspired UTXO cryptocurrency using <strong>RandomX proof-of-work</strong>, <strong>Ed25519 signatures</strong>, and a lightweight JSON HTTP API. This document is the complete reference for wallets, exchanges, and node operators.</p>
+
+<table>
+  <tr><th>Property</th><th>Value</th></tr>
+  <tr><td>Coin name</td><td>Chakram</td></tr>
+  <tr><td>Ticker</td><td>CHK</td></tr>
+  <tr><td>Address prefix</td><td>CK1</td></tr>
+  <tr><td>Signature scheme</td><td>Ed25519</td></tr>
+  <tr><td>Proof of work</td><td>RandomX</td></tr>
+  <tr><td>Consensus model</td><td>UTXO (Unspent Transaction Output)</td></tr>
+  <tr><td>Block time</td><td>10 seconds (target)</td></tr>
+  <tr><td>Max block size</td><td>1 MB</td></tr>
+  <tr><td>Genesis message</td><td>ചക്രം — കേരളത്തിന്റെ പൈതൃകം ഡിജിറ്റൽ യുഗത്തിൽ പുനർജനിക്കുന്നു</td></tr>
+</table>
+</section>
+
+<!-- ── Network ──────────────────────────────────────────────────────────────── -->
+<section id="network">
+<h2>Network Parameters</h2>
+
+<table>
+  <tr><th>Parameter</th><th>Mainnet</th><th>Testnet</th></tr>
+  <tr><td>P2P port</td><td>8338</td><td>18338</td></tr>
+  <tr><td>RPC / HTTP port</td><td>8339</td><td>18339</td></tr>
+  <tr><td>Magic bytes</td><td><code>43 48 41 4B</code> (CHAK)</td><td><code>43 48 41 54</code> (CHAT)</td></tr>
+  <tr><td>Seed nodes</td><td>35.207.229.32:8338<br>34.1.166.49:8338</td><td>35.207.229.32:18338<br>34.1.166.49:18338</td></tr>
+</table>
+
+<h3>Difficulty Adjustment</h3>
+<table>
+  <tr><th>Parameter</th><th>Value</th></tr>
+  <tr><td>Target block time</td><td>10 seconds</td></tr>
+  <tr><td>Adjustment interval</td><td>Every 2,016 blocks (~5.6 hours)</td></tr>
+  <tr><td>Difficulty window</td><td>60 blocks (look-back for retarget)</td></tr>
+  <tr><td>Minimum difficulty</td><td>1</td></tr>
+</table>
+</section>
+
+<!-- ── Units ────────────────────────────────────────────────────────────────── -->
+<section id="units">
+<h2>Units &amp; Supply</h2>
+<p>All API values are denominated in <strong>Cash</strong> — the smallest indivisible unit. Display amounts in CHK by dividing by 1,000,000.</p>
+
+<table>
+  <tr><th>Parameter</th><th>Value</th></tr>
+  <tr><td>1 CHK</td><td>1,000,000 Cash</td></tr>
+  <tr><td>Minimum transaction fee</td><td>1,000 Cash (0.001 CHK)</td></tr>
+  <tr><td>Initial block reward</td><td>50 CHK (50,000,000 Cash)</td></tr>
+  <tr><td>Halving interval</td><td>1,051,200 blocks (~4 months)</td></tr>
+  <tr><td>Coinbase maturity</td><td>100 blocks before mining rewards are spendable</td></tr>
+  <tr><td>Max supply</td><td>44,800,000 CHK</td></tr>
+</table>
+
+<div class="box box-info">All integer amounts in the API and transaction JSON are in <strong>Cash</strong> (not CHK). Divide by 1,000,000 for display. Never use floating-point arithmetic for currency — work in Cash integers.</div>
+</section>
+
+<!-- ── API Reference ─────────────────────────────────────────────────────────── -->
+<section id="api">
+<h2>HTTP API Reference</h2>
+<p>The Chakram node exposes a JSON REST API over HTTP. Every response is <code>application/json</code>. Errors return <code>{"error":"message"}</code> with an appropriate HTTP status code.</p>
+
+<div class="box box-info">Base URL: <code>http://&lt;node-ip&gt;:8339</code> (mainnet) · <code>http://&lt;node-ip&gt;:18339</code> (testnet)<br>CORS is unrestricted — all origins are allowed.</div>
+
+<!-- /info -->
+<div class="endpoint" id="api-info">
+  <div class="endpoint-title"><span class="badge badge-get">GET</span> <span class="endpoint-path">/info</span></div>
+  <div class="endpoint-desc">Returns the current node status: chain height, peer count, sync state, wallet address, and total supply mined.</div>
+<pre><code><span class="c">// Request</span>
+<span class="url">GET /info</span>
+
+<span class="c">// Response</span>
+{
+  <span class="k">"name"</span>:               <span class="s">"Chakram"</span>,
+  <span class="k">"ticker"</span>:             <span class="s">"CHK"</span>,
+  <span class="k">"version"</span>:            <span class="n">1</span>,
+  <span class="k">"network"</span>:            <span class="s">"testnet"</span>,
+  <span class="k">"height"</span>:             <span class="n">14823</span>,
+  <span class="k">"peers"</span>:              <span class="n">3</span>,
+  <span class="k">"sync_status"</span>:        <span class="s">"Synced — height 14823"</span>,
+  <span class="k">"mining"</span>:             <span class="n">false</span>,
+  <span class="k">"wallet"</span>:             <span class="s">"CK1AbcDef..."</span>,
+  <span class="k">"total_supply_mined"</span>: <span class="n">741150000000</span>   <span class="c">// in Cash</span>
+}</code></pre>
+</div>
+
+<!-- /block -->
+<div class="endpoint" id="api-block">
+  <div class="endpoint-title"><span class="badge badge-get">GET</span> <span class="endpoint-path">/block/{height}</span> &nbsp;·&nbsp; <span class="badge badge-get">GET</span> <span class="endpoint-path">/block/hash/{hash}</span></div>
+  <div class="endpoint-desc">Returns a full block with all its transactions. Look up by height (integer) or by hex-encoded block hash.</div>
+<pre><code><span class="url">GET /block/1000</span>
+<span class="url">GET /block/hash/000014a3c8...</span>
+
+{
+  <span class="k">"height"</span>:        <span class="n">1000</span>,
+  <span class="k">"hash"</span>:          <span class="s">"000014a3c8..."</span>,
+  <span class="k">"previous_hash"</span>: <span class="s">"00001a8f47..."</span>,
+  <span class="k">"timestamp"</span>:     <span class="n">1779936400</span>,
+  <span class="k">"difficulty"</span>:    <span class="n">1</span>,
+  <span class="k">"nonce"</span>:         <span class="n">192038</span>,
+  <span class="k">"tx_count"</span>:      <span class="n">1</span>,
+  <span class="k">"transactions"</span>: [
+    {
+      <span class="k">"txid"</span>:        <span class="s">"a1b2c3d4..."</span>,
+      <span class="k">"is_coinbase"</span>: <span class="n">true</span>,
+      <span class="k">"inputs"</span>:      [],
+      <span class="k">"outputs"</span>: [
+        {
+          <span class="k">"value"</span>:       <span class="n">50000000</span>,    <span class="c">// 50 CHK in Cash</span>
+          <span class="k">"value_chk"</span>:   <span class="n">50.000000</span>,
+          <span class="k">"pubkey_hash"</span>: <span class="s">"a9b4c3..."</span>  <span class="c">// hex</span>
+        }
+      ]
+    }
+  ]
+}</code></pre>
+</div>
+
+<!-- /blocks/latest -->
+<div class="endpoint" id="api-blocks-latest">
+  <div class="endpoint-title"><span class="badge badge-get">GET</span> <span class="endpoint-path">/blocks/latest/{count}</span></div>
+  <div class="endpoint-desc">Returns the most recent N blocks (maximum 50), newest first. Useful for dashboards and explorers.</div>
+<pre><code><span class="url">GET /blocks/latest/10</span>
+
+[
+  {
+    <span class="k">"height"</span>:    <span class="n">14823</span>,
+    <span class="k">"hash"</span>:      <span class="s">"000014a3..."</span>,
+    <span class="k">"timestamp"</span>: <span class="n">1779936400</span>,
+    <span class="k">"tx_count"</span>:  <span class="n">2</span>,
+    <span class="k">"miner"</span>:     <span class="s">"CK1AbcDef..."</span>
+  },
+  ...
+]</code></pre>
+</div>
+
+<!-- /tx -->
+<div class="endpoint" id="api-tx">
+  <div class="endpoint-title"><span class="badge badge-get">GET</span> <span class="endpoint-path">/tx/{txid}</span></div>
+  <div class="endpoint-desc">Looks up a transaction by its hex-encoded transaction ID. Scans the most recent 1,000 blocks.</div>
+<pre><code><span class="url">GET /tx/a1b2c3d4e5f6...</span>
+
+{
+  <span class="k">"txid"</span>:         <span class="s">"a1b2c3d4..."</span>,
+  <span class="k">"block_height"</span>: <span class="n">14800</span>,
+  <span class="k">"is_coinbase"</span>:  <span class="n">false</span>,
+  <span class="k">"timestamp"</span>:    <span class="n">1779936000</span>,
+  <span class="k">"inputs"</span>: [
+    { <span class="k">"txid"</span>: <span class="s">"prev_txid..."</span>, <span class="k">"output_index"</span>: <span class="n">0</span> }
+  ],
+  <span class="k">"outputs"</span>: [
+    { <span class="k">"value"</span>: <span class="n">5000000</span>, <span class="k">"value_chk"</span>: <span class="n">5.000000</span>, <span class="k">"pubkey_hash"</span>: <span class="s">"..."</span> }
+  ]
+}</code></pre>
+</div>
+
+<!-- /address -->
+<div class="endpoint" id="api-address">
+  <div class="endpoint-title"><span class="badge badge-get">GET</span> <span class="endpoint-path">/address/{address}</span></div>
+  <div class="endpoint-desc">Returns the balance for a CK1 address by summing all its unspent outputs.</div>
+<pre><code><span class="url">GET /address/CK1AbcDef...</span>
+
+{
+  <span class="k">"address"</span>:     <span class="s">"CK1AbcDef..."</span>,
+  <span class="k">"balance"</span>:     <span class="n">12500000</span>,     <span class="c">// in Cash</span>
+  <span class="k">"balance_chk"</span>: <span class="n">12.500000</span>,
+  <span class="k">"utxo_count"</span>:  <span class="n">3</span>
+}</code></pre>
+</div>
+
+<!-- /utxos -->
+<div class="endpoint" id="api-utxos">
+  <div class="endpoint-title"><span class="badge badge-get">GET</span> <span class="endpoint-path">/utxos/{address}</span></div>
+  <div class="endpoint-desc">Returns all unspent outputs for an address. Use this to build transactions — each UTXO is a spendable input. <code>mature</code> is <code>false</code> for coinbase outputs that have not yet reached 100-block maturity.</div>
+<pre><code><span class="url">GET /utxos/CK1AbcDef...</span>
+
+[
+  {
+    <span class="k">"txid"</span>:         <span class="s">"a1b2c3..."</span>,   <span class="c">// hex</span>
+    <span class="k">"output_index"</span>: <span class="n">0</span>,
+    <span class="k">"value"</span>:        <span class="n">10000000</span>,      <span class="c">// Cash</span>
+    <span class="k">"value_chk"</span>:    <span class="n">10.000000</span>,
+    <span class="k">"block_height"</span>: <span class="n">14700</span>,
+    <span class="k">"is_coinbase"</span>:  <span class="n">false</span>,
+    <span class="k">"mature"</span>:       <span class="n">true</span>
+  }
+]</code></pre>
+<div class="box box-warn">Only include UTXOs where <code>mature === true</code> as inputs to a transaction. Spending an immature coinbase output will cause the transaction to be rejected.</div>
+</div>
+
+<!-- /peers -->
+<div class="endpoint" id="api-peers">
+  <div class="endpoint-title"><span class="badge badge-get">GET</span> <span class="endpoint-path">/peers</span></div>
+  <div class="endpoint-desc">Returns the list of currently connected peers.</div>
+<pre><code><span class="url">GET /peers</span>
+
+[
+  { <span class="k">"address"</span>: <span class="s">"35.207.229.32:18338"</span>, <span class="k">"height"</span>: <span class="n">14823</span>, <span class="k">"connected"</span>: <span class="n">true</span> }
+]</code></pre>
+</div>
+
+<!-- /tx/submit -->
+<div class="endpoint" id="api-submit">
+  <div class="endpoint-title"><span class="badge badge-post">POST</span> <span class="endpoint-path">/tx/submit</span></div>
+  <div class="endpoint-desc">Broadcasts a signed transaction to the network. The node validates the transaction, adds it to the mempool, and relays it to all connected peers. See the <a href="#transactions">Transaction Protocol</a> section for how to construct a valid transaction.</div>
+<pre><code><span class="url">POST /tx/submit</span>
+<span class="k">Content-Type: application/json</span>
+
+{
+  <span class="k">"TxID"</span>:      <span class="s">"&lt;base64&gt;"</span>,
+  <span class="k">"IsCoinbase"</span>: <span class="n">false</span>,
+  <span class="k">"Inputs"</span>: [
+    {
+      <span class="k">"TxID"</span>:        <span class="s">"&lt;base64&gt;"</span>,
+      <span class="k">"OutputIndex"</span>: <span class="n">0</span>,
+      <span class="k">"PublicKey"</span>:   <span class="s">"&lt;base64, 32 bytes&gt;"</span>,
+      <span class="k">"Signature"</span>:   <span class="s">"&lt;base64, 64 bytes&gt;"</span>
+    }
+  ],
+  <span class="k">"Outputs"</span>: [
+    {
+      <span class="k">"Value"</span>:       <span class="n">5000000</span>,
+      <span class="k">"PublicKeyHash"</span>: <span class="s">"&lt;base64, 20 bytes&gt;"</span>
+    }
+  ],
+  <span class="k">"Timestamp"</span>: <span class="n">1779936000</span>
+}
+
+<span class="c">// Success response</span>
+{ <span class="k">"txid"</span>: <span class="s">"a1b2c3d4..."</span>, <span class="k">"status"</span>: <span class="s">"submitted"</span> }
+
+<span class="c">// Error response</span>
+{ <span class="k">"error"</span>: <span class="s">"mempool rejected: insufficient fee"</span> }</code></pre>
+
+<div class="box box-warn"><strong>Encoding:</strong> All <code>[]byte</code> fields (<code>TxID</code>, <code>PublicKey</code>, <code>Signature</code>, <code>PublicKeyHash</code>) must be <strong>base64-encoded</strong> (standard encoding). This matches Go's default JSON marshalling for byte slices.<br><br>Note: the <code>/tx/{txid}</code> lookup endpoint returns TxIDs in <strong>hex</strong>. You must convert to base64 when building transaction inputs.</div>
+</div>
+</section>
+
+<!-- ── Keys & Addresses ──────────────────────────────────────────────────────── -->
+<section id="keys">
+<h2>Keys &amp; Addresses</h2>
+
+<h3>Key Generation</h3>
+<p>Chakram uses <strong>Ed25519</strong> for all signing. The private key is a 32-byte seed; the public key is derived deterministically.</p>
+
+<pre><code><span class="c">// 1. Generate 16 bytes of random entropy (BIP39 uses 128-bit entropy)</span>
+entropy = random_bytes(16)
+
+<span class="c">// 2. Derive seed from entropy (matches BIP39 mnemonic → seed path)</span>
+seed = SHA256(entropy)          <span class="c">// 32 bytes — this is the Ed25519 private key seed</span>
+
+<span class="c">// 3. Derive public key</span>
+publicKey = ed25519.PublicKey(seed)   <span class="c">// 32 bytes</span></code></pre>
+
+<div class="box box-warn">The seed (SHA256 of entropy) is equivalent to a private key. Never expose or transmit it. Store only the encrypted form.</div>
+
+<h3>Mnemonic Recovery Phrase</h3>
+<p>Wallet recovery phrases follow the <strong>BIP39</strong> standard (English, 2048-word list) with 128-bit entropy encoded as 12 words.</p>
+
+<pre><code><span class="c">// Encoding:</span>
+entropy (16 bytes) → SHA256 → take top 4 bits as checksum
+pack (entropy ++ checksum) into 132 bits → 12 × 11-bit BIP39 word indices
+
+<span class="c">// Recovering seed from mnemonic:</span>
+words → indices → 128 bits entropy + 4-bit checksum
+verify checksum
+seed = SHA256(entropy)</code></pre>
+
+<h3>Address Format</h3>
+<p>A Chakram address encodes the <strong>public key hash</strong> — the 20-byte RIPEMD160(SHA256(publicKey)) — with a 4-byte checksum, using Base58Check with a <code>CK1</code> prefix.</p>
+
+<pre><code><span class="c">// Step-by-step:</span>
+pkh      = RIPEMD160(SHA256(publicKey))       <span class="c">// 20 bytes</span>
+checksum = SHA256(SHA256(pkh))[0:4]           <span class="c">// first 4 bytes</span>
+payload  = pkh ++ checksum                    <span class="c">// 24 bytes</span>
+address  = "CK1" + Base58Encode(payload)
+
+<span class="c">// Validation:</span>
+raw      = Base58Decode(address[3:])          <span class="c">// strip "CK1"</span>
+pkh      = raw[0:20]
+cs       = raw[20:24]
+assert SHA256(SHA256(pkh))[0:4] == cs        <span class="c">// checksum must match</span></code></pre>
+
+<p>The Base58 alphabet used is the standard Bitcoin alphabet: <code>123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz</code></p>
+</section>
+
+<!-- ── Transactions ──────────────────────────────────────────────────────────── -->
+<section id="transactions">
+<h2>Transactions</h2>
+
+<h3>Transaction Structure</h3>
+<p>A Chakram transaction spends one or more UTXOs (inputs) and creates one or more new outputs. All byte fields in the JSON are base64-encoded.</p>
+
+<table>
+  <tr><th>Field</th><th>Type</th><th>Description</th></tr>
+  <tr><td>TxID</td><td>base64 (32 bytes)</td><td>Transaction identifier — computed, not chosen</td></tr>
+  <tr><td>IsCoinbase</td><td>bool</td><td>Always false for user transactions</td></tr>
+  <tr><td>Inputs</td><td>array</td><td>UTXOs being spent</td></tr>
+  <tr><td>Outputs</td><td>array</td><td>New UTXOs being created</td></tr>
+  <tr><td>Timestamp</td><td>int64 (Unix seconds)</td><td>Current time at signing</td></tr>
+</table>
+
+<h4>Input fields</h4>
+<table>
+  <tr><th>Field</th><th>Type</th><th>Description</th></tr>
+  <tr><td>TxID</td><td>base64 (32 bytes)</td><td>The UTXO's originating transaction ID</td></tr>
+  <tr><td>OutputIndex</td><td>uint32</td><td>Index within that transaction's outputs</td></tr>
+  <tr><td>PublicKey</td><td>base64 (32 bytes)</td><td>Spender's Ed25519 public key</td></tr>
+  <tr><td>Signature</td><td>base64 (64 bytes)</td><td>Ed25519 signature over the input message</td></tr>
+</table>
+
+<h4>Output fields</h4>
+<table>
+  <tr><th>Field</th><th>Type</th><th>Description</th></tr>
+  <tr><td>Value</td><td>uint64</td><td>Amount in Cash (must be &gt; 0)</td></tr>
+  <tr><td>PublicKeyHash</td><td>base64 (20 bytes)</td><td>Recipient's RIPEMD160(SHA256(pubkey))</td></tr>
+</table>
+
+<h3>Transaction ID Computation</h3>
+<p>The TxID is SHA256(SHA256(canonical_bytes)) where the canonical serialization is:</p>
+
+<pre><code><span class="c">// Canonical byte layout (little-endian integers):</span>
+[1 byte]   IsCoinbase flag (0x00 for user transactions)
+for each input:
+  [32 bytes] TxID (raw bytes, from base64)
+  [4 bytes]  OutputIndex (uint32, little-endian)
+for each output:
+  [8 bytes]  Value (uint64, little-endian)
+  [20 bytes] PublicKeyHash (raw bytes, from base64)
+[8 bytes]  Timestamp (int64, little-endian)
+
+TxID = SHA256(SHA256(canonical_bytes))    <span class="c">// 32 bytes</span>
+Store as base64 in the transaction JSON.</code></pre>
+
+<div class="box box-tip">Compute the TxID <strong>before</strong> signing. The canonical bytes use empty (zero-filled) Signature and PublicKey fields. The TxID is stable and does not change when you add signatures.</div>
+</section>
+
+<!-- ── Signing ────────────────────────────────────────────────────────────────── -->
+<section id="signing">
+<h2>Signing</h2>
+
+<p>Each input in a transaction must be individually signed. The signature proves ownership of the UTXO being spent.</p>
+
+<pre><code><span class="c">// For each input i:</span>
+txid_bytes    = base64_decode(input[i].TxID)      <span class="c">// 32 bytes</span>
+index_bytes   = uint32_to_bytes_LE(input[i].OutputIndex)  <span class="c">// 4 bytes</span>
+preimage      = txid_bytes ++ index_bytes          <span class="c">// 36 bytes</span>
+message       = SHA256(preimage)                  <span class="c">// 32 bytes</span>
+
+signature     = ed25519.Sign(seed, message)        <span class="c">// 64 bytes</span>
+
+input[i].Signature = base64_encode(signature)
+input[i].PublicKey = base64_encode(ed25519.PublicKey(seed))</code></pre>
+
+<h3>Verification (node-side)</h3>
+<p>The node verifies each input by:</p>
+<ol style="color:var(--text2);padding-left:20px;margin:10px 0 14px">
+  <li style="padding:4px 0">Looking up the UTXO — it must exist and not be spent</li>
+  <li style="padding:4px 0">Checking coinbase maturity — coinbase UTXOs need 100 confirmations</li>
+  <li style="padding:4px 0">Verifying the Ed25519 signature against SHA256(TxID‖OutputIndex)</li>
+  <li style="padding:4px 0">Checking that RIPEMD160(SHA256(publicKey)) matches the UTXO's stored pubkey hash</li>
+</ol>
+
+<h3>Fee</h3>
+<p>The network enforces a minimum fee of <strong>1,000 Cash (0.001 CHK)</strong>. Fee is implicit: <code>fee = sum(input values) - sum(output values)</code>. Add a change output back to yourself if the difference would be too large.</p>
+
+<pre><code>total_in   = sum of all input UTXO values
+total_out  = sum of all output values
+fee        = total_in - total_out
+assert fee >= 1000  <span class="c">// minimum fee in Cash</span></code></pre>
+</section>
+
+<!-- ── UTXO Model ─────────────────────────────────────────────────────────────── -->
+<section id="utxo-model">
+<h2>UTXO Model</h2>
+<p>Chakram uses an <strong>Unspent Transaction Output (UTXO)</strong> model. A wallet's balance is the sum of all UTXOs whose <code>PublicKeyHash</code> matches the wallet's address. There are no account balances — only outputs.</p>
+
+<pre><code><span class="c">// Typical transfer flow:</span>
+
+1. Query GET /utxos/CK1... → list of spendable outputs
+2. Select UTXOs whose total value >= amount + fee (coin selection)
+3. Build transaction:
+   - Inputs:  selected UTXOs
+   - Outputs: [recipient output, optional change output back to sender]
+   - Timestamp: current Unix time
+4. Compute TxID
+5. Sign each input
+6. POST /tx/submit
+
+<span class="c">// Change output:</span>
+change = total_input - amount - fee
+if change > 0:
+    add output: { Value: change, PublicKeyHash: sender_pkh }</code></pre>
+
+<div class="box box-info">Only select UTXOs where <code>mature === true</code>. Block rewards (coinbase outputs) require 100 confirmations before they can be spent. Regular transaction outputs have no maturity requirement.</div>
+</section>
+
+<!-- ── Running a Node ─────────────────────────────────────────────────────────── -->
+<section id="running">
+<h2>Running a Node</h2>
+
+<h3>Binary</h3>
+<p>Chakram is a single Go binary. No dependencies or configuration files are required at runtime.</p>
+
+<pre><code><span class="c"># Download the latest binary from the releases page</span>
+chmod +x chakram
+
+<span class="c"># Run a full node (mainnet)</span>
+./chakram
+
+<span class="c"># Run on testnet</span>
+./chakram --testnet
+
+<span class="c"># Connect to a specific peer</span>
+./chakram --peer 35.207.229.32:18338
+
+<span class="c"># Custom data directory</span>
+./chakram --datadir /var/lib/chakram
+
+<span class="c"># Custom RPC port</span>
+./chakram --rpc-port 8339</code></pre>
+
+<h3>Data Directory</h3>
+<p>By default, the node stores all blockchain data in <code>./chakram-data/</code> (current directory). The database is <strong>BadgerDB</strong> — do not copy or modify it while the node is running.</p>
+
+<h3>Ports to Open</h3>
+<table>
+  <tr><th>Port</th><th>Protocol</th><th>Purpose</th></tr>
+  <tr><td>8338 (mainnet) / 18338 (testnet)</td><td>TCP</td><td>P2P — peer connections</td></tr>
+  <tr><td>8339 (mainnet) / 18339 (testnet)</td><td>TCP</td><td>HTTP — RPC, explorer, wallet</td></tr>
+</table>
+
+<div class="box box-tip">For a public seed node, open both ports in your firewall. For a private node or wallet server, only the RPC port needs to be reachable from external clients.</div>
+</section>
+
+<!-- ── Mining ─────────────────────────────────────────────────────────────────── -->
+<section id="mining">
+<h2>Mining</h2>
+<p>Chakram uses <strong>RandomX</strong> proof-of-work — an ASIC-resistant algorithm designed for CPU mining. Mining is built into the node binary; no separate miner software is needed.</p>
+
+<pre><code><span class="c"># Enable mining (block rewards sent to the node's wallet address)</span>
+./chakram --mine
+
+<span class="c"># Mine on testnet</span>
+./chakram --testnet --mine</code></pre>
+
+<table>
+  <tr><th>Parameter</th><th>Value</th></tr>
+  <tr><td>Algorithm</td><td>RandomX (light mode)</td></tr>
+  <tr><td>Epoch length</td><td>64 blocks (~10 minutes)</td></tr>
+  <tr><td>Mining threads</td><td>1 (configured in binary)</td></tr>
+  <tr><td>Block reward (era 1)</td><td>50 CHK</td></tr>
+  <tr><td>Halving interval</td><td>Every 1,051,200 blocks (~4 months)</td></tr>
+  <tr><td>Coinbase maturity</td><td>100 blocks before reward is spendable</td></tr>
+</table>
+
+<div class="box box-info">The RandomX epoch seed is deterministic: <code>"chakram-epoch-N"</code> where N is <code>height / 64</code>. All nodes compute the same seed for the same epoch — no consensus on seed data is required.</div>
+</section>
+
+<!-- ── P2P Protocol ───────────────────────────────────────────────────────────── -->
+<section id="p2p">
+<h2>P2P Protocol</h2>
+<p>The Chakram P2P protocol uses a custom binary framing over TCP. Each message is a length-prefixed frame with a 4-byte magic number header.</p>
+
+<h3>Message Frame</h3>
+<pre><code>[4 bytes]  Magic (0x43484143 mainnet / 0x43484154 testnet)
+[1 byte]   Message type
+[4 bytes]  Payload length (uint32, big-endian)
+[N bytes]  Payload (JSON-encoded)</code></pre>
+
+<h3>Message Types</h3>
+<table>
+  <tr><th>Type</th><th>Name</th><th>Direction</th><th>Description</th></tr>
+  <tr><td>0x01</td><td>Version</td><td>Both</td><td>Handshake — announces height and version</td></tr>
+  <tr><td>0x02</td><td>GetBlocks</td><td>Both</td><td>Request blocks from height N, up to count C</td></tr>
+  <tr><td>0x03</td><td>Blocks</td><td>Both</td><td>Response carrying one or more blocks</td></tr>
+  <tr><td>0x04</td><td>Inv</td><td>Both</td><td>Announce new block or transaction hash</td></tr>
+  <tr><td>0x05</td><td>GetData</td><td>Both</td><td>Request a specific block or tx by hash</td></tr>
+  <tr><td>0x06</td><td>Tx</td><td>Both</td><td>Relay a transaction</td></tr>
+  <tr><td>0x07</td><td>GetPeers</td><td>Both</td><td>Request peer list</td></tr>
+  <tr><td>0x08</td><td>Peers</td><td>Both</td><td>Response with known peer addresses</td></tr>
+</table>
+
+<div class="box box-info">The P2P wire protocol is intended for full node implementations. Wallets and exchanges only need the HTTP API — they do not need to speak the P2P protocol.</div>
+</section>
+
+<!-- ── Integration Guide ─────────────────────────────────────────────────────── -->
+<section id="integration">
+<h2>Integration Guide</h2>
+
+<h3>Exchange Integration</h3>
+<p>To add CHK deposit/withdrawal support to an exchange:</p>
+<ol style="color:var(--text2);padding-left:20px;margin:10px 0 20px;line-height:2">
+  <li>Run a Chakram full node and keep it synced</li>
+  <li>Generate a unique deposit address per user using the key derivation above</li>
+  <li>Poll <code>GET /address/{address}</code> to detect balance changes, or scan blocks with <code>GET /block/{height}</code></li>
+  <li>To credit deposits, verify the UTXO appears in <code>GET /utxos/{address}</code> and has <code>mature: true</code></li>
+  <li>To process withdrawals, build and sign a transaction offline, submit via <code>POST /tx/submit</code></li>
+</ol>
+
+<h3>Watch-Only Wallet</h3>
+<p>A watch-only wallet only needs the address (no private key). Use <code>GET /address/{addr}</code> for balance and <code>GET /utxos/{addr}</code> to monitor incoming payments.</p>
+
+<h3>Signing in JavaScript (Browser / Node.js)</h3>
+<pre><code><span class="c">// Using @noble/ed25519 v2 and @noble/hashes (no WebCrypto required)</span>
+import { etc, getPublicKey, sign } from '@noble/ed25519';
+import { sha256 } from '@noble/hashes/sha256';
+import { sha512 } from '@noble/hashes/sha512';
+import { ripemd160 } from '@noble/hashes/ripemd160';
+etc.sha512Sync = sha512;
+
+<span class="c">// Derive address from seed</span>
+const pub = getPublicKey(seed);                         <span class="c">// 32 bytes</span>
+const pkh = ripemd160(sha256(pub));                     <span class="c">// 20 bytes</span>
+
+<span class="c">// Sign an input</span>
+const preimage = new Uint8Array([...txid_bytes, ...index_le_4bytes]);
+const message  = sha256(preimage);                      <span class="c">// 32 bytes</span>
+const sig      = sign(message, seed);                   <span class="c">// 64 bytes</span></code></pre>
+
+<h3>Signing in Python</h3>
+<pre><code>from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
+import hashlib, struct
+
+seed = hashlib.sha256(entropy).digest()
+privkey = Ed25519PrivateKey.from_private_bytes(seed)
+pubkey  = privkey.public_key().public_bytes_raw()       <span class="c"># 32 bytes</span>
+
+<span class="c"># Sign input i</span>
+preimage = txid_bytes + struct.pack('&lt;I', output_index)
+message  = hashlib.sha256(preimage).digest()
+sig      = privkey.sign(message)                        <span class="c"># 64 bytes</span></code></pre>
+
+<h3>Signing in Go</h3>
+<pre><code>import (
+    "crypto/ed25519"
+    "crypto/sha256"
+    "encoding/binary"
+)
+
+<span class="c">// Derive key</span>
+seed := sha256.Sum256(entropy)
+privKey := ed25519.NewKeyFromSeed(seed[:])
+pubKey  := privKey.Public().(ed25519.PublicKey)
+
+<span class="c">// Sign input</span>
+preimage := append(txID, binary.LittleEndian.AppendUint32(nil, outputIndex)...)
+message  := sha256.Sum256(preimage)
+sig      := ed25519.Sign(privKey, message[:])</code></pre>
+</section>
+
+<!-- ── Errors ──────────────────────────────────────────────────────────────────── -->
+<section id="errors">
+<h2>Error Reference</h2>
+
+<table>
+  <tr><th>HTTP Status</th><th>Error Message</th><th>Cause</th></tr>
+  <tr><td>400</td><td>invalid height</td><td>Non-integer height in URL</td></tr>
+  <tr><td>400</td><td>invalid hash</td><td>Non-hex string in hash parameter</td></tr>
+  <tr><td>400</td><td>invalid address</td><td>Address is not a valid CK1 address</td></tr>
+  <tr><td>400</td><td>invalid transaction JSON</td><td>Request body is not valid JSON or missing fields</td></tr>
+  <tr><td>400</td><td>transaction invalid: …</td><td>Transaction fails structural validation</td></tr>
+  <tr><td>400</td><td>mempool rejected: insufficient fee</td><td>Fee &lt; 1,000 Cash</td></tr>
+  <tr><td>400</td><td>mempool rejected: utxo not found</td><td>Input references a spent or non-existent UTXO</td></tr>
+  <tr><td>400</td><td>mempool rejected: invalid Ed25519 signature</td><td>Signature does not verify against the input message</td></tr>
+  <tr><td>400</td><td>mempool rejected: coinbase output not yet mature</td><td>Trying to spend a block reward before 100 confirmations</td></tr>
+  <tr><td>404</td><td>block not found</td><td>No block at that height or hash</td></tr>
+  <tr><td>404</td><td>transaction not found</td><td>TxID not in recent 1,000 blocks</td></tr>
+  <tr><td>405</td><td>method not allowed</td><td>Wrong HTTP method for the route</td></tr>
+</table>
+
+<div style="margin-top:60px;padding-top:24px;border-top:1px solid var(--border);font-size:11px;color:var(--text2)">
+  Chakram Protocol &mdash; Kerala's Digital Currency &mdash;
+  <a href="/explorer">Explorer</a> &middot;
+  <a href="/wallet">Wallet</a> &middot;
+  <a href="/faucet">Faucet</a>
+</div>
+
+</section>
+</main>
+</div>
+
+<script>
+// Active sidebar link on scroll
+const links = document.querySelectorAll('.nav-link[href^="#"]');
+const obs = new IntersectionObserver(entries => {
+  entries.forEach(e => {
+    if(e.isIntersecting){
+      links.forEach(l=>l.classList.remove('active'));
+      const a=document.querySelector('.nav-link[href="#'+e.target.id+'"]');
+      if(a)a.classList.add('active');
+    }
+  });
+},{rootMargin:'-10% 0px -80% 0px'});
+document.querySelectorAll('section[id]').forEach(s=>obs.observe(s));
+</script>
+</body>
+</html>

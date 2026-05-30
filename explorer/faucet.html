@@ -1,0 +1,531 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Chakram Faucet</title>
+    <style>
+        :root {
+            --bg:     #0a0a0f;
+            --bg2:    #111118;
+            --bg3:    #1a1a24;
+            --gold:   #f0c040;
+            --gold2:  #c9a030;
+            --text:   #e0e0e8;
+            --text2:  #8888a0;
+            --border: #2a2a3a;
+            --orange: #ff8c00;
+            --green:  #40c080;
+            --red:    #c04040;
+        }
+
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+
+        body {
+            background: var(--bg);
+            color: var(--text);
+            font-family: 'Courier New', Courier, monospace;
+            min-height: 100vh;
+        }
+
+        /* ── Header ─────────────────────────────────────────────── */
+        header {
+            background: var(--bg2);
+            border-bottom: 1px solid var(--border);
+            padding: 1rem 2rem;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            flex-wrap: wrap;
+            gap: 1rem;
+        }
+
+        .header-brand { display: flex; flex-direction: column; }
+
+        .logo {
+            font-size: 2rem;
+            font-weight: bold;
+            color: var(--gold);
+            letter-spacing: 4px;
+        }
+
+        .subtitle { color: var(--text2); font-size: 0.85rem; margin-top: 2px; }
+
+        .header-meta { display: flex; align-items: center; gap: 1rem; }
+
+        nav { display: flex; gap: 0; }
+
+        .nav-link {
+            color: var(--text2);
+            text-decoration: none;
+            padding: 6px 14px;
+            border-radius: 5px;
+            font-size: 0.82rem;
+            letter-spacing: 0.5px;
+            transition: color 0.2s, background 0.2s;
+        }
+
+        .nav-link:hover { color: var(--gold); background: var(--bg3); }
+        .nav-link.active { color: var(--gold); background: var(--bg3); }
+
+        .badge {
+            padding: 4px 12px;
+            border-radius: 999px;
+            font-size: 0.72rem;
+            font-weight: bold;
+            letter-spacing: 1px;
+        }
+
+        .badge-testnet { background: var(--orange); color: #000; }
+        .badge-faucet  { background: var(--green);  color: #000; }
+
+        /* ── Main layout ────────────────────────────────────────── */
+        .page {
+            max-width: 680px;
+            margin: 3rem auto;
+            padding: 0 2rem;
+        }
+
+        .page-title {
+            text-align: center;
+            margin-bottom: 2.5rem;
+        }
+
+        .page-title h1 {
+            color: var(--gold);
+            font-size: 2rem;
+            letter-spacing: 4px;
+            margin-bottom: 0.5rem;
+        }
+
+        .page-title p { color: var(--text2); font-size: 0.9rem; }
+
+        /* ── Stats ──────────────────────────────────────────────── */
+        .stats-row {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 1rem;
+            margin-bottom: 2rem;
+        }
+
+        .stat-card {
+            background: var(--bg2);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            padding: 1.25rem;
+            text-align: center;
+        }
+
+        .stat-label {
+            color: var(--text2);
+            font-size: 0.7rem;
+            letter-spacing: 1px;
+            text-transform: uppercase;
+            margin-bottom: 0.4rem;
+        }
+
+        .stat-value { color: var(--gold); font-size: 1.5rem; font-weight: bold; }
+
+        /* ── Faucet card ────────────────────────────────────────── */
+        .card {
+            background: var(--bg2);
+            border: 1px solid var(--border);
+            border-radius: 10px;
+            padding: 2rem;
+            margin-bottom: 1.5rem;
+        }
+
+        .card-title {
+            color: var(--text2);
+            font-size: 0.7rem;
+            letter-spacing: 2px;
+            text-transform: uppercase;
+            margin-bottom: 1.25rem;
+            padding-bottom: 0.75rem;
+            border-bottom: 1px solid var(--border);
+        }
+
+        .input-group {
+            display: flex;
+            gap: 0.5rem;
+            margin-bottom: 1rem;
+        }
+
+        .input-group input {
+            flex: 1;
+            background: var(--bg3);
+            border: 1px solid var(--border);
+            color: var(--text);
+            padding: 0.75rem 1rem;
+            border-radius: 6px;
+            font-family: inherit;
+            font-size: 0.9rem;
+            outline: none;
+            transition: border-color 0.2s;
+        }
+
+        .input-group input:focus { border-color: var(--gold); }
+        .input-group input::placeholder { color: var(--text2); }
+
+        .btn {
+            background: var(--gold);
+            color: #000;
+            border: none;
+            padding: 0.75rem 1.5rem;
+            border-radius: 6px;
+            cursor: pointer;
+            font-family: inherit;
+            font-weight: bold;
+            font-size: 0.9rem;
+            transition: background 0.2s;
+            white-space: nowrap;
+        }
+
+        .btn:hover { background: var(--gold2); }
+        .btn:disabled { background: var(--border); color: var(--text2); cursor: not-allowed; }
+
+        .hint { color: var(--text2); font-size: 0.78rem; line-height: 1.5; }
+
+        /* ── Result states ──────────────────────────────────────── */
+        .result {
+            display: none;
+            padding: 1.25rem;
+            border-radius: 8px;
+            margin-top: 1rem;
+            font-size: 0.88rem;
+            line-height: 1.6;
+        }
+
+        .result.success {
+            display: block;
+            background: rgba(64, 192, 128, 0.1);
+            border: 1px solid rgba(64, 192, 128, 0.3);
+            color: var(--green);
+        }
+
+        .result.error {
+            display: block;
+            background: rgba(192, 64, 64, 0.1);
+            border: 1px solid rgba(192, 64, 64, 0.3);
+            color: var(--red);
+        }
+
+        .result.cooldown {
+            display: block;
+            background: rgba(240, 192, 64, 0.1);
+            border: 1px solid rgba(240, 192, 64, 0.3);
+            color: var(--gold);
+        }
+
+        /* ── How it works ───────────────────────────────────────── */
+        .steps { list-style: none; }
+
+        .steps li {
+            display: flex;
+            gap: 1rem;
+            padding: 0.6rem 0;
+            border-bottom: 1px solid var(--border);
+            font-size: 0.85rem;
+            align-items: flex-start;
+        }
+
+        .steps li:last-child { border-bottom: none; }
+
+        .step-num {
+            color: var(--gold);
+            font-weight: bold;
+            min-width: 20px;
+            flex-shrink: 0;
+        }
+
+        /* ── History ────────────────────────────────────────────── */
+        .history-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 0.6rem 0;
+            border-bottom: 1px solid var(--border);
+            font-size: 0.82rem;
+        }
+
+        .history-row:last-child { border-bottom: none; }
+
+        .history-addr { color: var(--gold); font-family: monospace; }
+        .history-time { color: var(--text2); font-size: 0.75rem; }
+        .history-amt  { color: var(--green); }
+
+        .empty-msg { color: var(--text2); font-size: 0.85rem; text-align: center; padding: 1rem; }
+
+        /* ── Footer ─────────────────────────────────────────────── */
+        footer {
+            text-align: center;
+            padding: 2rem;
+            color: var(--text2);
+            font-size: 0.78rem;
+            border-top: 1px solid var(--border);
+            margin-top: 3rem;
+        }
+
+        footer a { color: var(--gold); text-decoration: none; }
+
+        ::-webkit-scrollbar { width: 6px; }
+        ::-webkit-scrollbar-track { background: var(--bg); }
+        ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+
+        @media (max-width: 600px) {
+            .stats-row { grid-template-columns: 1fr; }
+            .input-group { flex-direction: column; }
+            .logo { font-size: 1.5rem; }
+        }
+    </style>
+</head>
+<body>
+
+<header>
+    <div class="header-brand">
+        <div class="logo">⬡ CHAKRAM</div>
+        <div class="subtitle">ചക്രം — Kerala's Digital Coin</div>
+    </div>
+    <nav>
+        <a class="nav-link" href="/">Explorer</a>
+        <a class="nav-link" href="/wallet">Wallet</a>
+        <a class="nav-link active" href="/faucet">Faucet</a>
+    </nav>
+    <div class="header-meta">
+        <span class="badge badge-faucet">FAUCET</span>
+        <span class="badge badge-testnet">TESTNET</span>
+    </div>
+</header>
+
+<div class="page">
+
+    <div class="page-title">
+        <h1>💧 FAUCET</h1>
+        <p>Get free testnet CHK — no sign-up, no fees</p>
+    </div>
+
+    <!-- Stats -->
+    <div class="stats-row">
+        <div class="stat-card">
+            <div class="stat-label">CHK Distributed</div>
+            <div class="stat-value" id="statDistributed">—</div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-label">Requests Today</div>
+            <div class="stat-value" id="statRequests">—</div>
+        </div>
+    </div>
+
+    <!-- Request form -->
+    <div class="card">
+        <div class="card-title">Request Testnet CHK</div>
+        <div class="input-group">
+            <input id="addressInput"
+                   type="text"
+                   placeholder="Enter your CK1 address…"
+                   autocomplete="off" />
+            <button class="btn" id="requestBtn" onclick="submitRequest()">
+                Request 10 CHK
+            </button>
+        </div>
+        <div class="hint">
+            Enter a valid CK1 address. Limit: once per address per 24 hours.<br>
+            Don't have an address? <a href="/wallet" style="color:var(--gold)">Download the wallet →</a>
+        </div>
+        <div class="result" id="result"></div>
+    </div>
+
+    <!-- How it works -->
+    <div class="card">
+        <div class="card-title">How It Works</div>
+        <ol class="steps">
+            <li>
+                <span class="step-num">1.</span>
+                <span>Enter your CK1 address above and click <strong style="color:var(--gold)">Request 10 CHK</strong></span>
+            </li>
+            <li>
+                <span class="step-num">2.</span>
+                <span>Your request is logged. The faucet operator manually reviews and sends CHK from the miner wallet.</span>
+            </li>
+            <li>
+                <span class="step-num">3.</span>
+                <span>Check your balance at <a href="/wallet" style="color:var(--gold)">/wallet</a> — funds typically arrive within a few minutes.</span>
+            </li>
+            <li>
+                <span class="step-num">4.</span>
+                <span>Use your CHK to test transactions on the Chakram testnet. These coins have no real-world value.</span>
+            </li>
+        </ol>
+    </div>
+
+    <!-- Recent requests -->
+    <div class="card">
+        <div class="card-title">Your Recent Requests</div>
+        <div id="historyList"></div>
+    </div>
+
+</div>
+
+<footer>
+    <div>Chakram Testnet Faucet — Built with ❤️ in Kerala</div>
+    <div style="margin-top:0.5rem;">
+        <a href="/">Explorer</a> &nbsp;·&nbsp;
+        <a href="/wallet">Wallet</a> &nbsp;·&nbsp;
+        <a href="https://github.com/anandhusathe/chakram" target="_blank" rel="noopener">GitHub</a>
+    </div>
+</footer>
+
+<script>
+'use strict';
+
+const RPC = 'http://34.1.166.49:18339';
+const STORAGE_KEY = 'chakram_faucet_requests';
+const COOLDOWN_MS = 24 * 60 * 60 * 1000;
+
+// ── Helpers ────────────────────────────────────────────────────────
+
+function timeAgo(ts) {
+    const d = Math.floor((Date.now() - ts) / 1000);
+    if (d < 60)    return d + 's ago';
+    if (d < 3600)  return Math.floor(d / 60) + 'm ago';
+    if (d < 86400) return Math.floor(d / 3600) + 'h ago';
+    return Math.floor(d / 86400) + 'd ago';
+}
+
+function trunc(s, n = 16) {
+    return s && s.length > n ? s.slice(0, n) + '…' : s;
+}
+
+function esc(s) {
+    return String(s)
+        .replace(/&/g, '&amp;').replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+}
+
+// ── LocalStorage helpers ───────────────────────────────────────────
+
+function loadRequests() {
+    try {
+        return JSON.parse(localStorage.getItem(STORAGE_KEY) || '[]');
+    } catch (_) { return []; }
+}
+
+function saveRequests(reqs) {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(reqs));
+}
+
+function getLastRequest(address) {
+    return loadRequests().find(r => r.address === address) || null;
+}
+
+function addRequest(address) {
+    const reqs = loadRequests().filter(r => r.address !== address);
+    reqs.unshift({ address, timestamp: Date.now(), amount: 10 });
+    saveRequests(reqs.slice(0, 20));
+}
+
+// ── Stats ──────────────────────────────────────────────────────────
+
+async function loadStats() {
+    try {
+        const info = await fetch(RPC + '/info').then(r => r.json());
+        const distributed = (info.total_supply_mined / 1_000_000).toFixed(2);
+        document.getElementById('statDistributed').textContent = distributed + ' CHK';
+    } catch (_) {
+        document.getElementById('statDistributed').textContent = '—';
+    }
+
+    const reqs = loadRequests();
+    const today = reqs.filter(r => Date.now() - r.timestamp < COOLDOWN_MS);
+    document.getElementById('statRequests').textContent = today.length;
+}
+
+// ── Submit ─────────────────────────────────────────────────────────
+
+function submitRequest() {
+    const addr = document.getElementById('addressInput').value.trim();
+    const resultEl = document.getElementById('result');
+    resultEl.className = 'result';
+    resultEl.style.display = 'none';
+
+    // Validate
+    if (!addr) {
+        showResult('error', 'Please enter a CK1 address.');
+        return;
+    }
+
+    if (!addr.startsWith('CK1') || addr.length < 25 || addr.length > 40) {
+        showResult('error', 'Invalid address — must start with CK1 and be the correct length.');
+        return;
+    }
+
+    // Cooldown check
+    const last = getLastRequest(addr);
+    if (last) {
+        const elapsed = Date.now() - last.timestamp;
+        if (elapsed < COOLDOWN_MS) {
+            const remaining = Math.ceil((COOLDOWN_MS - elapsed) / 3600000);
+            showResult('cooldown',
+                `⏳ Address ${trunc(addr, 18)} already requested within the last 24 hours.\n` +
+                `Try again in ~${remaining} hour${remaining !== 1 ? 's' : ''}.`
+            );
+            return;
+        }
+    }
+
+    // Log request
+    addRequest(addr);
+    loadStats();
+    renderHistory();
+
+    showResult('success',
+        `✓ Request submitted!\n\n` +
+        `The faucet will send 10 testnet CHK to:\n` +
+        `${addr}\n\n` +
+        `Funds typically arrive within a few minutes. ` +
+        `Check your balance at /wallet.`
+    );
+
+    document.getElementById('addressInput').value = '';
+}
+
+function showResult(type, msg) {
+    const el = document.getElementById('result');
+    el.className = 'result ' + type;
+    el.style.display = 'block';
+    el.textContent = msg;
+}
+
+// ── History ────────────────────────────────────────────────────────
+
+function renderHistory() {
+    const reqs = loadRequests().slice(0, 5);
+    const el = document.getElementById('historyList');
+
+    if (reqs.length === 0) {
+        el.innerHTML = '<div class="empty-msg">No requests yet</div>';
+        return;
+    }
+
+    el.innerHTML = reqs.map(r => `
+        <div class="history-row">
+            <span class="history-addr" title="${esc(r.address)}">${trunc(r.address, 22)}</span>
+            <span class="history-amt">+${r.amount} CHK</span>
+            <span class="history-time">${timeAgo(r.timestamp)}</span>
+        </div>
+    `).join('');
+}
+
+// ── Enter key ──────────────────────────────────────────────────────
+
+document.getElementById('addressInput').addEventListener('keydown', e => {
+    if (e.key === 'Enter') submitRequest();
+});
+
+// ── Init ───────────────────────────────────────────────────────────
+
+loadStats();
+renderHistory();
+</script>
+</body>
+</html>
