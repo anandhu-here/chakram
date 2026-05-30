@@ -556,6 +556,7 @@ func (s *Server) handleInv(peer *Peer, msg Message) error {
 	for _, item := range inv.Items {
 		switch item.Type {
 		case 1: // block
+			fmt.Printf("[P2P] handleInv from %s hash=%x\n", peer.Address, item.Hash[:8])
 			if !s.Blockchain.HasBlock(item.Hash) {
 				req, err := NewMessage(s.magic, MsgGetData, GetDataPayload{Type: 1, Hash: item.Hash})
 				if err == nil {
@@ -579,10 +580,12 @@ func (s *Server) handleGetData(peer *Peer, msg Message) error {
 	if err := json.Unmarshal(msg.Payload, &gd); err != nil {
 		return fmt.Errorf("decode getdata: %w", err)
 	}
+	fmt.Printf("[P2P] handleGetData from %s hash=%x type=%d\n", peer.Address, gd.Hash[:8], gd.Type)
 	switch gd.Type {
 	case 1: // block
 		b, err := s.Blockchain.Storage.GetBlockByHash(gd.Hash)
 		if err != nil {
+			fmt.Printf("[P2P] handleGetData block not found hash=%x\n", gd.Hash[:8])
 			return nil // don't have it
 		}
 		resp, err := NewMessage(s.magic, MsgBlock, b)
