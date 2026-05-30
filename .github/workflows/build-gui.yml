@@ -125,6 +125,7 @@ jobs:
             --onedir \
             --windowed \
             --name "Chakram" \
+            --target-arch universal2 \
             --add-binary "chakram:." \
             --hidden-import customtkinter \
             --hidden-import PIL \
