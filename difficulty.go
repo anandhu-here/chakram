@@ -16,8 +16,11 @@ package main
 //   - Clamp each solve time to [1, 6×TargetBlockTime] to limit the damage a
 //     manipulated timestamp can do to a single sample.
 //   - Adjust current difficulty by TargetBlockTime / weighted_avg.
-//   - Cap the per-window change at 4× in either direction.
-//   - Result never falls below InitialDifficulty.
+//   - Cap increases at 4× per window (prevents runaway escalation from a
+//     sudden hashrate spike). No downward cap: if difficulty overshoots and
+//     blocks slow down, the chain self-corrects in a single adjustment rather
+//     than being permanently stuck.
+//   - Result never falls below MinDifficulty.
 func NextDifficulty(bc *Blockchain, height uint64) uint64 {
 	if height <= DifficultyWindow {
 		return InitialDifficulty
@@ -63,15 +66,13 @@ func NextDifficulty(bc *Blockchain, height uint64) uint64 {
 
 	next := uint64(float64(current) * float64(TargetBlockTime) / float64(avg))
 
-	// Cap per-window change at 4× in either direction.
+	// Cap increases at 4× per window; no downward cap so the chain can recover
+	// from overshoots without getting permanently stuck.
 	if next > current*4 {
 		next = current * 4
 	}
-	if next < current/4 {
-		next = current / 4
-	}
-	if next < InitialDifficulty {
-		next = InitialDifficulty
+	if next < MinDifficulty {
+		next = MinDifficulty
 	}
 	return next
 }

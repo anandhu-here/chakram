@@ -234,7 +234,7 @@ func (r *RPCServer) handleInfo(w http.ResponseWriter) {
 		"version":            Version,
 		"network":            network,
 		"height":             bc.GetHeight(),
-		"peers":              r.node.Server.PeerCount(),
+		"peers":              len(r.node.Server.ConnectedPeers()),
 		"sync_status":        r.node.SyncManager.SyncStatus(),
 		"mining":             r.node.Config.Mine,
 		"wallet":             r.node.Wallet.Address,

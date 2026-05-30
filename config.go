@@ -61,11 +61,11 @@ const (
 	// difficulty target (sliding-window retarget).
 	DifficultyWindow uint64 = 60
 
-	// InitialDifficulty is the difficulty used for early blocks before enough
-	// history exists for the sliding-window algorithm.
-	// Kept at 1 (same as MinDifficulty) so the chain starts regardless of the
-	// VM's actual RandomX hash rate. The sliding window adjusts upward naturally.
-	InitialDifficulty uint64 = 1
+	// InitialDifficulty is the difficulty used for the first DifficultyWindow
+	// blocks before LWMA has enough history. Set to target ~60 s per block on
+	// the launch hardware (~135 H/s RandomX light-mode): 2^13 / 135 ≈ 60 s.
+	// If the miner is significantly faster, increase this value before launch.
+	InitialDifficulty uint64 = 13
 
 	// DifficultyAdjustmentInterval is kept for reference / future batch retarget.
 	DifficultyAdjustmentInterval uint64 = 2016
