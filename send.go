@@ -164,7 +164,7 @@ func submitTx(base string, tx *Transaction) (string, error) {
 // nodeOfflineErr converts a connection-refused error into a friendly message.
 func nodeOfflineErr(err error) error {
 	if strings.Contains(err.Error(), "connection refused") {
-		return fmt.Errorf("node is not running. Start your node first with:\n  ./chakram node --testnet")
+		return fmt.Errorf("node is not running. Start your node first with:\n  ./chakram node")
 	}
 	return err
 }

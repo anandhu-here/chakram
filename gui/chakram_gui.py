@@ -36,7 +36,7 @@ RPC_BASE  = "http://localhost:8339"
 RPC_PORT  = 8339
 PID_FILE  = os.path.expanduser("~/.chakram/mainnet/gui.pid")
 POLL_SECS = 5
-VERSION   = "v1.0.3"
+VERSION   = "v1.0.4"
 
 
 # ── Binary detection ───────────────────────────────────────────────────────────
@@ -602,7 +602,7 @@ class ChakramApp(ctk.CTk):
         sb.pack(side="bottom", fill="x")
         sb.pack_propagate(False)
         self._statusbar = ctk.CTkLabel(
-            sb, text=f"Chakram Testnet  |  Height: —  |  Peers: —  |  {VERSION}",
+            sb, text=f"Chakram  |  Height: —  |  Peers: —  |  {VERSION}",
             font=("Courier New", 10), text_color=TEXT2)
         self._statusbar.pack(side="left", padx=12, pady=4)
         explorer_lbl = ctk.CTkLabel(sb, text="Block Explorer →",

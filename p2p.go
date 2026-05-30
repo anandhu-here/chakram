@@ -13,7 +13,7 @@ import (
 )
 
 const (
-	maxPeerViolations = 9999            // effectively disabled during testnet; restore to 5 for mainnet
+	maxPeerViolations = 5
 	banDuration       = 24 * time.Hour  // how long a banned address stays banned
 )
 
