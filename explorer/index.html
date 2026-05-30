@@ -100,14 +100,20 @@
             gap: 1rem;
         }
 
-        .badge-testnet {
-            background: var(--orange);
-            color: #000;
+        .badge-network {
             padding: 4px 12px;
             border-radius: 999px;
             font-size: 0.72rem;
             font-weight: bold;
             letter-spacing: 1px;
+        }
+        .badge-network.mainnet {
+            background: var(--gold);
+            color: #000;
+        }
+        .badge-network.testnet {
+            background: var(--orange);
+            color: #000;
         }
 
         .node-status {
@@ -442,7 +448,7 @@
     </nav>
 
     <div class="header-meta">
-        <span class="badge-testnet">TESTNET</span>
+        <span class="badge-network testnet" id="networkBadge">—</span>
         <div class="node-status">
             <div class="dot" id="statusDot"></div>
             <span id="statusText">Connecting…</span>
@@ -492,10 +498,10 @@
 
 <!-- ── Footer ──────────────────────────────────────────────────────── -->
 <footer>
-    <div>Chakram Testnet — Built with ❤️ in Kerala</div>
+    <div id="footerNetwork">Chakram — Built with ❤️ in Kerala</div>
     <div class="genesis-line" id="genesisLine">Genesis: loading…</div>
     <div style="margin-top:0.6rem;">
-        <a href="https://github.com/anandhusathe/chakram" target="_blank" rel="noopener">GitHub</a>
+        <a href="https://github.com/anandhu-here/chakram" target="_blank" rel="noopener">GitHub</a>
     </div>
 </footer>
 
@@ -601,6 +607,14 @@ async function refresh() {
             document.getElementById('statBpm').textContent = bpm;
         }
     }
+
+    // Network badge + footer
+    const net = (info.network || 'mainnet').toLowerCase();
+    const badge = document.getElementById('networkBadge');
+    badge.textContent = net.toUpperCase();
+    badge.className = 'badge-network ' + net;
+    document.getElementById('footerNetwork').textContent =
+        'Chakram ' + net.charAt(0).toUpperCase() + net.slice(1) + ' — Built with ❤️ in Kerala';
 
     // Genesis hash (fetch once)
     if (!genesisHashCache) {
