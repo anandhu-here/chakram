@@ -1,15 +1,49 @@
-name: Build GUI Apps
+name: Build and Distribute
 
 on:
   release:
     types: [published]
 
+env:
+  GCS_BUCKET: chakram-dist
+
 permissions:
-  contents: write  # needed to upload assets to the release
+  contents: write
 
 jobs:
 
-  # ── Windows GUI ──────────────────────────────────────────────────────────────
+  # ── Upload CLI binaries to GCS ────────────────────────────────────────────────
+  upload-cli:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: google-github-actions/auth@v2
+        with:
+          credentials_json: ${{ secrets.GCP_SA_KEY }}
+
+      - uses: google-github-actions/setup-gcloud@v2
+
+      - name: Download CLI binaries from release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh release download "${{ github.event.release.tag_name }}" \
+            --pattern "chakram-mac" \
+            --pattern "chakram-linux" \
+            --pattern "chakram-windows.exe" \
+            --repo ${{ github.repository }}
+
+      - name: Upload to GCS
+        run: |
+          TAG="${{ github.event.release.tag_name }}"
+          for f in chakram-mac chakram-linux chakram-windows.exe; do
+            gsutil cp "$f" "gs://$GCS_BUCKET/$TAG/$f"
+            gsutil cp "$f" "gs://$GCS_BUCKET/latest/$f"
+          done
+          gsutil -m setmeta -h "Cache-Control:no-cache, no-store" \
+            "gs://$GCS_BUCKET/latest/**" 2>/dev/null || true
+          echo "CLI binaries uploaded to gs://$GCS_BUCKET"
+
+  # ── Windows GUI ───────────────────────────────────────────────────────────────
   build-windows:
     runs-on: windows-latest
     steps:
@@ -44,13 +78,21 @@ jobs:
             --hidden-import "PIL._tkinter_finder" `
             chakram_gui.py
 
-      - name: Upload Chakram.exe to release
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      - uses: google-github-actions/auth@v2
+        with:
+          credentials_json: ${{ secrets.GCP_SA_KEY }}
+
+      - uses: google-github-actions/setup-gcloud@v2
+
+      - name: Upload to GCS
         shell: bash
         run: |
-          gh release upload "${{ github.event.release.tag_name }}" \
-            gui/dist/Chakram.exe --clobber
+          TAG="${{ github.event.release.tag_name }}"
+          gsutil cp gui/dist/Chakram.exe "gs://$GCS_BUCKET/$TAG/Chakram.exe"
+          gsutil cp gui/dist/Chakram.exe "gs://$GCS_BUCKET/latest/Chakram.exe"
+          gsutil setmeta -h "Cache-Control:no-cache, no-store" \
+            "gs://$GCS_BUCKET/latest/Chakram.exe" 2>/dev/null || true
+          echo "Windows GUI uploaded"
 
   # ── Mac GUI ───────────────────────────────────────────────────────────────────
   build-mac:
@@ -90,9 +132,17 @@ jobs:
             chakram_gui.py
           cd dist && zip -r Chakram-mac.zip Chakram.app
 
-      - name: Upload Chakram-mac.zip to release
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      - uses: google-github-actions/auth@v2
+        with:
+          credentials_json: ${{ secrets.GCP_SA_KEY }}
+
+      - uses: google-github-actions/setup-gcloud@v2
+
+      - name: Upload to GCS
         run: |
-          gh release upload "${{ github.event.release.tag_name }}" \
-            gui/dist/Chakram-mac.zip --clobber
+          TAG="${{ github.event.release.tag_name }}"
+          gsutil cp gui/dist/Chakram-mac.zip "gs://$GCS_BUCKET/$TAG/Chakram-mac.zip"
+          gsutil cp gui/dist/Chakram-mac.zip "gs://$GCS_BUCKET/latest/Chakram-mac.zip"
+          gsutil setmeta -h "Cache-Control:no-cache, no-store" \
+            "gs://$GCS_BUCKET/latest/Chakram-mac.zip" 2>/dev/null || true
+          echo "Mac GUI uploaded"

@@ -98,8 +98,11 @@ footer a{color:var(--gold);text-decoration:none;}
   <h1>Run a <span>Chakram</span> Node</h1>
   <p>Download the app, open it, and you're mining in under 5 minutes. No command line needed.</p>
   <div class="btn-group">
-    <a class="btn btn-gold" href="https://github.com/anandhu-here/chakram/releases/latest" target="_blank">
-      ⬇ Download Latest Release
+    <a class="btn btn-gold" href="https://storage.googleapis.com/chakram-dist/latest/Chakram-mac.zip">
+      ⬇ Download for Mac
+    </a>
+    <a class="btn btn-gold" href="https://storage.googleapis.com/chakram-dist/latest/Chakram.exe">
+      ⬇ Download for Windows
     </a>
     <a class="btn btn-outline" href="/docs">Read the Docs</a>
   </div>
@@ -122,8 +125,8 @@ footer a{color:var(--gold);text-decoration:none;}
         <div class="step-title">Download the Mac app</div>
       </div>
       <div class="step-body">
-        Go to the <a href="https://github.com/anandhu-here/chakram/releases/latest" target="_blank">latest release page on GitHub</a>
-        and click <strong>Chakram-mac.zip</strong> to download it.<br><br>
+        Click the button below to download the Mac app directly — or use the Download button at the top of this page.<br><br>
+        <a href="https://storage.googleapis.com/chakram-dist/latest/Chakram-mac.zip" class="btn btn-outline" style="display:inline-flex;margin-top:8px;">⬇ Chakram-mac.zip</a><br><br>
         It will save to your Downloads folder.
       </div>
     </div>
@@ -136,13 +139,11 @@ footer a{color:var(--gold);text-decoration:none;}
       <div class="step-body">
         Double-click <strong>Chakram-mac.zip</strong> in your Downloads folder.
         Mac will unzip it automatically.<br><br>
-        You'll see a new folder appear. Inside it, open the <strong>dist</strong> folder —
-        you'll find <strong>Chakram.app</strong> inside.
+        You'll see <strong>Chakram.app</strong> appear right in your Downloads folder — that's the app.
         <div class="mock">
           <div class="label">Downloads folder</div>
           📦 Chakram-mac.zip<br>
-          📁 dist/<br>
-          &nbsp;&nbsp;&nbsp;└─ 🖥 <strong>Chakram.app</strong>  ← this is the app
+          🖥 <strong>Chakram.app</strong>  ← this is the app
         </div>
       </div>
     </div>
@@ -227,7 +228,7 @@ footer a{color:var(--gold);text-decoration:none;}
         <div class="step-title">Start mining</div>
       </div>
       <div class="step-body">
-        Once the wallet is set up, the app connects to the Chakram testnet and starts syncing
+        Once the wallet is set up, the app connects to the Chakram mainnet and starts syncing
         the blockchain. This takes a few seconds.<br><br>
         Click <strong>Start Mining</strong> to begin earning CHK. Your computer's CPU will work
         to solve puzzles — when you solve one you earn the block reward.
@@ -240,54 +241,67 @@ footer a{color:var(--gold);text-decoration:none;}
 
 <!-- ══════════════════════════════════════════════ WINDOWS ══ -->
 <div id="panel-windows" class="panel">
-  <div class="section-heading">Windows <span class="badge">Coming Soon</span></div>
+  <div class="section-heading">Windows — GUI App</div>
   <div class="steps">
 
     <div class="step">
       <div class="step-header">
         <div class="step-num">1</div>
-        <div class="step-title">Download the Windows binary</div>
+        <div class="step-title">Download the Windows app</div>
       </div>
       <div class="step-body">
-        Go to the <a href="https://github.com/anandhu-here/chakram/releases/latest" target="_blank">latest release page on GitHub</a>
-        and download <strong>chakram-windows.exe</strong>.<br><br>
-        The Windows GUI app installer is coming soon. For now, the command-line binary
-        lets you run a full node and mine CHK from a terminal.
+        Click the button below to download — or use the Download button at the top of this page.<br><br>
+        <a href="https://storage.googleapis.com/chakram-dist/latest/Chakram.exe" class="btn btn-outline" style="display:inline-flex;margin-top:8px;">⬇ Chakram.exe</a><br><br>
+        It will save to your Downloads folder.
       </div>
     </div>
 
     <div class="step">
       <div class="step-header">
         <div class="step-num">2</div>
-        <div class="step-title">Open a terminal (Command Prompt or PowerShell)</div>
+        <div class="step-title">Run Chakram.exe</div>
       </div>
       <div class="step-body">
-        Press <strong>Win + R</strong>, type <strong>cmd</strong>, and press Enter.<br><br>
-        Navigate to the folder where you downloaded the file:
-        <div class="mock">cd C:\Users\YourName\Downloads</div>
+        Double-click <strong>Chakram.exe</strong> in your Downloads folder.<br><br>
+        Windows SmartScreen may show a warning — <strong>this is normal</strong> for apps not from the Microsoft Store:
+        <div class="mock">
+          <div class="label">Windows SmartScreen</div>
+          🛡 Windows protected your PC<br><br>
+          Microsoft Defender SmartScreen prevented<br>
+          an unrecognized app from starting.<br><br>
+          <span class="btn-mock-outline">Don't run</span> &nbsp; <span style="color:var(--gold);">More info</span>
+        </div>
+        Click <strong>More info</strong>, then click <strong>Run anyway</strong>.
+        <div class="note"><span class="note-icon">ℹ️</span> This happens because Chakram is open-source software distributed directly, not through the Microsoft Store. The app itself is safe.</div>
       </div>
     </div>
 
     <div class="step">
       <div class="step-header">
         <div class="step-num">3</div>
-        <div class="step-title">Create a wallet</div>
+        <div class="step-title">Create your wallet</div>
       </div>
       <div class="step-body">
-        <div class="mock">chakram-windows.exe wallet new --testnet</div>
-        This creates a wallet and shows your 12-word recovery phrase. Write it down.
+        The first time you open Chakram, it will ask you to create a wallet.<br><br>
+        Choose a <strong>password</strong> — this protects your wallet file on this computer.<br><br>
+        The app will show you a <strong>12-word recovery phrase</strong>. Write these words down
+        on paper and keep them somewhere safe. <strong>This is the only way to recover your wallet
+        if you ever lose access to this computer.</strong>
+        <div class="warn">⚠️ Never share your 12 words with anyone. Anyone who has them can take all your CHK.</div>
       </div>
     </div>
 
     <div class="step">
       <div class="step-header">
         <div class="step-num">4</div>
-        <div class="step-title">Run a node and start mining</div>
+        <div class="step-title">Start mining</div>
       </div>
       <div class="step-body">
-        <div class="mock">chakram-windows.exe node --testnet --mine</div>
-        Your node will connect to the network and start mining. Leave it running.
-        <div class="note"><span class="note-icon">ℹ️</span> Windows Defender may flag the binary — click <strong>More info → Run anyway</strong>. It is safe open-source software.</div>
+        Once the wallet is set up, the app connects to the Chakram mainnet and starts syncing
+        the blockchain. This takes a few seconds.<br><br>
+        Click <strong>Start Mining</strong> to begin earning CHK. Your computer's CPU will work
+        to solve puzzles — when you solve one you earn the block reward.
+        <div class="note"><span class="note-icon">💡</span> Mining works on any modern Windows PC — you don't need special hardware. More CPU cores = more chances to win.</div>
       </div>
     </div>
 
@@ -305,9 +319,9 @@ footer a{color:var(--gold);text-decoration:none;}
         <div class="step-title">Download the Linux binary</div>
       </div>
       <div class="step-body">
-        Go to the <a href="https://github.com/anandhu-here/chakram/releases/latest" target="_blank">latest release page on GitHub</a>
+        Go to the <a href="https://storage.googleapis.com/chakram-dist/latest/" target="_blank">latest release</a>
         and download <strong>chakram-linux</strong>, or use curl:
-        <div class="mock">curl -L https://github.com/anandhu-here/chakram/releases/latest/download/chakram-linux -o chakram</div>
+        <div class="mock">curl -L https://storage.googleapis.com/chakram-dist/latest/chakram-linux -o chakram</div>
       </div>
     </div>
 
@@ -327,7 +341,7 @@ footer a{color:var(--gold);text-decoration:none;}
         <div class="step-title">Create a wallet</div>
       </div>
       <div class="step-body">
-        <div class="mock">./chakram wallet new --testnet</div>
+        <div class="mock">./chakram wallet new</div>
         Write down your 12-word recovery phrase somewhere safe.
       </div>
     </div>
@@ -338,9 +352,9 @@ footer a{color:var(--gold);text-decoration:none;}
         <div class="step-title">Run a node and start mining</div>
       </div>
       <div class="step-body">
-        <div class="mock">./chakram node --testnet --mine</div>
+        <div class="mock">./chakram node --mine</div>
         To keep it running after you close the terminal, use <strong>screen</strong> or <strong>tmux</strong>:
-        <div class="mock">screen -S chakram<br>./chakram node --testnet --mine<br><br># Press Ctrl+A then D to detach. Node keeps running.</div>
+        <div class="mock">screen -S chakram<br>./chakram node --mine<br><br># Press Ctrl+A then D to detach. Node keeps running.</div>
         <div class="note"><span class="note-icon">💡</span> For a permanent always-on node, see the <a href="/docs">docs</a> for the systemd service setup.</div>
       </div>
     </div>
