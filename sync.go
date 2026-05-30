@@ -105,29 +105,34 @@ func (sm *SyncManager) doSync() {
 		return
 	}
 
+	ourHeight := sm.blockchain.GetHeight()
+
+	// Select best peer: skip height=0 (version exchange still in flight)
+	// and skip peers that are behind us (they have nothing to give us).
 	var best *Peer
 	for _, p := range peers {
+		if p.Height == 0 {
+			continue
+		}
+		if p.Height < ourHeight {
+			continue
+		}
 		if best == nil || p.Height > best.Height {
 			best = p
 		}
 	}
-	sm.bestPeer = best
 
-	ourHeight := sm.blockchain.GetHeight()
-	if best.Height == 0 {
-		// Peer height not yet known (version exchange still in flight).
-		// Send GetBlocks anyway so the peer's response populates our chain,
-		// and let the next 5-second tick re-evaluate once peer.Height is set.
-	} else if ourHeight < best.Height {
-		sm.SetState(SyncBlocks)
-		sm.blockchain.SetSyncing(true, best.Height)
-	} else {
+	if best == nil {
+		// No peer is ahead of us — we are at the tip.
 		sm.SetState(SyncComplete)
 		sm.blockchain.SetSyncing(false, 0)
+		return
 	}
 
-	// Always poll — peer.Height is set at handshake time and may be stale.
-	// The miner could have hundreds of blocks we don't know about.
+	sm.bestPeer = best
+	sm.SetState(SyncBlocks)
+	sm.blockchain.SetSyncing(true, best.Height)
+
 	req, err := NewMessage(sm.server.magic, MsgGetBlocks, GetBlocksPayload{
 		FromHeight: ourHeight,
 		Count:      500,

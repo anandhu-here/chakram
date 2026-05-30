@@ -172,6 +172,10 @@ func (n *Node) Start() error {
 	}
 
 	for _, seed := range n.Config.Seeds {
+		if n.Server.isOwnAddress(seed) {
+			fmt.Printf("  seed %s: skipping (own address)\n", seed)
+			continue
+		}
 		if err := n.Server.ConnectToPeer(seed); err != nil {
 			fmt.Printf("  seed %s: unreachable (%v)\n", seed, err)
 		} else {
@@ -196,6 +200,9 @@ func (n *Node) Start() error {
 			case <-ticker.C:
 				if len(n.Server.ConnectedPeers()) < MinPeers {
 					for _, seed := range n.Config.Seeds {
+						if n.Server.isOwnAddress(seed) {
+							continue
+						}
 						if !n.Server.IsConnected(seed) {
 							n.Server.ConnectToPeer(seed) //nolint:errcheck
 						}

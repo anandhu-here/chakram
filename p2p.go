@@ -147,14 +147,15 @@ func DecodeMessage(r io.Reader) (Message, error) {
 
 // Peer represents a remote Chakram node.
 type Peer struct {
-	Address    string
-	Conn       net.Conn
-	Height     uint64
-	Version    uint32
-	Connected  bool
-	LastSeen   time.Time
-	violations int       // protocol violations; banned at maxPeerViolations
-	send       chan Message // outbound message queue
+	Address     string
+	Conn        net.Conn
+	Height      uint64
+	Version     uint32
+	Connected   bool
+	LastSeen    time.Time
+	violations  int         // protocol violations; banned at maxPeerViolations
+	send        chan Message // outbound message queue
+	versionSent bool        // true once we have sent our version to this peer
 }
 
 // NewPeer creates a Peer with a 100-message outbound buffer.
@@ -206,6 +207,7 @@ type Server struct {
 	magic       [4]byte
 	quit        chan struct{}
 	listener    net.Listener
+	listenAddr  string // canonical listen address set in Start()
 }
 
 // SetSyncManager wires a SyncManager into the server after construction.
@@ -275,12 +277,45 @@ func (s *Server) penalizePeer(p *Peer) bool {
 	return false
 }
 
+// isOwnAddress returns true if addr is one of our own listening addresses.
+// Checks both an exact match against listenAddr and whether the addr's host
+// is a local network interface with our listen port.
+func (s *Server) isOwnAddress(addr string) bool {
+	if addr == s.listenAddr {
+		return true
+	}
+	seedHost, seedPort, err := net.SplitHostPort(addr)
+	if err != nil {
+		return false
+	}
+	if seedPort != fmt.Sprintf("%d", s.port) {
+		return false
+	}
+	ifaces, err := net.InterfaceAddrs()
+	if err != nil {
+		return false
+	}
+	for _, iface := range ifaces {
+		var ip net.IP
+		if ipnet, ok := iface.(*net.IPNet); ok {
+			ip = ipnet.IP
+		} else if ipaddr, ok := iface.(*net.IPAddr); ok {
+			ip = ipaddr.IP
+		}
+		if ip != nil && ip.String() == seedHost {
+			return true
+		}
+	}
+	return false
+}
+
 // Start opens a TCP listener and spawns the accept and ping loops.
 func (s *Server) Start() error {
 	ln, err := net.Listen("tcp", fmt.Sprintf("0.0.0.0:%d", s.port))
 	if err != nil {
 		return fmt.Errorf("listen :%d: %w", s.port, err)
 	}
+	s.listenAddr = fmt.Sprintf("0.0.0.0:%d", s.port)
 	s.listener = ln
 
 	go func() {
@@ -406,6 +441,7 @@ func (s *Server) sendVersion(peer *Peer) error {
 	if err != nil {
 		return err
 	}
+	peer.versionSent = true
 	return peer.Send(msg)
 }
 
@@ -447,6 +483,14 @@ func (s *Server) handleVersion(peer *Peer, msg Message) error {
 	}
 	peer.Height = vp.Height
 	peer.Version = vp.Version
+
+	// Send our version back if we haven't yet — ensures the peer always learns
+	// our current height even when they initiated the connection.
+	if !peer.versionSent {
+		if err := s.sendVersion(peer); err != nil {
+			return err
+		}
+	}
 
 	ack, err := NewMessage(s.magic, MsgVerAck, struct{}{})
 	if err != nil {
