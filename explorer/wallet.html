@@ -5,138 +5,145 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Chakram Wallet</title>
 <style>
+:root{
+  --bg:#0a0a0f;--bg2:#111118;--bg3:#1a1a24;
+  --text:#e0e0e8;--text2:#8888a0;--border:#2a2a3a;
+  --gold:#f0c040;--gold-h:#c9a030;
+  --green:#40c080;--red:#c04040;--orange:#ff8c00;
+}
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
-html,body{height:100%;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;background:#f0f2f5;color:#1a1a2e;-webkit-font-smoothing:antialiased}
-.screen{display:none;min-height:100vh}
-.screen.active{display:flex}
+html,body{height:100%;font-family:'Courier New',Courier,monospace;background:var(--bg);color:var(--text);-webkit-font-smoothing:antialiased}
+.screen{display:none;min-height:100vh}.screen.active{display:flex}
 
-/* Welcome */
-#screen-welcome{flex-direction:column;align-items:center;justify-content:center;background:linear-gradient(145deg,#0a1628 0%,#0d2137 60%,#1a3a5c 100%)}
-.welcome-card{background:#fff;border-radius:20px;padding:48px 40px;width:100%;max-width:400px;text-align:center;box-shadow:0 24px 80px rgba(0,0,0,.4);margin:16px}
-.logo-icon{font-size:52px;margin-bottom:6px;line-height:1}
-.logo-name{font-size:30px;font-weight:800;color:#0d2137;letter-spacing:-.5px}
-.logo-sub{color:#94a3b8;font-size:13px;margin-bottom:36px;margin-top:4px}
-.divider-text{color:#cbd5e1;font-size:12px;margin:14px 0;position:relative;text-align:center}
-.divider-text::before,.divider-text::after{content:'';position:absolute;top:50%;width:42%;height:1px;background:#e2e8f0}
+/* ── Welcome ─────────────────────────────────────────────────────────────── */
+#screen-welcome{flex-direction:column;align-items:center;justify-content:center;background:var(--bg);padding:16px}
+.welcome-card{background:var(--bg2);border:1px solid var(--border);border-radius:12px;padding:48px 40px;width:100%;max-width:400px;text-align:center;box-shadow:0 0 60px rgba(240,192,64,.05)}
+.logo-icon{font-size:52px;line-height:1;color:var(--gold);margin-bottom:2px}
+.logo-name{font-size:26px;font-weight:700;color:var(--gold);letter-spacing:4px}
+.logo-sub{color:var(--text2);font-size:12px;margin-bottom:36px;margin-top:6px;letter-spacing:.5px}
+.divider-text{color:var(--border);font-size:11px;margin:12px 0;position:relative;text-align:center}
+.divider-text::before,.divider-text::after{content:'';position:absolute;top:50%;width:44%;height:1px;background:var(--border)}
 .divider-text::before{left:0}.divider-text::after{right:0}
 
-/* Buttons */
-.btn{display:block;width:100%;padding:13px 20px;border-radius:10px;font-size:15px;font-weight:600;cursor:pointer;border:none;transition:all .18s;text-align:center}
-.btn+.btn{margin-top:10px}
-.btn-primary{background:#0d2137;color:#fff}
-.btn-primary:hover{background:#162d4a;transform:translateY(-1px);box-shadow:0 4px 14px rgba(13,33,55,.3)}
-.btn-outline{background:transparent;color:#0d2137;border:2px solid #0d2137}
-.btn-outline:hover{background:#f1f5f9}
-.btn-gold{background:linear-gradient(135deg,#c9a840,#a8892e);color:#fff}
-.btn-gold:hover{transform:translateY(-1px);box-shadow:0 4px 14px rgba(168,137,46,.35)}
-.btn-sm{padding:7px 16px;font-size:13px;width:auto;display:inline-block;border-radius:8px}
-.btn:disabled{opacity:.5;cursor:not-allowed;transform:none!important;box-shadow:none!important}
+/* ── Buttons ─────────────────────────────────────────────────────────────── */
+.btn{display:block;width:100%;padding:11px 18px;border-radius:7px;font-size:13px;font-weight:700;cursor:pointer;border:none;transition:all .15s;text-align:center;font-family:'Courier New',Courier,monospace;letter-spacing:.5px}
+.btn+.btn{margin-top:9px}
+.btn-primary{background:var(--gold);color:#000}
+.btn-primary:hover{background:var(--gold-h)}
+.btn-outline{background:transparent;color:var(--gold);border:1px solid var(--gold)}
+.btn-outline:hover{background:rgba(240,192,64,.08)}
+.btn-danger{background:transparent;color:var(--red);border:1px solid var(--red)}
+.btn-danger:hover{background:rgba(192,64,64,.1)}
+.btn-sm{padding:6px 14px;font-size:12px;width:auto;display:inline-block;border-radius:6px}
+.btn:disabled{opacity:.35;cursor:not-allowed}
 
-/* Create/Restore screens */
-#screen-create,#screen-restore{flex-direction:column;align-items:center;justify-content:center;background:linear-gradient(145deg,#0a1628 0%,#0d2137 60%,#1a3a5c 100%);padding:16px}
-.flow-card{background:#fff;border-radius:20px;padding:36px 32px;width:100%;max-width:500px;box-shadow:0 24px 80px rgba(0,0,0,.4)}
-.flow-title{font-size:22px;font-weight:700;color:#0d2137;margin-bottom:6px}
-.flow-sub{color:#64748b;font-size:14px;margin-bottom:24px;line-height:1.5}
-.back-btn{background:none;border:none;color:#94a3b8;cursor:pointer;font-size:13px;padding:0;margin-bottom:20px;display:flex;align-items:center;gap:5px;transition:color .15s}
-.back-btn:hover{color:#475569}
+/* ── Flow screens ────────────────────────────────────────────────────────── */
+#screen-create,#screen-restore{flex-direction:column;align-items:center;justify-content:center;background:var(--bg);padding:16px}
+.flow-card{background:var(--bg2);border:1px solid var(--border);border-radius:12px;padding:34px 30px;width:100%;max-width:500px;box-shadow:0 0 60px rgba(240,192,64,.05)}
+.flow-title{font-size:18px;font-weight:700;color:var(--gold);margin-bottom:6px;letter-spacing:1px}
+.flow-sub{color:var(--text2);font-size:12px;margin-bottom:20px;line-height:1.6}
+.back-btn{background:none;border:none;color:var(--text2);cursor:pointer;font-size:12px;padding:0;margin-bottom:18px;font-family:'Courier New',Courier,monospace;transition:color .15s;display:block}
+.back-btn:hover{color:var(--gold)}
+.steps{display:flex;gap:6px;margin-bottom:18px}
+.step-dot{width:7px;height:7px;border-radius:50%;background:var(--border);transition:background .2s}
+.step-dot.active{background:var(--gold)}.step-dot.done{background:var(--green)}
 
-/* Step dots */
-.steps{display:flex;gap:6px;margin-bottom:22px}
-.step-dot{width:8px;height:8px;border-radius:50%;background:#e2e8f0;transition:background .2s}
-.step-dot.active{background:#0d2137}.step-dot.done{background:#c9a840}
+/* ── Mnemonic grid ───────────────────────────────────────────────────────── */
+.mnemonic-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:7px;margin:14px 0}
+.mnemonic-word{background:var(--bg3);border:1px solid var(--border);border-radius:6px;padding:8px 9px;font-size:12px;color:var(--text);display:flex;align-items:center;gap:5px;user-select:all}
+.word-num{color:var(--text2);font-size:10px;min-width:14px;flex-shrink:0}
 
-/* Mnemonic display */
-.mnemonic-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin:18px 0}
-.mnemonic-word{background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:9px 10px;font-size:14px;font-family:'SF Mono',Monaco,monospace;color:#0d2137;display:flex;align-items:center;gap:6px;user-select:all}
-.word-num{color:#94a3b8;font-size:11px;min-width:16px}
+/* ── Warning ─────────────────────────────────────────────────────────────── */
+.warning{background:rgba(255,140,0,.07);border:1px solid rgba(255,140,0,.22);border-radius:7px;padding:10px 12px;font-size:12px;color:var(--orange);margin:12px 0;line-height:1.5}
 
-/* Warning */
-.warning{background:#fffbeb;border:1px solid #fcd34d;border-radius:10px;padding:12px 14px;font-size:13px;color:#92400e;margin:14px 0;display:flex;gap:10px;line-height:1.5}
+/* ── Form ────────────────────────────────────────────────────────────────── */
+.form-group{margin-bottom:13px}
+.form-label{display:block;font-size:10px;font-weight:700;color:var(--text2);margin-bottom:5px;letter-spacing:1px;text-transform:uppercase}
+.form-input{width:100%;padding:10px 12px;border:1px solid var(--border);border-radius:6px;font-size:13px;outline:none;transition:border-color .15s;background:var(--bg3);color:var(--text);font-family:'Courier New',Courier,monospace}
+.form-input:focus{border-color:var(--gold)}
+.form-input::placeholder{color:var(--text2)}
+.form-hint{font-size:11px;color:var(--text2);margin-top:4px}
+.form-err{font-size:11px;color:var(--red);margin-top:4px}
+.check-wrap{display:flex;align-items:flex-start;gap:9px;margin:11px 0;cursor:pointer}
+.check-wrap input{width:14px;height:14px;margin-top:2px;flex-shrink:0;accent-color:var(--gold);cursor:pointer}
+.check-label{font-size:12px;color:var(--text2);line-height:1.5}
 
-/* Form */
-.form-group{margin-bottom:14px}
-.form-label{display:block;font-size:13px;font-weight:600;color:#374151;margin-bottom:5px}
-.form-input{width:100%;padding:11px 14px;border:1.5px solid #d1d5db;border-radius:9px;font-size:14px;outline:none;transition:border-color .18s;background:#fff;color:#0d2137}
-.form-input:focus{border-color:#0d2137}
-.form-hint{font-size:12px;color:#9ca3af;margin-top:4px}
-.form-err{font-size:12px;color:#dc2626;margin-top:4px}
-
-/* Restore mnemonic inputs */
-.mnemonic-inputs{display:grid;grid-template-columns:repeat(4,1fr);gap:7px;margin:14px 0}
+/* ── Restore inputs ──────────────────────────────────────────────────────── */
+.mnemonic-inputs{display:grid;grid-template-columns:repeat(4,1fr);gap:6px;margin:12px 0}
 .m-inp-wrap{position:relative}
-.m-inp-num{position:absolute;left:7px;top:50%;transform:translateY(-50%);font-size:10px;color:#9ca3af;pointer-events:none}
-.m-inp{width:100%;padding:8px 6px 8px 20px;border:1.5px solid #d1d5db;border-radius:7px;font-size:12px;font-family:'SF Mono',Monaco,monospace;outline:none;transition:border-color .15s;background:#fff}
-.m-inp:focus{border-color:#0d2137}
-.m-inp.ok{border-color:#16a34a;background:#f0fdf4}
-.m-inp.bad{border-color:#ef4444;background:#fef2f2}
+.m-inp-num{position:absolute;left:5px;top:50%;transform:translateY(-50%);font-size:9px;color:var(--text2);pointer-events:none}
+.m-inp{width:100%;padding:7px 4px 7px 17px;border:1px solid var(--border);border-radius:5px;font-size:11px;font-family:'Courier New',Courier,monospace;outline:none;transition:border-color .15s;background:var(--bg3);color:var(--text)}
+.m-inp:focus{border-color:var(--gold)}
+.m-inp.ok{border-color:var(--green)}.m-inp.bad{border-color:var(--red)}
 
-/* Checkbox */
-.check-wrap{display:flex;align-items:flex-start;gap:10px;margin:14px 0;cursor:pointer}
-.check-wrap input{width:16px;height:16px;margin-top:2px;flex-shrink:0;accent-color:#0d2137;cursor:pointer}
-.check-label{font-size:14px;color:#374151;line-height:1.45}
-
-/* Wallet screen */
-#screen-wallet{flex-direction:column;background:#f0f2f5;min-height:100vh}
-.wallet-header{background:linear-gradient(145deg,#0a1628 0%,#0d2137 60%,#1a3a5c 100%);padding:18px 20px 22px;color:#fff}
-.header-top{display:flex;align-items:center;justify-content:space-between;margin-bottom:18px}
-.brand{font-size:17px;font-weight:700}
-.header-actions{display:flex;gap:8px}
-.icon-btn{background:rgba(255,255,255,.12);border:none;color:#fff;border-radius:8px;padding:8px 13px;cursor:pointer;font-size:13px;font-weight:600;transition:background .15s;white-space:nowrap}
-.icon-btn:hover{background:rgba(255,255,255,.22)}
+/* ── Wallet screen ───────────────────────────────────────────────────────── */
+#screen-wallet{flex-direction:column;background:var(--bg);min-height:100vh}
+.wallet-header{background:var(--bg2);border-bottom:1px solid var(--border);padding:16px 18px 18px}
+.header-top{display:flex;align-items:center;justify-content:space-between;margin-bottom:14px}
+.brand{font-size:14px;font-weight:700;color:var(--gold);letter-spacing:2px}
+.header-actions{display:flex;gap:7px}
+.icon-btn{background:var(--bg3);border:1px solid var(--border);color:var(--text2);border-radius:6px;padding:5px 11px;cursor:pointer;font-size:11px;font-family:'Courier New',Courier,monospace;transition:all .15s}
+.icon-btn:hover{border-color:var(--gold);color:var(--gold)}
 .balance-block{text-align:center;padding:4px 0 14px}
-.bal-label{font-size:11px;opacity:.6;letter-spacing:1px;text-transform:uppercase;margin-bottom:6px}
-.bal-amount{font-size:38px;font-weight:700;letter-spacing:-1px}
-.bal-ticker{font-size:16px;opacity:.75;margin-left:4px}
-.net-badge{display:inline-block;background:rgba(255,255,255,.14);border-radius:20px;padding:3px 11px;font-size:11px;margin-top:7px}
-.addr-bar{background:rgba(255,255,255,.1);border-radius:9px;padding:9px 12px;margin-top:14px;display:flex;align-items:center;justify-content:space-between;gap:8px}
-.addr-text{font-size:12px;font-family:'SF Mono',Monaco,monospace;opacity:.9;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex:1}
-.addr-copy{background:rgba(255,255,255,.18);border:none;color:#fff;border-radius:6px;padding:4px 11px;font-size:11px;font-weight:600;cursor:pointer;flex-shrink:0;transition:background .15s}
-.addr-copy:hover{background:rgba(255,255,255,.32)}
+.bal-label{font-size:9px;color:var(--text2);letter-spacing:2.5px;text-transform:uppercase;margin-bottom:6px}
+.bal-amount{font-size:38px;font-weight:700;color:var(--gold);letter-spacing:-1px}
+.bal-ticker{font-size:14px;color:var(--text2);margin-left:4px}
+.net-badge{display:inline-block;background:var(--bg3);border:1px solid var(--border);border-radius:20px;padding:3px 10px;font-size:10px;color:var(--text2);margin-top:7px}
+.addr-bar{background:var(--bg3);border:1px solid var(--border);border-radius:7px;padding:8px 11px;display:flex;align-items:center;gap:8px}
+.addr-text{font-size:11px;color:var(--text2);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex:1}
+.addr-copy{background:transparent;border:1px solid var(--border);color:var(--text2);border-radius:4px;padding:3px 9px;font-size:10px;font-family:'Courier New',Courier,monospace;cursor:pointer;flex-shrink:0;transition:all .15s}
+.addr-copy:hover{border-color:var(--gold);color:var(--gold)}
 
-/* Tabs */
-.wallet-tabs{display:flex;background:#fff;border-bottom:1px solid #e5e7eb;position:sticky;top:0;z-index:10}
-.tab-btn{flex:1;padding:14px;background:none;border:none;font-size:14px;font-weight:600;color:#9ca3af;cursor:pointer;border-bottom:2px solid transparent;transition:all .18s}
-.tab-btn.active{color:#0d2137;border-bottom-color:#0d2137}
-.tab-content{display:none;padding:22px 20px;max-width:560px;margin:0 auto;width:100%}
+/* ── Tabs ────────────────────────────────────────────────────────────────── */
+.wallet-tabs{display:flex;background:var(--bg2);border-bottom:1px solid var(--border);position:sticky;top:0;z-index:10}
+.tab-btn{flex:1;padding:12px;background:none;border:none;border-bottom:2px solid transparent;font-size:11px;font-weight:700;color:var(--text2);cursor:pointer;transition:all .15s;font-family:'Courier New',Courier,monospace;letter-spacing:1px;text-transform:uppercase}
+.tab-btn.active{color:var(--gold);border-bottom-color:var(--gold)}
+.tab-btn:hover:not(.active){color:var(--text)}
+.tab-content{display:none;padding:20px 18px;max-width:540px;margin:0 auto;width:100%}
 .tab-content.active{display:block}
 
-/* Receive */
-.qr-wrap{display:flex;justify-content:center;margin:14px 0;padding:20px;background:#fff;border-radius:14px;box-shadow:0 2px 12px rgba(0,0,0,.07)}
-.full-addr{background:#f8fafc;border:1px solid #e2e8f0;border-radius:10px;padding:14px;font-family:'SF Mono',Monaco,monospace;font-size:12px;word-break:break-all;color:#0d2137;line-height:1.7;margin-bottom:12px}
-.receive-note{font-size:13px;color:#64748b;text-align:center}
+/* ── Receive ─────────────────────────────────────────────────────────────── */
+.qr-wrap{display:flex;justify-content:center;margin:12px 0;padding:18px;background:var(--bg2);border:1px solid var(--border);border-radius:10px}
+.full-addr{background:var(--bg3);border:1px solid var(--border);border-radius:7px;padding:12px;font-size:11px;word-break:break-all;color:var(--text);line-height:1.7;margin-bottom:12px}
+.receive-note{font-size:11px;color:var(--text2);text-align:center}
 
-/* Send */
-.fee-note{background:#eff6ff;border:1px solid #bfdbfe;border-radius:8px;padding:10px 14px;font-size:13px;color:#1e40af;margin:10px 0}
-.tx-summary{background:#f8fafc;border:1px solid #e2e8f0;border-radius:10px;padding:14px;margin:14px 0}
-.sum-row{display:flex;justify-content:space-between;font-size:14px;margin-bottom:7px;color:#374151}
-.sum-row:last-child{margin:0;border-top:1px solid #e2e8f0;padding-top:9px;font-weight:700;color:#0d2137}
-.sum-label{color:#64748b;font-weight:400}
-.max-link{float:right;font-size:11px;color:#0d2137;background:none;border:none;cursor:pointer;font-weight:600;text-decoration:underline;padding:0}
+/* ── Send ────────────────────────────────────────────────────────────────── */
+.fee-note{background:var(--bg3);border:1px solid var(--border);border-radius:6px;padding:9px 12px;font-size:12px;color:var(--text2);margin:10px 0}
+.tx-summary{background:var(--bg3);border:1px solid var(--border);border-radius:7px;padding:12px;margin:12px 0}
+.sum-row{display:flex;justify-content:space-between;font-size:12px;margin-bottom:7px;color:var(--text2)}
+.sum-row:last-child{margin:0;border-top:1px solid var(--border);padding-top:8px;font-weight:700;color:var(--gold)}
+.max-link{float:right;font-size:10px;color:var(--gold);background:none;border:none;cursor:pointer;font-weight:700;font-family:'Courier New',Courier,monospace;padding:0;letter-spacing:.5px}
 
-/* Modal */
-.modal-bg{position:fixed;inset:0;background:rgba(0,0,0,.55);display:none;align-items:center;justify-content:center;z-index:1000;padding:16px}
+/* ── Modal ───────────────────────────────────────────────────────────────── */
+.modal-bg{position:fixed;inset:0;background:rgba(0,0,0,.78);display:none;align-items:center;justify-content:center;z-index:1000;padding:16px}
 .modal-bg.open{display:flex}
-.modal{background:#fff;border-radius:18px;padding:30px 26px;width:100%;max-width:380px;box-shadow:0 24px 60px rgba(0,0,0,.35)}
-.modal-title{font-size:19px;font-weight:700;color:#0d2137;margin-bottom:6px}
-.modal-sub{font-size:13px;color:#64748b;margin-bottom:20px;line-height:1.5}
-.modal-btns{display:flex;gap:10px;margin-top:18px}
+.modal{background:var(--bg2);border:1px solid var(--border);border-radius:12px;padding:26px 22px;width:100%;max-width:380px;box-shadow:0 0 80px rgba(0,0,0,.7)}
+.modal-title{font-size:16px;font-weight:700;color:var(--gold);margin-bottom:5px}
+.modal-sub{font-size:12px;color:var(--text2);margin-bottom:16px;line-height:1.55}
+.modal-btns{display:flex;gap:9px;margin-top:14px}
 .modal-btns .btn{margin:0;flex:1}
 
-/* Toast */
-#toast{position:fixed;bottom:24px;left:50%;transform:translateX(-50%) translateY(80px);background:#1a1a2e;color:#fff;padding:12px 22px;border-radius:10px;font-size:14px;font-weight:500;box-shadow:0 4px 20px rgba(0,0,0,.3);z-index:9999;transition:transform .28s cubic-bezier(.34,1.56,.64,1);white-space:nowrap;max-width:90vw;text-align:center}
+/* ── Toast ───────────────────────────────────────────────────────────────── */
+#toast{position:fixed;bottom:22px;left:50%;transform:translateX(-50%) translateY(80px);background:var(--bg3);border:1px solid var(--border);color:var(--text);padding:10px 20px;border-radius:7px;font-size:12px;font-family:'Courier New',Courier,monospace;box-shadow:0 4px 24px rgba(0,0,0,.6);z-index:9999;transition:transform .25s cubic-bezier(.34,1.56,.64,1);white-space:nowrap;max-width:90vw;text-align:center}
 #toast.show{transform:translateX(-50%) translateY(0)}
-#toast.ok{background:#15803d}
-#toast.err{background:#b91c1c}
+#toast.ok{border-color:var(--green);color:var(--green)}
+#toast.err{border-color:var(--red);color:var(--red)}
 
-/* Spinner */
-.spin{display:inline-block;width:16px;height:16px;border:2px solid rgba(255,255,255,.3);border-top-color:#fff;border-radius:50%;animation:spin .7s linear infinite;vertical-align:middle;margin-right:7px}
+/* ── Spinner ─────────────────────────────────────────────────────────────── */
+.spin{display:inline-block;width:12px;height:12px;border:2px solid rgba(0,0,0,.25);border-top-color:#000;border-radius:50%;animation:spin .7s linear infinite;vertical-align:middle;margin-right:6px}
 @keyframes spin{to{transform:rotate(360deg)}}
 
-/* Settings danger */
-.danger-zone{margin-top:30px;padding-top:20px;border-top:1px solid #e5e7eb}
+/* ── Settings ────────────────────────────────────────────────────────────── */
+.danger-zone{margin-top:26px;padding-top:16px;border-top:1px solid var(--border)}
+.section-label{font-size:10px;font-weight:700;color:var(--text2);letter-spacing:1.5px;text-transform:uppercase;margin-bottom:9px}
+
+/* ── Scrollbar ───────────────────────────────────────────────────────────── */
+::-webkit-scrollbar{width:5px}
+::-webkit-scrollbar-track{background:var(--bg)}
+::-webkit-scrollbar-thumb{background:var(--border);border-radius:3px}
 
 @media(max-width:420px){
-  .welcome-card,.flow-card{padding:28px 20px}
+  .welcome-card,.flow-card{padding:26px 16px}
   .mnemonic-grid{grid-template-columns:repeat(2,1fr)}
   .mnemonic-inputs{grid-template-columns:repeat(3,1fr)}
   .bal-amount{font-size:30px}
@@ -149,46 +156,44 @@ html,body{height:100%;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Ro
 <div id="screen-welcome" class="screen">
   <div class="welcome-card">
     <div class="logo-icon">⬡</div>
-    <div class="logo-name">Chakram</div>
-    <div class="logo-sub">ചക്രം · Kerala's Digital Currency</div>
-    <button class="btn btn-primary" onclick="UI.showCreate()">Create New Wallet</button>
+    <div class="logo-name">CHAKRAM</div>
+    <div class="logo-sub">ചക്രം &middot; Kerala's Digital Currency</div>
+    <button class="btn btn-primary" onclick="UI.showCreate()">+ New Wallet</button>
     <div class="divider-text">or</div>
-    <button class="btn btn-outline" onclick="UI.showRestore()">Restore from Recovery Phrase</button>
+    <button class="btn btn-outline" onclick="UI.showRestore()">Restore from Phrase</button>
   </div>
 </div>
 
 <!-- CREATE -->
 <div id="screen-create" class="screen">
   <div class="flow-card">
-    <button class="back-btn" onclick="UI.showWelcome()">← Back</button>
-
+    <button class="back-btn" onclick="UI.showWelcome()">← back</button>
     <div id="create-s1">
       <div class="steps"><div class="step-dot active" id="d1"></div><div class="step-dot" id="d2"></div></div>
       <div class="flow-title">Recovery Phrase</div>
-      <div class="flow-sub">Write these 12 words down in order. This is the <strong>only</strong> way to recover your wallet.</div>
+      <div class="flow-sub">Write these 12 words down in order. This is the <strong style="color:var(--text)">only</strong> way to recover your wallet.</div>
       <div class="mnemonic-grid" id="mnemonic-display"></div>
-      <div class="warning">⚠️&nbsp; Never share your recovery phrase. Store it offline — not in a screenshot or cloud note.</div>
+      <div class="warning">&#9888; Never share your recovery phrase. Store it offline — never in a screenshot or cloud note.</div>
       <label class="check-wrap">
         <input type="checkbox" id="backup-confirm" onchange="document.getElementById('btn-to-s2').disabled=!this.checked">
-        <span class="check-label">I have written down all 12 words in order and stored them safely</span>
+        <span class="check-label">I have written down all 12 words in order</span>
       </label>
-      <button class="btn btn-primary" id="btn-to-s2" onclick="UI.goToStep2()" disabled>Continue →</button>
+      <button class="btn btn-primary" id="btn-to-s2" onclick="UI.goToStep2()" disabled>Continue &#8594;</button>
     </div>
-
     <div id="create-s2" style="display:none">
       <div class="steps"><div class="step-dot done"></div><div class="step-dot active"></div></div>
-      <div class="flow-title">Protect Your Wallet</div>
-      <div class="flow-sub">Set a password to encrypt your wallet locally. You will need it to send transactions.</div>
+      <div class="flow-title">Set Password</div>
+      <div class="flow-sub">Encrypts your wallet locally. Required to send transactions.</div>
       <div class="form-group">
         <label class="form-label">Password</label>
-        <input type="password" id="c-pw" class="form-input" placeholder="At least 8 characters" oninput="UI.checkPW('c')">
+        <input type="password" id="c-pw" class="form-input" placeholder="min 8 characters" oninput="UI.checkPW('c')">
       </div>
       <div class="form-group">
         <label class="form-label">Confirm Password</label>
-        <input type="password" id="c-pw2" class="form-input" placeholder="Repeat password" oninput="UI.checkPW('c')">
+        <input type="password" id="c-pw2" class="form-input" placeholder="repeat password" oninput="UI.checkPW('c')">
         <div class="form-err" id="c-pw-err" style="display:none">Passwords do not match</div>
       </div>
-      <div class="form-hint" style="margin-bottom:16px">Forgot your password? Restore using your recovery phrase.</div>
+      <div class="form-hint" style="margin-bottom:14px">Forgot password? Restore using your recovery phrase.</div>
       <button class="btn btn-primary" id="btn-create" onclick="Actions.createWallet()" disabled>Create Wallet</button>
     </div>
   </div>
@@ -197,18 +202,18 @@ html,body{height:100%;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Ro
 <!-- RESTORE -->
 <div id="screen-restore" class="screen">
   <div class="flow-card">
-    <button class="back-btn" onclick="UI.showWelcome()">← Back</button>
+    <button class="back-btn" onclick="UI.showWelcome()">← back</button>
     <div class="flow-title">Restore Wallet</div>
-    <div class="flow-sub">Enter your 12-word recovery phrase in order. Words are lowercase.</div>
+    <div class="flow-sub">Enter your 12-word recovery phrase in order.</div>
     <div class="mnemonic-inputs" id="restore-grid"></div>
     <div class="form-err" id="restore-phrase-err" style="display:none;margin-bottom:10px"></div>
     <div class="form-group">
-      <label class="form-label">New Password</label>
-      <input type="password" id="r-pw" class="form-input" placeholder="At least 8 characters" oninput="UI.checkPW('r')">
+      <label class="form-label">Password</label>
+      <input type="password" id="r-pw" class="form-input" placeholder="min 8 characters" oninput="UI.checkPW('r')">
     </div>
     <div class="form-group">
       <label class="form-label">Confirm Password</label>
-      <input type="password" id="r-pw2" class="form-input" placeholder="Repeat password" oninput="UI.checkPW('r')">
+      <input type="password" id="r-pw2" class="form-input" placeholder="repeat password" oninput="UI.checkPW('r')">
       <div class="form-err" id="r-pw-err" style="display:none">Passwords do not match</div>
     </div>
     <button class="btn btn-primary" id="btn-restore" onclick="Actions.restoreWallet()" style="margin-top:6px">Restore Wallet</button>
@@ -219,20 +224,20 @@ html,body{height:100%;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Ro
 <div id="screen-wallet" class="screen">
   <div class="wallet-header">
     <div class="header-top">
-      <div class="brand">⬡ Chakram Wallet</div>
+      <div class="brand">&#x2B21; CHAKRAM</div>
       <div class="header-actions">
-        <button class="icon-btn" onclick="Actions.refresh()">↻ Refresh</button>
-        <button class="icon-btn" onclick="Actions.lock()">🔒 Lock</button>
+        <button class="icon-btn" onclick="Actions.refresh()">&#x21BB; refresh</button>
+        <button class="icon-btn" onclick="Actions.lock()">&#x29BB; lock</button>
       </div>
     </div>
     <div class="balance-block">
       <div class="bal-label">Balance</div>
-      <div><span class="bal-amount" id="bal-amt">—</span><span class="bal-ticker">CHK</span></div>
+      <div><span class="bal-amount" id="bal-amt">&#8212;</span><span class="bal-ticker">CHK</span></div>
       <div><span class="net-badge" id="net-badge">Testnet</span></div>
     </div>
     <div class="addr-bar">
-      <div class="addr-text" id="hdr-addr">—</div>
-      <button class="addr-copy" onclick="Actions.copyAddr()">Copy</button>
+      <div class="addr-text" id="hdr-addr">&#8212;</div>
+      <button class="addr-copy" onclick="Actions.copyAddr()">copy</button>
     </div>
   </div>
 
@@ -244,7 +249,7 @@ html,body{height:100%;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Ro
 
   <div id="tab-receive" class="tab-content active">
     <div class="qr-wrap"><div id="qrcode"></div></div>
-    <div class="full-addr" id="recv-addr">—</div>
+    <div class="full-addr" id="recv-addr">&#8212;</div>
     <button class="btn btn-outline btn-sm" onclick="Actions.copyAddr()" style="display:block;margin:0 auto 10px">Copy Address</button>
     <div class="receive-note">Share this address to receive CHK payments</div>
   </div>
@@ -252,7 +257,7 @@ html,body{height:100%;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Ro
   <div id="tab-send" class="tab-content">
     <div class="form-group">
       <label class="form-label">Recipient Address</label>
-      <input type="text" id="s-to" class="form-input" placeholder="CK1…" autocomplete="off" oninput="UI.sendPreview()">
+      <input type="text" id="s-to" class="form-input" placeholder="CK1&#8230;" autocomplete="off" oninput="UI.sendPreview()">
       <div class="form-err" id="s-to-err" style="display:none"></div>
     </div>
     <div class="form-group">
@@ -261,31 +266,27 @@ html,body{height:100%;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Ro
         <button class="max-link" onclick="UI.fillMax()">MAX</button>
       </label>
       <input type="number" id="s-amt" class="form-input" placeholder="0.000000" step="0.000001" min="0" oninput="UI.sendPreview()">
-      <div class="form-hint" id="s-avail">Available: —</div>
+      <div class="form-hint" id="s-avail">Available: &#8212;</div>
     </div>
-    <div class="fee-note">⛽ Network fee: <strong>0.001000 CHK</strong></div>
+    <div class="fee-note">Network fee: <span style="color:var(--text)">0.001000 CHK</span></div>
     <div class="tx-summary" id="s-summary" style="display:none">
-      <div class="sum-row"><span class="sum-label">You send</span><span id="sum-send">—</span></div>
-      <div class="sum-row"><span class="sum-label">Network fee</span><span>0.001000 CHK</span></div>
-      <div class="sum-row"><span class="sum-label">Total deducted</span><span id="sum-total">—</span></div>
+      <div class="sum-row"><span>You send</span><span id="sum-send">&#8212;</span></div>
+      <div class="sum-row"><span>Network fee</span><span>0.001000 CHK</span></div>
+      <div class="sum-row"><span>Total deducted</span><span id="sum-total">&#8212;</span></div>
     </div>
     <div class="form-err" id="s-err" style="display:none"></div>
-    <button class="btn btn-gold" id="btn-send" onclick="Actions.initSend()" style="margin-top:4px">Send CHK</button>
+    <button class="btn btn-primary" id="btn-send" onclick="Actions.initSend()" style="margin-top:8px">Send CHK</button>
   </div>
 
   <div id="tab-settings" class="tab-content">
-    <div class="form-group">
-      <div class="form-label" style="margin-bottom:8px">Wallet Address</div>
-      <div class="full-addr" id="settings-addr">—</div>
-    </div>
-    <div class="form-group">
-      <div class="form-label" style="margin-bottom:6px">Recovery Phrase</div>
-      <div class="form-hint" style="margin-bottom:10px">View your 12-word recovery phrase. Keep it private — it gives full access to your funds.</div>
-      <button class="btn btn-outline btn-sm" onclick="Actions.showMnemonic()">Reveal Recovery Phrase</button>
-    </div>
+    <div class="section-label">Wallet Address</div>
+    <div class="full-addr" id="settings-addr" style="margin-bottom:20px">&#8212;</div>
+    <div class="section-label">Security</div>
+    <div class="form-hint" style="margin-bottom:10px">View your 12-word recovery phrase. Keep it private — it gives full access to your funds.</div>
+    <button class="btn btn-outline btn-sm" onclick="Actions.showMnemonic()">Reveal Recovery Phrase</button>
     <div class="danger-zone">
-      <div class="form-label" style="color:#dc2626;margin-bottom:8px">Danger Zone</div>
-      <button class="btn btn-sm" style="background:#fef2f2;color:#dc2626;border:1px solid #fecaca" onclick="Actions.removeWallet()">Remove Wallet from This Browser</button>
+      <div class="section-label" style="color:var(--red)">Danger Zone</div>
+      <button class="btn btn-danger btn-sm" onclick="Actions.removeWallet()">Remove Wallet from This Browser</button>
     </div>
   </div>
 </div>
@@ -296,7 +297,7 @@ html,body{height:100%;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Ro
     <div class="modal-title" id="modal-pw-title">Enter Password</div>
     <div class="modal-sub"   id="modal-pw-sub">Enter your wallet password to continue.</div>
     <div class="form-group">
-      <input type="password" id="modal-pw-input" class="form-input" placeholder="Password"
+      <input type="password" id="modal-pw-input" class="form-input" placeholder="password"
              onkeydown="if(event.key==='Enter')Actions.confirmPW()">
       <div class="form-err" id="modal-pw-err" style="display:none">Incorrect password</div>
     </div>
@@ -307,21 +308,21 @@ html,body{height:100%;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Ro
   </div>
 </div>
 
-<!-- MNEMONIC MODAL -->
+<!-- MNEMONIC REVEAL MODAL -->
 <div class="modal-bg" id="modal-mn">
   <div class="modal">
     <div class="modal-title">Recovery Phrase</div>
     <div class="modal-sub">Keep this private. Anyone with these words controls your wallet.</div>
-    <div class="mnemonic-grid" id="modal-mn-grid" style="margin-bottom:16px"></div>
-    <button class="btn btn-primary" onclick="document.getElementById('modal-mn').classList.remove('open')">Done</button>
+    <div class="mnemonic-grid" id="modal-mn-grid" style="margin-bottom:14px"></div>
+    <button class="btn btn-outline" onclick="document.getElementById('modal-mn').classList.remove('open')">Done</button>
   </div>
 </div>
 
 <div id="toast"></div>
 
-<!-- BIP39 English wordlist (standard, 2048 words) -->
+<!-- BIP39 English wordlist (2048 words) -->
 <script>
-var BIP39=("abandon ability able about above absent absorb abstract absurd abuse access accident account accuse achieve acid acoustic acquire across act action actor actress actual adapt add addict address adjust admit adult advance advice aerobic afford afraid again age agent agree ahead aim air airport aisle alarm album alcohol alert alien all alley allow almost alone alpha already also alter always amateur amazing among amount amused analyst anchor ancient anger angle angry animal ankle announce annual another answer antenna antique anxiety any apart apology appear apple approve april arch arctic area arena argue arm armed armor army around arrange arrest arrive arrow art artefact artist artwork ask aspect assault asset assist assume asthma athlete atom attack attend attitude attract auction audit august aunt author auto autumn average avocado avoid awake aware away awesome awful awkward axis baby balance bamboo banana banner bar barely bargain barrel base basic basket battle beach bean beauty because become beef before begin behave behind believe below bench benefit best betray better between beyond bicycle bid bike bind biology bird birth bitter black blade blame blanket blast bleak bless blind blood blossom blouse blue blur blush board boat body boil bomb bone bonus book boost border boring borrow boss bottom bounce box boy bracket brain brand brave breeze brick bridge brief bright bring brisk broccoli broken bronze broom brother brown brush bubble buddy budget buffalo build bulb bulk bullet bundle bunker burden burger burst bus business busy butter buyer buzz cabbage cabin cable cactus cage cake call calm camera camp can canal cancel candy cannon canvas canyon capable capital captain car carbon card cargo carpet carry cart case cash casino castle casual cat catalog catch category cattle caught cause caution cave ceiling celery cement census chair chaos chapter charge chase chat cheap check cheese chef cherry chest chicken chief child chimney choice choose chronic chuckle chunk cinnamon circle citizen city civil claim clap clarify claw clay clean clerk clever click client cliff climb clinic clip clock clog close cloth cloud clown club clump cluster clutch coach coast coconut code coffee coil coin collect color column combine come comfort comic common company concert conduct confirm congress connect consider control convince cook cool copper copy coral core corn correct cost cotton couch country courier cover coyote crack cradle craft cram crane crash crater crawl crazy cream credit creek crew cricket crime crisp critic cross crouch crowd crucial cruel cruise crumble crunch crush cry crystal cube culture cup cupboard curious current curtain curve cushion custom cute cycle dad damage damp dance danger daring dash daughter dawn day deal debate debris decade december decide decline decorate decrease deer defense define defy degree delay deliver demand demise denial dentist deny depart depend deposit depth deputy derive describe desert design desk despair destroy detail detect develop device devote diagram dial diamond diary dice diesel diet differ digital dignity dilemma dinner dinosaur direct dirt disagree discover disease dish dismiss disorder display distance divert divide divorce dizzy doctor document dog doll dolphin domain donate donkey donor door dose double dove draft dragon drama drastic draw dream dress drift drill drink drip drive drop drum dry duck dumb dune during dust dutch duty dwarf dynamic eager eagle early earn earth easily east easy echo ecology edge edit educate effort egg eight either elbow elder electric elegant element elephant elevator elite else embark embody embrace emerge emotion employ empower empty enable enact endless endorse enemy enhance enjoy enlist enough enrich enroll ensure enter entire entry envelope episode equal equip erase erode erosion error erupt escape essay essence estate eternal ethics evidence evil evoke evolve exact example excess exchange excite exclude exercise exhaust exhibit exile exist exit exotic expand expire explain expose express extend extra eye fable face faculty fade faint faith fall false fame family famous fan fancy fantasy far fashion fat fatal father fatigue fault favorite feature february federal fee feed feel feet fellow felt fence festival fetch fever few fiber fiction field figure file film filter final find fine finger finish fire firm first fiscal fish fit fitness fix flag flame flash flat flavor flee flight flip float flock floor flower fluid flush fly foam focus fog foil follow food force forest forget fork fortune forum forward fossil foster found fox fragile frame frequent fresh friend fringe frog front frost frown frozen fruit fuel fun funny furnace fury future gadget gain galaxy gallery game gap garage garbage garden garlic garment gas gasp gate gather gauge gaze general genius genre gentle genuine gesture ghost ginger giraffe girl give glad glance glare glass glide glimpse globe gloom glory glove glow glue goat goddess gold good goose gorilla gospel gossip govern gown grab grace grain grant grape grasp grass gravity great green grid grief grit grocery group grow grunt guard guide guilt guitar gun gym habit hair half hammer hamster hand happy harsh harvest hat have hawk hazard head health heart heavy hedgehog height hello helmet help hen hero hidden high hill hint hip hire history hobby hockey hold hole holiday hollow home honey hood hope horn hospital host hour hover hub huge human humble humor hundred hungry hunt hurdle hurry hurt husband hybrid ice icon ignore ill illegal image imitate immense immune impact impose improve impulse inbox income increase index indicate indoor industry infant inflict inform inhale inject injury inmate inner innocent input inquiry insane insect inside inspire install intact interest into invest invite involve iron island isolate issue item ivory jacket jaguar jar jazz jealous jeans jelly jewel job join joke journey joy judge juice jump jungle junior junk just kangaroo keen keep ketchup key kick kid kingdom kiss kit kitchen kite kitten kiwi knee knife knock know lab ladder lady lake lamp language laptop large later laugh laundry lava law lawn lawsuit layer lazy leader learn leave lecture left leg legal legend leisure lemon lend length lens leopard lesson letter level liar liberty library license life lift light like limb limit link lion liquid list little live lizard load loan lobster local lock logic lonely long loop lottery loud lounge love loyal lucky luggage lumber lunar lunch luxury lyrics magic magnet maid main major make mammal mango mansion manual maple marble march margin marine marriage mask master match material math matrix matter maximum maze meadow mean medal media melody melt member memory mention menu mercy merge merit merry mesh message metal method middle midnight milk million mimic mind minimum minor miracle miss mixed mixture mobile model modify mom monitor monkey monster month moon moral more morning mosquito mother motion motor mountain mouse move movie much muffin mule multiply muscle museum mushroom music must mutual myself mystery naive name napkin narrow nasty natural nature near neck need negative neglect neither nephew nerve network news next nice night noble noise nominee noodle normal north notable note nothing notice novel now nuclear nurse nut oak obey object oblige obscure observe obtain ocean october odor off offer office often oil okay old olive olympic omit once onion open oppose option orange orbit orchard order ordinary organ orient original orphan ostrich other outdoor outside oval over own oyster ozone packet page pair palace palm panda panel panic panther paper parade parent park parrot party pass patch path patrol pause pave payment peace peanut peasant pelican pen penalty pencil people pepper perfect permit person pet phone photo phrase physical piano picnic picture piece pig pigeon pill pilot pink pioneer pipe pistol pitch pizza place planet plastic plate play please pledge pluck plug plunge poem poet point polar pole police pond pony popular portion position possible post potato pottery poverty powder power practice praise predict prefer prepare present pretty prevent price pride primary print priority prison private prize problem process produce profit program project promote proof property prosper protect proud provide public pudding pull pulp pulse pumpkin punch pupil puppy purchase purity purpose push put puzzle pyramid quality quantum quarter question quick quit quiz quote rabbit raccoon race rack radar radio rage rail rain raise rally ramp ranch random range rapid rare rate rather raven reach ready real reason rebel rebuild recall receive recipe record recycle reduce reflect reform refuse region regret regular reject relax release relief rely remain remember remind remove render renew rent reopen repair repeat replace report require rescue resemble resist resource response result retire retreat return reunion reveal review reward rhythm ribbon rice rich ride rifle right rigid ring riot ripple risk ritual rival river road roast robot robust rocket romance roof rookie rotate rough round route royal rubber rude rug rule run runway rural sad saddle sadness safe sail salad salmon salon salt salute same sample sand satisfy satoshi sauce sausage save say scale scan scare scatter scene scheme school science scissors scorpion scout scrap screen script scrub sea search season seat second secret section security seed seek segment select sell seminar senior sense sentence series service session settle setup seven shadow shaft shallow share shed shell sheriff shield shift shine ship shiver shock shoe shoot shop short shoulder shove shrimp shrug shuffle shy sibling siege sight sign silent silk silly silver similar simple since sing siren sister situate six size sketch skill skin skirt skull slab slam sleep slender slice slide slight slim slogan slot slow slush small smart smile smoke smooth snack snake snap sniff snow soap soccer social sock solar soldier solid solution solve someone song soon sorry soul sound soup source south space spare spatial spawn speak special speed sphere spice spider spike spin spirit split spoil sponsor spoon spray spread spring spy square squeeze squirrel stable stadium staff stage stairs stamp stand start state stay steak steel stem step stereo stick still sting stock stomach stone stop storage store storm story stove strategy street strike strong struggle student stuff stumble style subject submit subway success such sudden suffer sugar suggest suit summer sun sunny sunset super supply supreme sure surface surge surprise sustain swallow swamp swap swear sweet swift swim swing switch sword symbol symptom syrup table tackle tag tail talent tamper tank tape target task tattoo taxi teach team tell ten tenant tennis tent term test text thank that theme then theory there they thing this thought three thrive throw thumb thunder ticket tilt timber time tiny tip tired title toast tobacco today together toilet token tomato tomorrow tone tongue tonight tool tooth top topic topple torch tornado tortoise toss total tourist toward tower town toy track trade traffic tragic train transfer trap trash travel tray treat tree trend trial tribe trick trigger trim trip trophy trouble truck truly trumpet trust truth tube tuition tumble tuna tunnel turkey turn turtle twelve twenty twice twin twist two type typical ugly umbrella unable unaware uncle uncover under undo unfair unfold unhappy uniform unique universe unknown unlock until unusual unveil update upgrade uphold upon upper upset urban usage use used useful useless usual utility vacant vacuum vague valid valley valve van vanish vapor various vast vault vehicle velvet vendor venture venue verb verify version very vessel veteran viable vibrant vicious victory video view village vintage violin virtual virus visa visit visual vital vivid vocal voice void volcano volume vote voyage wage wagon wait walk wall walnut want warfare warm warrior wash wasp waste water wave way wealth weapon wear weasel weather web wedding weekend weird welcome well west wet whale wheat wheel when where whip whisper wide width wife wild will win window wine wing wink winner winter wire wisdom wise wish witness wolf woman wonder wood wool word world worry worth wrap wreck wrestle wrist write wrong yard year yellow you young youth zebra zero zone zoo").split(' ');
+var BIP39=("abandon ability able about above absent absorb abstract absurd abuse access accident account accuse achieve acid acoustic acquire across act action actor actress actual adapt add addict address adjust admit adult advance advice aerobic afford afraid again age agent agree ahead aim air airport aisle alarm album alcohol alert alien all alley allow almost alone alpha already also alter always amateur amazing among amount amused analyst anchor ancient anger angle angry animal ankle announce annual another answer antenna antique anxiety any apart apology appear apple approve april arch arctic area arena argue arm armed armor army around arrange arrest arrive arrow art artefact artist artwork ask aspect assault asset assist assume asthma athlete atom attack attend attitude attract auction audit august aunt author auto autumn average avocado avoid awake aware away awesome awful awkward axis baby balance bamboo banana banner bar barely bargain barrel base basic basket battle beach bean beauty because become beef before begin behave behind believe below bench benefit best betray better between beyond bicycle bid bike bind biology bird birth bitter black blade blame blanket blast bleak bless blind blood blossom blouse blue blur blush board boat body boil bomb bone bonus book boost border boring borrow boss bottom bounce box boy bracket brain brand brave breeze brick bridge brief bright bring brisk broccoli broken bronze broom brother brown brush bubble buddy budget buffalo build bulb bulk bullet bundle bunker burden burger burst bus business busy butter buyer buzz cabbage cabin cable cactus cage cake call calm camera camp can canal cancel candy cannon canvas canyon capable capital captain car carbon card cargo carpet carry cart case cash casino castle casual cat catalog catch category cattle caught cause caution cave ceiling celery cement census chair chaos chapter charge chase chat cheap check cheese chef cherry chest chicken chief child chimney choice choose chronic chuckle chunk cinnamon circle citizen city civil claim clap clarify claw clay clean clerk clever click client cliff climb clinic clip clock clog close cloth cloud clown club clump cluster clutch coach coast coconut code coffee coil coin collect color column combine come comfort comic common company concert conduct confirm congress connect consider control convince cook cool copper copy coral core corn correct cost cotton couch country courier cover coyote crack cradle craft cram crane crash crater crawl crazy cream credit creek crew cricket crime crisp critic cross crouch crowd crucial cruel cruise crumble crunch crush cry crystal cube culture cup cupboard curious current curtain curve cushion custom cute cycle dad damage damp dance danger daring dash daughter dawn day deal debate debris decade december decide decline decorate decrease deer defense define defy degree delay deliver demand demise denial dentist deny depart depend deposit depth deputy derive describe desert design desk despair destroy detail detect develop device devote diagram dial diamond diary dice diesel diet differ digital dignity dilemma dinner dinosaur direct dirt disagree discover disease dish dismiss disorder display distance divert divide divorce dizzy doctor document dog doll dolphin domain donate donkey donor door dose double dove draft dragon drama drastic draw dream dress drift drill drink drip drive drop drum dry duck dumb dune during dust dutch duty dwarf dynamic eager eagle early earn earth easily east easy echo ecology edge edit educate effort egg eight either elbow elder electric elegant element elephant elevator elite else embark embody embrace emerge emotion employ empower empty enable enact endless endorse enemy enhance enjoy enlist enough enrich enroll ensure enter entire entry envelope episode equal equip erase erode erosion error erupt escape essay essence estate eternal ethics evidence evil evoke evolve exact example excess exchange excite exclude exercise exhaust exhibit exile exist exit exotic expand expire explain expose express extend extra eye fable face faculty fade faint faith fall false fame family famous fan fancy fantasy far fashion fat fatal father fatigue fault favorite feature february federal fee feed feel feet fellow felt fence festival fetch fever few fiber fiction field figure file film filter final find fine finger finish fire firm first fiscal fish fit fitness fix flag flame flash flat flavor flee flight flip float flock floor flower fluid flush fly foam focus fog foil follow food force forest forget fork fortune forum forward fossil foster found fox fragile frame frequent fresh friend fringe frog front frost frown frozen fruit fuel fun funny furnace fury future gadget gain galaxy gallery game gap garage garbage garden garlic garment gas gasp gate gather gauge gaze general genius genre gentle genuine gesture ghost ginger giraffe girl give glad glance glare glass glide glimpse globe gloom glory glove glow glue goat goddess gold good goose gorilla gospel gossip govern gown grab grace grain grant grape grasp grass gravity great green grid grief grit grocery group grow grunt guard guide guilt guitar gun gym habit hair half hammer hamster hand happy harsh harvest hat have hawk hazard head health heart heavy hedgehog height hello helmet help hen hero hidden high hill hint hip hire history hobby hockey hold hole holiday hollow home honey hood hope horn hospital host hour hover hub huge human humble humor hundred hungry hunt hurdle hurry hurt husband hybrid ice icon ignore ill illegal image imitate immense immune impact impose improve impulse inbox income increase index indicate indoor industry infant inflict inform inhale inject injury inmate inner innocent input inquiry insane insect inside inspire install intact interest into invest invite involve iron island isolate issue item ivory jacket jaguar jar jazz jealous jeans jelly jewel job join joke journey joy judge juice jump jungle junior junk just kangaroo keen keep ketchup key kick kid kingdom kiss kit kitchen kite kitten kiwi knee knife knock know lab ladder lady lake lamp language laptop large later laugh laundry lava law lawn lawsuit layer lazy leader learn leave lecture left leg legal legend leisure lemon lend length lens leopard lesson letter level liar liberty library license life lift light like limb limit link lion liquid list little live lizard load loan lobster local lock logic lonely long loop lottery loud lounge love loyal lucky luggage lumber lunar lunch luxury lyrics magic magnet maid main major make mammal mango mansion manual maple marble march margin marine marriage mask master match material math matrix matter maximum maze meadow mean medal media melody melt member memory mention menu mercy merge merit merry mesh message metal method middle midnight milk million mimic mind minimum minor miracle miss mixed mixture mobile model modify mom monitor monkey monster month moon moral more morning mosquito mother motion motor mountain mouse move movie much muffin mule multiply muscle museum mushroom music must mutual myself mystery naive name napkin narrow nasty natural nature near neck need negative neglect neither nephew nerve network news next nice night noble noise nominee noodle normal north notable note nothing notice novel now nuclear nurse nut oak obey object oblige obscure observe obtain ocean october odor off offer office often oil okay old olive olympic omit once onion open oppose option orange orbit orchard order ordinary organ orient original orphan ostrich other outdoor outside oval over own oyster ozone packet page pair palace palm panda panel panic panther paper parade parent park parrot party pass patch path patrol pause pave payment peace peanut peasant pelican pen penalty pencil people pepper perfect permit person pet phone photo phrase physical piano picnic picture piece pig pigeon pill pilot pink pioneer pipe pistol pitch pizza place planet plastic plate play please pledge pluck plug plunge poem poet point polar pole police pond pony popular portion position possible post potato pottery poverty powder power practice praise predict prefer prepare present pretty prevent price pride primary print priority prison private prize problem process produce profit program project promote proof property prosper protect proud provide public pudding pull pulp pulse pumpkin punch pupil puppy purchase purity purpose push put puzzle pyramid quality quantum quarter question quick quit quiz quote rabbit raccoon race rack radar radio rage rail rain raise rally ramp ranch random range rapid rare rate rather raven reach ready real reason rebel rebuild recall receive recipe record recycle reduce reflect reform refuse region regret regular reject relax release relief rely remain remember remind remove render renew rent reopen repair repeat replace report require rescue resemble resist resource response result retire retreat return reunion reveal review reward rhythm ribbon rice rich ride rifle right rigid ring riot ripple risk ritual rival river road roast robot robust rocket romance roof rookie rotate rough round route royal rubber rude rug rule run runway rural sad saddle sadness safe sail salad salmon salon salt salute same sample sand satisfy satoshi sauce sausage save say scale scan scare scatter scene scheme school science scissors scorpion scout scrap screen script scrub sea search season seat second secret section security seed seek segment select sell seminar senior sense sentence series service session settle setup seven shadow shaft shallow share shed shell sheriff shield shift shine ship shiver shock shoe shoot shop short shoulder shove shrimp shrug shuffle shy sibling siege sight sign silent silk silly silver similar simple since sing siren sister situate six size sketch skill skin skirt skull slab slam sleep slender slice slide slight slim slogan slot slow slush small smart smile smoke smooth snack snake snap sniff snow soap soccer social sock solar soldier solid solution solve someone song soon sorry soul sound soup source south space spare spatial spawn speak special speed sphere spice spider spike spin spirit split spoil sponsor spoon spray spread spring spy square squeeze squirrel stable stadium staff stage stairs stamp stand start state stay steak steel stem step stereo stick still sting stock stomach stone stop storage store storm story stove strategy street strike strong struggle student stuff stumble style subject submit subway success such sudden suffer sugar suggest suit summer sun sunny sunset super supply supreme sure surface surge surprise sustain swallow swamp swap swear sweet swift swim swing switch sword symbol symptom syrup table tackle tag tail talent tamper tank tape target task tattoo taxi teach team tell ten tenant tennis tent term test text thank that theme then theory there they thing this thought three thrive throw thumb thunder ticket tilt timber time tiny tip tired title toast tobacco today together toilet token tomato tomorrow tone tongue tonight tool tooth top topic topple torch tornado tortoise toss total tourist toward tower town toy track trade traffic tragic train transfer trap trash travel tray treat tree trend trial tribe trick trigger trim trip trophy trouble truck truly trumpet trust truth tube tuition tumble tuna tunnel turkey turn turtle twelve twenty twice twin twist two type typical ugly umbrella unable unaware uncle uncover under undo unfair unfold unhappy uniform unique universe unknown unlock until unusual unveil update upgrade uphold upon upper upset urban usage use used useful useless usual utility vacant vacuum vague valid valley valve van vanish vapor various vast vault vehicle velvet vendor venture venue verb verify version very vessel veteran viable vibrant vicious victory video view village vintage violin virtual virus visa visit visual vital vivid vocal voice void volcano volume vote voyage wage wagon wait walk wall walnut want warfare warm warrior wash wasp waste water wave way wealth weapon wear weasel weather web wedding weekend weird welcome well west wet whale wheat wheel when where whip whisper wide width wife wild will win window wine wing wink winner winter wire wisdom wise wish witness wolf woman wonder wood wool word world worry worth wrap wreck wrestle wrist write wrong yard year yellow you young youth zebra zero zone zoo").trim().split(/\s+/).filter(function(w){return w.length>0;});
 </script>
 
 <script src="https://cdn.jsdelivr.net/npm/qrcodejs@1.0.0/qrcode.min.js"></script>
@@ -336,12 +337,12 @@ import { gcm } from 'https://esm.sh/@noble/ciphers@1.0.0/aes';
 etc.sha512Sync = sha512;
 
 // ── Constants ─────────────────────────────────────────────────────────────────
-const CASH   = 1_000_000;   // CashPerCHK
-const FEE    = 1_000;       // MinTxFee in Cash
+const CASH = 1_000_000;
+const FEE  = 1_000;
 const PREFIX = 'CK1';
-const B58    = '123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz';
+const B58  = '123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz';
 
-// ── App state ─────────────────────────────────────────────────────────────────
+// ── State ─────────────────────────────────────────────────────────────────────
 const S = { address:null, seed:null, pubKeyHash:null, balance:null };
 let pendingSend=null, pwAction=null, qrDone=false;
 
@@ -353,7 +354,7 @@ function b58enc(b){
   return B58[0].repeat(z)+s;
 }
 function b58dec(s){
-  let z=0; for(const c of s){if(c==='1')z++;else break;}
+  let z=0; for(const c of s){if(c===B58[0])z++;else break;}
   let n=0n;
   for(const c of s){const i=B58.indexOf(c);if(i<0)throw new Error('Bad base58: '+c);n=n*58n+BigInt(i);}
   let h=n.toString(16); if(h.length%2)h='0'+h;
@@ -368,7 +369,7 @@ const b64d = s => Uint8Array.from(atob(s),c=>c.charCodeAt(0));
 const hex2b = s => { const a=new Uint8Array(s.length/2); for(let i=0;i<a.length;i++) a[i]=parseInt(s.slice(i*2,i*2+2),16); return a; };
 const b2hex = b => Array.from(b,x=>x.toString(16).padStart(2,'0')).join('');
 
-// ── Crypto helpers ────────────────────────────────────────────────────────────
+// ── Crypto (noble — no crypto.subtle required) ────────────────────────────────
 const sha256 = d => _sha256(d instanceof Uint8Array ? d : new Uint8Array(d));
 const h160   = d => ripemd160(sha256(d));
 
@@ -381,7 +382,7 @@ function pkhToAddr(pkh){
 function addrToPkh(addr){
   if(!addr.startsWith(PREFIX)) throw new Error('Address must start with CK1');
   const d=b58dec(addr.slice(PREFIX.length));
-  if(d.length!==24) throw new Error('Invalid address');
+  if(d.length!==24) throw new Error('Invalid address length');
   const pkh=d.slice(0,20), cs=d.slice(20);
   const exp=sha256(sha256(pkh)).slice(0,4);
   for(let i=0;i<4;i++) if(cs[i]!==exp[i]) throw new Error('Bad address checksum');
@@ -391,6 +392,7 @@ const validAddr = a => { try{addrToPkh(a);return true;}catch{return false;} };
 
 // ── Mnemonic ──────────────────────────────────────────────────────────────────
 function entToMn(ent){
+  if(BIP39.length!==2048) throw new Error('BIP39 wordlist error: expected 2048 words, got '+BIP39.length);
   const h=sha256(ent), cs=h[0]>>4;
   let n=BigInt('0x'+b2hex(ent));
   n=(n<<4n)|BigInt(cs);
@@ -399,17 +401,22 @@ function entToMn(ent){
   return w.join(' ');
 }
 function mnToEnt(mn){
-  const parts=mn.trim().toLowerCase().split(/\s+/);
-  if(parts.length!==12) throw new Error(`Need 12 words, got ${parts.length}`);
+  // Filter out empty entries so partially-blank inputs give a clear count error
+  const parts=mn.trim().toLowerCase().split(/\s+/).filter(w=>w.length>0);
+  if(parts.length!==12) throw new Error('Need exactly 12 words, got '+parts.length);
   const idx=new Map(BIP39.map((w,i)=>[w,i]));
   let n=0n;
-  for(const w of parts){const i=idx.get(w);if(i===undefined)throw new Error(`Unknown word: "${w}"`);n=(n<<11n)|BigInt(i);}
+  for(const w of parts){
+    const i=idx.get(w);
+    if(i===undefined) throw new Error('Unknown word: "'+w+'"');
+    n=(n<<11n)|BigInt(i);
+  }
   const cs=Number(n&0xFn), ent=n>>4n;
   const h=ent.toString(16).padStart(32,'0');
   const eb=new Uint8Array(16);
   for(let i=0;i<16;i++) eb[i]=parseInt(h.slice(i*2,i*2+2),16);
   const hash=sha256(eb);
-  if(cs!==(hash[0]>>4)) throw new Error('Mnemonic checksum mismatch');
+  if(cs!==(hash[0]>>4)) throw new Error('Mnemonic checksum mismatch — check your words');
   return eb;
 }
 
@@ -421,7 +428,7 @@ function walletFromSeed(seed){
 }
 const walletFromMn = mn => walletFromSeed(sha256(mnToEnt(mn)));
 
-// ── Encryption (PBKDF2 + AES-GCM) ────────────────────────────────────────────
+// ── Encryption (PBKDF2 + AES-256-GCM, no WebCrypto) ──────────────────────────
 async function encSeed(seed,pw){
   const salt=crypto.getRandomValues(new Uint8Array(16));
   const iv  =crypto.getRandomValues(new Uint8Array(12));
@@ -444,15 +451,15 @@ const clearW=()=>localStorage.removeItem(KEY);
 
 // ── RPC ───────────────────────────────────────────────────────────────────────
 const rpc=async(p,o)=>{const r=await fetch(p,o);const d=await r.json();if(d.error)throw new Error(d.error);return d;};
-const getInfo   =()   =>rpc('/info');
-const getBal    =addr =>rpc(`/address/${addr}`);
-const getUTXOs  =addr =>rpc(`/utxos/${addr}`);
-const postTx    =tx   =>rpc('/tx/submit',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(tx)});
+const getInfo  =()   =>rpc('/info');
+const getBal   =addr =>rpc('/address/'+addr);
+const getUTXOs =addr =>rpc('/utxos/'+addr);
+const postTx   =tx   =>rpc('/tx/submit',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(tx)});
 
 // ── Transaction ───────────────────────────────────────────────────────────────
-async function txID(tx){
+function txID(tx){
   const p=[];
-  p.push(new Uint8Array([0])); // IsCoinbase=false
+  p.push(new Uint8Array([0]));
   for(const inp of tx.Inputs){
     p.push(b64d(inp.TxID));
     const b=new ArrayBuffer(4);new DataView(b).setUint32(0,inp.OutputIndex,true);p.push(new Uint8Array(b));
@@ -471,14 +478,14 @@ async function buildSignTx(utxos,toAddr,amtCash,seed){
   const needed=amtCash+FEE;
   const sel=[];let total=0;
   for(const u of utxos){if(!u.mature)continue;if(total<needed){sel.push(u);total+=u.value;}}
-  if(total<needed) throw new Error(`Need ${fmt(needed)} CHK, mature balance is ${fmt(total)} CHK`);
+  if(total<needed) throw new Error('Need '+fmt(needed)+' CHK, mature balance is '+fmt(total)+' CHK');
   const inputs=sel.map(u=>({TxID:b64e(hex2b(u.txid)),OutputIndex:u.output_index,Signature:b64e(new Uint8Array(64)),PublicKey:b64e(new Uint8Array(32))}));
-  const toPKH=await addrToPkh(toAddr);
+  const toPKH=addrToPkh(toAddr);
   const outputs=[{Value:amtCash,PublicKeyHash:b64e(toPKH)}];
   const change=total-amtCash-FEE;
   if(change>0) outputs.push({Value:change,PublicKeyHash:b64e(S.pubKeyHash)});
   const tx={TxID:'',Inputs:inputs,Outputs:outputs,Timestamp:Math.floor(Date.now()/1000),IsCoinbase:false};
-  const idBytes=await txID(tx);
+  const idBytes=txID(tx);
   tx.TxID=b64e(idBytes);
   const pub=getPublicKey(seed);
   for(let i=0;i<inputs.length;i++){
@@ -500,8 +507,8 @@ const hide=id=>$(id).style.display='none';
 
 let _toastT;
 function toast(msg,type=''){
-  const el=$('toast'); el.textContent=msg; el.className='show '+type;
-  clearTimeout(_toastT); _toastT=setTimeout(()=>el.className='',3000);
+  const el=$('toast'); el.textContent=msg; el.className='show'+(type?' '+type:'');
+  clearTimeout(_toastT); _toastT=setTimeout(()=>el.className='',3200);
 }
 function setBtn(id,html,dis=false){const e=$(id);e.innerHTML=html;e.disabled=dis;}
 
@@ -512,8 +519,13 @@ function showScreen(id){
 function genQR(addr){
   if(qrDone)return;
   const el=$('qrcode');el.innerHTML='';
-  try{new QRCode(el,{text:addr,width:200,height:200,colorDark:'#0d2137',colorLight:'#fff'});qrDone=true;}
-  catch{el.style.cssText='font-family:monospace;font-size:11px;word-break:break-all;color:#0d2137';el.textContent=addr;}
+  try{
+    new QRCode(el,{text:addr,width:196,height:196,colorDark:'#0a0a0f',colorLight:'#e0e0e8'});
+    qrDone=true;
+  }catch{
+    el.style.cssText='font-family:monospace;font-size:10px;word-break:break-all;color:var(--text2)';
+    el.textContent=addr;
+  }
 }
 async function openWallet(){
   const a=S.address;
@@ -525,34 +537,45 @@ async function openWallet(){
   try{const info=await getInfo();$('net-badge').textContent=info.network==='testnet'?'Testnet':'Mainnet';}catch{}
 }
 
-// ── UI namespace (called from onclick attrs) ──────────────────────────────────
+// ── UI namespace ──────────────────────────────────────────────────────────────
 window.UI={
   showWelcome(){showScreen('screen-welcome');},
 
-  async showCreate(){
-    const ent=crypto.getRandomValues(new Uint8Array(16));
-    const seed=await sha256(ent);
-    const mn=await entToMn(ent);
-    const {pkh,address}=await walletFromSeed(seed);
-    sessionStorage.setItem('_s',b64e(seed));
-    sessionStorage.setItem('_mn',mn);
-    sessionStorage.setItem('_a',address);
-    sessionStorage.setItem('_pkh',b64e(pkh));
-    $('mnemonic-display').innerHTML=mn.split(' ').map((w,i)=>`<div class="mnemonic-word"><span class="word-num">${i+1}</span>${w}</div>`).join('');
-    $('backup-confirm').checked=false;
-    $('btn-to-s2').disabled=true;
-    show('create-s1');hide('create-s2');
-    showScreen('screen-create');
+  showCreate(){
+    try{
+      const ent=crypto.getRandomValues(new Uint8Array(16));
+      const seed=sha256(ent);
+      const mn=entToMn(ent);
+      const {pkh,address}=walletFromSeed(seed);
+      sessionStorage.setItem('_s',b64e(seed));
+      sessionStorage.setItem('_mn',mn);
+      sessionStorage.setItem('_a',address);
+      sessionStorage.setItem('_pkh',b64e(pkh));
+      $('mnemonic-display').innerHTML=mn.split(' ').map((w,i)=>
+        '<div class="mnemonic-word"><span class="word-num">'+(i+1)+'</span>'+w+'</div>'
+      ).join('');
+      $('backup-confirm').checked=false;
+      $('btn-to-s2').disabled=true;
+      show('create-s1');hide('create-s2');
+      showScreen('screen-create');
+    }catch(e){toast(e.message,'err');}
   },
 
   showRestore(){
-    $('restore-grid').innerHTML=Array.from({length:12},(_,i)=>`<div class="m-inp-wrap"><span class="m-inp-num">${i+1}</span><input class="m-inp" type="text" autocomplete="off" autocorrect="off" spellcheck="false" oninput="UI.chkW(this)"></div>`).join('');
+    $('restore-grid').innerHTML=Array.from({length:12},(_,i)=>
+      '<div class="m-inp-wrap"><span class="m-inp-num">'+(i+1)+'</span>'+
+      '<input class="m-inp" type="text" autocomplete="off" autocorrect="off" spellcheck="false" oninput="UI.chkW(this)"></div>'
+    ).join('');
     $('r-pw').value='';$('r-pw2').value='';
     hide('restore-phrase-err');hide('r-pw-err');
     showScreen('screen-restore');
   },
 
-  chkW(el){const w=el.value.trim().toLowerCase();if(!w){el.className='m-inp';return;}el.className='m-inp '+(BIP39.includes(w)?'ok':'bad');},
+  chkW(el){
+    const w=el.value.trim().toLowerCase();
+    if(!w){el.className='m-inp';return;}
+    el.className='m-inp '+(BIP39.includes(w)?'ok':'bad');
+  },
 
   goToStep2(){
     hide('create-s1');show('create-s2');
@@ -573,7 +596,7 @@ window.UI={
       $('t-'+t).classList.toggle('active',t===n);
     });
     if(n==='receive')genQR(S.address);
-    if(n==='send')$('s-avail').textContent=S.balance!==null?`Available: ${fmt(S.balance)} CHK`:'Available: …';
+    if(n==='send')$('s-avail').textContent=S.balance!==null?'Available: '+fmt(S.balance)+' CHK':'Available: —';
   },
 
   sendPreview(){
@@ -616,14 +639,22 @@ window.Actions={
 
   async restoreWallet(){
     const inps=document.querySelectorAll('.m-inp');
-    const mn=Array.from(inps,el=>el.value.trim().toLowerCase()).join(' ');
+    // Collect words, check for blanks before anything else
+    const words=Array.from(inps,el=>el.value.trim().toLowerCase());
+    const blanks=words.map((w,i)=>!w?i+1:null).filter(Boolean);
+    if(blanks.length>0){
+      $('restore-phrase-err').textContent='Missing words at position: '+blanks.join(', ');
+      show('restore-phrase-err');
+      return;
+    }
+    const mn=words.join(' ');
     const p1=$('r-pw').value,p2=$('r-pw2').value;
     hide('restore-phrase-err');hide('r-pw-err');
     if(p1!==p2){show('r-pw-err');return;}
     if(p1.length<8){toast('Password must be at least 8 characters','err');return;}
     setBtn('btn-restore','<span class="spin"></span>Restoring…',true);
     try{
-      const {seed,pkh,address}=await walletFromMn(mn);
+      const {seed,pkh,address}=walletFromMn(mn);
       const {ct,salt,iv}=await encSeed(seed,p1);
       storeW(address,mn,ct,salt,iv);
       Object.assign(S,{address,seed,pubKeyHash:pkh,balance:null});
@@ -637,15 +668,24 @@ window.Actions={
 
   async refresh(){
     if(!S.address)return;
-    try{const d=await getBal(S.address);S.balance=d.balance;$('bal-amt').textContent=fmt(d.balance);$('s-avail').textContent=`Available: ${fmt(d.balance)} CHK`;}
-    catch{$('bal-amt').textContent='Error';}
+    try{
+      const d=await getBal(S.address);
+      S.balance=d.balance;
+      $('bal-amt').textContent=fmt(d.balance);
+      $('s-avail').textContent='Available: '+fmt(d.balance)+' CHK';
+    }catch{$('bal-amt').textContent='Error';}
   },
 
   copyAddr(){
     const a=S.address;if(!a)return;
-    navigator.clipboard.writeText(a).then(()=>toast('Address copied!','ok')).catch(()=>{
-      const el=document.createElement('textarea');el.value=a;document.body.appendChild(el);el.select();document.execCommand('copy');document.body.removeChild(el);toast('Address copied!','ok');
-    });
+    navigator.clipboard.writeText(a)
+      .then(()=>toast('Address copied!','ok'))
+      .catch(()=>{
+        const el=document.createElement('textarea');el.value=a;
+        document.body.appendChild(el);el.select();
+        document.execCommand('copy');document.body.removeChild(el);
+        toast('Address copied!','ok');
+      });
   },
 
   lock(){S.seed=null;toast('Wallet locked');},
@@ -654,18 +694,18 @@ window.Actions={
     const to=$('s-to').value.trim();
     const amt=parseFloat($('s-amt').value);
     hide('s-to-err');hide('s-err');
-    if(!to){show('s-to-err');$('s-to-err').textContent='Enter recipient address';return;}
-    if(!await validAddr(to)){show('s-to-err');$('s-to-err').textContent='Invalid address';return;}
-    if(to===S.address){show('s-to-err');$('s-to-err').textContent='Cannot send to own address';return;}
-    if(isNaN(amt)||amt<=0){show('s-err');$('s-err').textContent='Enter a valid amount';return;}
+    if(!to){$('s-to-err').textContent='Enter recipient address';show('s-to-err');return;}
+    if(!validAddr(to)){$('s-to-err').textContent='Invalid address';show('s-to-err');return;}
+    if(to===S.address){$('s-to-err').textContent='Cannot send to own address';show('s-to-err');return;}
+    if(isNaN(amt)||amt<=0){$('s-err').textContent='Enter a valid amount';show('s-err');return;}
     const cash=Math.round(amt*CASH),needed=cash+FEE;
-    if(S.balance!==null&&needed>S.balance){show('s-err');$('s-err').textContent=`Not enough balance. Need ${fmt(needed)} CHK`;return;}
+    if(S.balance!==null&&needed>S.balance){$('s-err').textContent='Not enough balance. Need '+fmt(needed)+' CHK';show('s-err');return;}
     pendingSend={to,cash};
     if(S.seed){await execSend();}
     else{
       pwAction='send';
       $('modal-pw-title').textContent='Confirm Transaction';
-      $('modal-pw-sub').textContent=`Enter password to send ${fmt(cash)} CHK to ${to.slice(0,12)}…`;
+      $('modal-pw-sub').textContent='Enter password to send '+fmt(cash)+' CHK to '+to.slice(0,14)+'…';
       $('modal-pw-input').value='';hide('modal-pw-err');
       $('modal-pw').classList.add('open');
       setTimeout(()=>$('modal-pw-input').focus(),100);
@@ -681,10 +721,12 @@ window.Actions={
       S.seed=await decSeed(data.ct,data.salt,data.iv,pw);
       $('modal-pw').classList.remove('open');
       setBtn('btn-confirm-pw','Confirm');
-      if(pwAction==='send')await execSend();
+      if(pwAction==='send') await execSend();
       else if(pwAction==='showMnemonic'){
         const mn=loadW().mn;
-        $('modal-mn-grid').innerHTML=mn.split(' ').map((w,i)=>`<div class="mnemonic-word"><span class="word-num">${i+1}</span>${w}</div>`).join('');
+        $('modal-mn-grid').innerHTML=mn.split(' ').map((w,i)=>
+          '<div class="mnemonic-word"><span class="word-num">'+(i+1)+'</span>'+w+'</div>'
+        ).join('');
         $('modal-mn').classList.add('open');
       }
       pwAction=null;
@@ -701,7 +743,7 @@ window.Actions={
   },
 
   removeWallet(){
-    if(!confirm('Remove this wallet from this browser? Make sure your recovery phrase is safely backed up.'))return;
+    if(!confirm('Remove this wallet from this browser?\n\nMake sure your recovery phrase is safely backed up.'))return;
     clearW();Object.assign(S,{address:null,seed:null,pubKeyHash:null,balance:null});
     qrDone=false;showScreen('screen-welcome');toast('Wallet removed');
   },
@@ -714,11 +756,11 @@ async function execSend(){
     const utxos=await getUTXOs(S.address);
     const {tx,txIDHex}=await buildSignTx(utxos,to,cash,S.seed);
     await postTx(tx);
-    toast(`Sent! TxID: ${txIDHex.slice(0,16)}…`,'ok');
+    toast('Sent! tx: '+txIDHex.slice(0,16)+'…','ok');
     $('s-to').value='';$('s-amt').value='';hide('s-summary');hide('s-err');
     pendingSend=null;
     await Actions.refresh();
-  }catch(e){show('s-err');$('s-err').textContent=e.message;}
+  }catch(e){$('s-err').textContent=e.message;show('s-err');}
   finally{setBtn('btn-send','Send CHK');}
 }
 
@@ -727,7 +769,7 @@ async function execSend(){
   const data=loadW();
   if(data){
     S.address=data.addr;
-    try{S.pubKeyHash=await addrToPkh(data.addr);}catch{}
+    try{S.pubKeyHash=addrToPkh(data.addr);}catch{}
     await openWallet();
   }else{
     showScreen('screen-welcome');
