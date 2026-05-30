@@ -32,11 +32,11 @@ GREEN      = "#40c080"
 RED        = "#c04040"
 ORANGE     = "#ff8c00"
 
-RPC_BASE  = "http://localhost:18339"
-RPC_PORT  = 18339
-PID_FILE  = os.path.expanduser("~/.chakram/testnet/gui.pid")
+RPC_BASE  = "http://localhost:8339"
+RPC_PORT  = 8339
+PID_FILE  = os.path.expanduser("~/.chakram/mainnet/gui.pid")
 POLL_SECS = 5
-VERSION   = "v1.0.2"
+VERSION   = "v1.0.3"
 
 
 # ── Binary detection ───────────────────────────────────────────────────────────
@@ -66,7 +66,7 @@ def get_binary_path():
 # ── Helpers ────────────────────────────────────────────────────────────────────
 
 def wallet_exists():
-    return os.path.isfile(os.path.expanduser("~/.chakram/testnet/wallet.json"))
+    return os.path.isfile(os.path.expanduser("~/.chakram/mainnet/wallet.json"))
 
 
 def node_is_running():
@@ -348,7 +348,7 @@ class ChakramApp(ctk.CTk):
             try:
                 res = subprocess.run(
                     [self._binary, "wallet", "recover",
-                     "--mnemonic", mnemonic, "--testnet", "--password", pwd],
+                     "--mnemonic", mnemonic, "--password", pwd],
                     capture_output=True, text=True, timeout=30
                 )
                 output = res.stdout + res.stderr
@@ -380,7 +380,7 @@ class ChakramApp(ctk.CTk):
         def run():
             try:
                 res = subprocess.run(
-                    [self._binary, "wallet", "new", "--testnet", "--password", pwd],
+                    [self._binary, "wallet", "new", "--password", pwd],
                     capture_output=True, text=True, timeout=30
                 )
                 output = res.stdout + res.stderr
@@ -545,7 +545,7 @@ class ChakramApp(ctk.CTk):
             except subprocess.TimeoutExpired:
                 self._node_proc.kill()
 
-        cmd = [self._binary, "node", "--testnet", "--password", self._password]
+        cmd = [self._binary, "node", "--password", self._password]
         if mine:
             cmd.append("--mine")
 
@@ -1042,7 +1042,7 @@ class ChakramApp(ctk.CTk):
         card = ctk.CTkFrame(win, fg_color=BG2, corner_radius=10)
         card.pack(fill="x", padx=24)
 
-        data_dir = os.path.expanduser("~/.chakram/testnet")
+        data_dir = os.path.expanduser("~/.chakram/mainnet")
         net_val  = "—"
         ver_val  = "—"
         ht_val   = "—"
@@ -1101,7 +1101,7 @@ class ChakramApp(ctk.CTk):
 
         self._send_result.configure(text="Sending…", text_color=TEXT2)
         cmd = [self._binary, "send", to_addr, amt_str,
-               "--testnet", "--password", self._password]
+               "--password", self._password]
 
         def run():
             try:
