@@ -53,7 +53,7 @@ fi
 echo "Committing and tagging..."
 git add .
 git commit -m "Release $VERSION — $NOTES" || echo "  (nothing new to commit)"
-git push
+git push -u origin main
 
 # Force-overwrite the tag in case it already exists locally or remotely
 git tag -f "$VERSION"
