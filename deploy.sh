@@ -64,18 +64,26 @@ if [ "$WIPE" = true ]; then
 fi
 
 # ── Nginx on seed-2 (chakram.one) ─────────────────────────────────────────────
+# Only install/overwrite nginx config on first setup (before certbot runs).
+# Once SSL certs exist, certbot owns the nginx config — we must not overwrite it
+# or HTTPS breaks. Subsequent deploys just reload nginx.
 
 echo "Configuring nginx on seed-2..."
 ssh $SSH_OPTS anandhusathe@$SEED2 "which nginx >/dev/null 2>&1 || sudo apt-get install -y nginx -q"
-scp $SSH_OPTS deploy/nginx-chakram.one.conf anandhusathe@$SEED2:~/nginx-chakram.one.conf
-ssh $SSH_OPTS anandhusathe@$SEED2 \
-  "sudo cp ~/nginx-chakram.one.conf /etc/nginx/sites-available/chakram.one && \
-   sudo ln -sf /etc/nginx/sites-available/chakram.one /etc/nginx/sites-enabled/chakram.one && \
-   sudo rm -f /etc/nginx/sites-enabled/default && \
-   sudo nginx -t && \
-   sudo systemctl enable --now nginx && \
-   sudo systemctl reload nginx && \
-   echo '  nginx configured'"
+ssh $SSH_OPTS anandhusathe@$SEED2 "
+  if [ ! -f /etc/letsencrypt/live/chakram.one/fullchain.pem ]; then
+    sudo tee /etc/nginx/sites-available/chakram.one > /dev/null << 'NGINXEOF'
+$(cat deploy/nginx-chakram.one.conf)
+NGINXEOF
+    sudo ln -sf /etc/nginx/sites-available/chakram.one /etc/nginx/sites-enabled/chakram.one
+    sudo rm -f /etc/nginx/sites-enabled/default
+    sudo nginx -t && sudo systemctl enable --now nginx && sudo systemctl reload nginx
+    echo '  nginx configured (initial setup — run certbot to enable HTTPS)'
+  else
+    sudo systemctl enable --now nginx && sudo nginx -t && sudo systemctl reload nginx
+    echo '  nginx reloaded (SSL active)'
+  fi
+"
 
 # ── Start nodes in order ──────────────────────────────────────────────────────
 
