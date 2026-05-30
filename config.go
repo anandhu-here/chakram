@@ -55,7 +55,7 @@ var (
 
 const (
 	// TargetBlockTime is the desired seconds between blocks.
-	TargetBlockTime int64 = 10
+	TargetBlockTime int64 = 60
 
 	// DifficultyWindow is the number of recent blocks used to compute the next
 	// difficulty target (sliding-window retarget).
