@@ -1,0 +1,366 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Download Chakram</title>
+<style>
+:root{
+  --bg:#0a0a0f;--bg2:#111118;--bg3:#1a1a24;
+  --text:#e0e0e8;--text2:#8888a0;--border:#2a2a3a;
+  --gold:#f0c040;--gold-h:#c9a030;
+  --green:#40c080;--red:#c04040;--orange:#ff8c00;
+}
+*{box-sizing:border-box;margin:0;padding:0;}
+body{background:var(--bg);color:var(--text);font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;min-height:100vh;}
+
+/* nav */
+nav{background:var(--bg2);border-bottom:1px solid var(--border);padding:0 24px;display:flex;align-items:center;gap:0;height:52px;}
+.nav-brand{font-weight:700;font-size:18px;color:var(--gold);letter-spacing:.5px;margin-right:32px;text-decoration:none;}
+.nav-link{color:var(--text2);text-decoration:none;padding:0 14px;height:52px;display:flex;align-items:center;font-size:14px;border-bottom:2px solid transparent;transition:color .15s,border-color .15s;}
+.nav-link:hover{color:var(--text);}
+.nav-link.active{color:var(--gold);border-bottom-color:var(--gold);}
+
+/* hero */
+.hero{text-align:center;padding:72px 24px 48px;}
+.hero h1{font-size:40px;font-weight:800;margin-bottom:12px;line-height:1.15;}
+.hero h1 span{color:var(--gold);}
+.hero p{color:var(--text2);font-size:18px;max-width:520px;margin:0 auto 36px;}
+
+.btn{display:inline-flex;align-items:center;gap:10px;padding:14px 28px;border-radius:10px;font-size:16px;font-weight:600;text-decoration:none;transition:background .15s,transform .1s;cursor:pointer;border:none;}
+.btn:active{transform:scale(.97);}
+.btn-gold{background:var(--gold);color:#0a0a0f;}
+.btn-gold:hover{background:var(--gold-h);}
+.btn-outline{background:transparent;color:var(--text);border:1px solid var(--border);}
+.btn-outline:hover{border-color:var(--gold);color:var(--gold);}
+.btn-group{display:flex;gap:12px;justify-content:center;flex-wrap:wrap;}
+
+/* tabs */
+.tabs{display:flex;justify-content:center;gap:8px;padding:0 24px 32px;}
+.tab{padding:10px 24px;border-radius:8px;border:1px solid var(--border);background:transparent;color:var(--text2);cursor:pointer;font-size:15px;font-weight:500;transition:all .15s;}
+.tab:hover{border-color:var(--gold);color:var(--gold);}
+.tab.active{background:var(--gold);color:#0a0a0f;border-color:var(--gold);}
+
+/* content panels */
+.panel{display:none;max-width:760px;margin:0 auto;padding:0 24px 80px;}
+.panel.active{display:block;}
+
+/* steps */
+.steps{display:flex;flex-direction:column;gap:20px;}
+.step{background:var(--bg2);border:1px solid var(--border);border-radius:12px;padding:24px;}
+.step-header{display:flex;align-items:center;gap:14px;margin-bottom:12px;}
+.step-num{width:32px;height:32px;border-radius:50%;background:var(--gold);color:#0a0a0f;font-weight:800;font-size:15px;display:flex;align-items:center;justify-content:center;flex-shrink:0;}
+.step-title{font-size:17px;font-weight:600;}
+.step-body{color:var(--text2);line-height:1.7;font-size:15px;padding-left:46px;}
+.step-body strong{color:var(--text);}
+.step-body a{color:var(--gold);text-decoration:none;}
+.step-body a:hover{text-decoration:underline;}
+
+/* callout boxes */
+.note{background:rgba(240,192,64,.07);border:1px solid rgba(240,192,64,.25);border-radius:8px;padding:14px 16px;margin-top:12px;color:var(--text);font-size:14px;line-height:1.6;}
+.note-icon{font-size:16px;margin-right:6px;}
+.warn{background:rgba(255,140,0,.07);border:1px solid rgba(255,140,0,.25);border-radius:8px;padding:14px 16px;margin-top:12px;font-size:14px;line-height:1.6;color:var(--text);}
+
+/* screenshot-style boxes (text mock) */
+.mock{background:#1c1c28;border:1px solid var(--border);border-radius:8px;padding:16px;margin-top:12px;font-size:13px;font-family:'SF Mono',Monaco,Consolas,monospace;color:#c8c8d8;line-height:1.6;}
+.mock .label{color:var(--text2);font-size:11px;margin-bottom:8px;font-family:inherit;letter-spacing:.05em;text-transform:uppercase;}
+.mock .btn-mock{display:inline-block;background:var(--gold);color:#0a0a0f;border-radius:5px;padding:4px 12px;font-size:12px;font-weight:700;font-family:inherit;}
+.mock .btn-mock-outline{display:inline-block;border:1px solid #555;color:#ccc;border-radius:5px;padding:4px 12px;font-size:12px;font-family:inherit;}
+
+/* inline img placeholders (actual screenshots would go here) */
+.img-block{background:var(--bg3);border:1px solid var(--border);border-radius:8px;margin-top:12px;padding:20px;text-align:center;color:var(--text2);font-size:13px;}
+
+/* divider */
+hr.divider{border:none;border-top:1px solid var(--border);margin:32px 0;}
+
+/* section heading inside panel */
+.section-heading{font-size:13px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--text2);margin-bottom:16px;padding-bottom:8px;border-bottom:1px solid var(--border);}
+
+/* coming soon badge */
+.badge{display:inline-block;padding:3px 10px;border-radius:20px;font-size:12px;font-weight:700;background:rgba(255,140,0,.15);color:var(--orange);border:1px solid rgba(255,140,0,.3);}
+
+/* footer */
+footer{text-align:center;padding:32px;color:var(--text2);font-size:13px;border-top:1px solid var(--border);}
+footer a{color:var(--gold);text-decoration:none;}
+</style>
+</head>
+<body>
+
+<nav>
+  <a class="nav-brand" href="/">⬡ Chakram</a>
+  <a class="nav-link" href="/">Explorer</a>
+  <a class="nav-link" href="/wallet">Wallet</a>
+  <a class="nav-link" href="/docs">Docs</a>
+  <a class="nav-link active" href="/download">Download</a>
+</nav>
+
+<div class="hero">
+  <h1>Run a <span>Chakram</span> Node</h1>
+  <p>Download the app, open it, and you're mining in under 5 minutes. No command line needed.</p>
+  <div class="btn-group">
+    <a class="btn btn-gold" href="https://github.com/anandhu-here/chakram/releases/latest" target="_blank">
+      ⬇ Download Latest Release
+    </a>
+    <a class="btn btn-outline" href="/docs">Read the Docs</a>
+  </div>
+</div>
+
+<div class="tabs">
+  <button class="tab active" onclick="showTab('mac')">🍎 Mac</button>
+  <button class="tab" onclick="showTab('windows')">🪟 Windows</button>
+  <button class="tab" onclick="showTab('linux')">🐧 Linux</button>
+</div>
+
+<!-- ══════════════════════════════════════════════ MAC ══ -->
+<div id="panel-mac" class="panel active">
+  <div class="section-heading">macOS — GUI App</div>
+  <div class="steps">
+
+    <div class="step">
+      <div class="step-header">
+        <div class="step-num">1</div>
+        <div class="step-title">Download the Mac app</div>
+      </div>
+      <div class="step-body">
+        Go to the <a href="https://github.com/anandhu-here/chakram/releases/latest" target="_blank">latest release page on GitHub</a>
+        and click <strong>Chakram-mac.zip</strong> to download it.<br><br>
+        It will save to your Downloads folder.
+      </div>
+    </div>
+
+    <div class="step">
+      <div class="step-header">
+        <div class="step-num">2</div>
+        <div class="step-title">Unzip the file</div>
+      </div>
+      <div class="step-body">
+        Double-click <strong>Chakram-mac.zip</strong> in your Downloads folder.
+        Mac will unzip it automatically.<br><br>
+        You'll see a new folder appear. Inside it, open the <strong>dist</strong> folder —
+        you'll find <strong>Chakram.app</strong> inside.
+        <div class="mock">
+          <div class="label">Downloads folder</div>
+          📦 Chakram-mac.zip<br>
+          📁 dist/<br>
+          &nbsp;&nbsp;&nbsp;└─ 🖥 <strong>Chakram.app</strong>  ← this is the app
+        </div>
+      </div>
+    </div>
+
+    <div class="step">
+      <div class="step-header">
+        <div class="step-num">3</div>
+        <div class="step-title">Try to open Chakram.app</div>
+      </div>
+      <div class="step-body">
+        Double-click <strong>Chakram.app</strong>.<br><br>
+        Mac will show a warning like this — <strong>this is normal</strong> for apps that
+        aren't from the Mac App Store:
+        <div class="mock">
+          <div class="label">macOS security dialog</div>
+          🚫 "Chakram" cannot be opened because Apple cannot check it for malicious software.<br><br>
+          <span class="btn-mock-outline">OK</span>
+        </div>
+        Click <strong>OK</strong> to dismiss it — then go to the next step.
+        <div class="note"><span class="note-icon">ℹ️</span> This happens because Chakram is open-source software distributed directly, not through the App Store. The app itself is safe.</div>
+      </div>
+    </div>
+
+    <div class="step">
+      <div class="step-header">
+        <div class="step-num">4</div>
+        <div class="step-title">Allow the app in System Settings</div>
+      </div>
+      <div class="step-body">
+        Open <strong>System Settings</strong> (the gear icon in your Dock or Apple menu).<br><br>
+        Go to <strong>Privacy &amp; Security</strong>.<br><br>
+        Scroll down — you'll see a message saying <em>"Chakram was blocked"</em>
+        with an <strong>Open Anyway</strong> button next to it.
+        <div class="mock">
+          <div class="label">System Settings → Privacy &amp; Security</div>
+          🛡 Privacy &amp; Security<br><br>
+          "Chakram" was blocked from use because<br>
+          it is not from an identified developer.<br><br>
+          <span class="btn-mock">Open Anyway</span>
+        </div>
+        Click <strong>Open Anyway</strong>.
+        <div class="note"><span class="note-icon">💡</span> On older Macs (macOS Ventura or earlier) this setting is in <strong>System Preferences → Security &amp; Privacy → General tab</strong>.</div>
+      </div>
+    </div>
+
+    <div class="step">
+      <div class="step-header">
+        <div class="step-num">5</div>
+        <div class="step-title">Confirm and open</div>
+      </div>
+      <div class="step-body">
+        Mac will ask one more time to confirm. Click <strong>Open</strong> in the dialog.
+        <div class="mock">
+          <div class="label">Final confirmation dialog</div>
+          macOS cannot verify the developer of "Chakram".<br>
+          Are you sure you want to open it?<br><br>
+          <span class="btn-mock-outline">Cancel</span> &nbsp; <span class="btn-mock">Open</span>
+        </div>
+        The app will launch. You only have to do this once — after this Mac remembers it's allowed.
+      </div>
+    </div>
+
+    <div class="step">
+      <div class="step-header">
+        <div class="step-num">6</div>
+        <div class="step-title">Create your wallet</div>
+      </div>
+      <div class="step-body">
+        The first time you open Chakram, it will ask you to create a wallet.<br><br>
+        Choose a <strong>password</strong> — this is used to protect your wallet file on this
+        computer. Pick something you'll remember.<br><br>
+        The app will show you a <strong>12-word recovery phrase</strong>. Write these words down
+        on paper and keep them somewhere safe. <strong>This is the only way to recover your wallet
+        if you ever lose access to this computer.</strong>
+        <div class="warn">⚠️ Never share your 12 words with anyone. Anyone who has them can take all your CHK.</div>
+      </div>
+    </div>
+
+    <div class="step">
+      <div class="step-header">
+        <div class="step-num">7</div>
+        <div class="step-title">Start mining</div>
+      </div>
+      <div class="step-body">
+        Once the wallet is set up, the app connects to the Chakram testnet and starts syncing
+        the blockchain. This takes a few seconds.<br><br>
+        Click <strong>Start Mining</strong> to begin earning CHK. Your computer's CPU will work
+        to solve puzzles — when you solve one you earn the block reward.
+        <div class="note"><span class="note-icon">💡</span> Mining works on any modern Mac — you don't need special hardware. More CPU cores = more chances to win.</div>
+      </div>
+    </div>
+
+  </div><!-- /steps -->
+</div><!-- /mac -->
+
+<!-- ══════════════════════════════════════════════ WINDOWS ══ -->
+<div id="panel-windows" class="panel">
+  <div class="section-heading">Windows <span class="badge">Coming Soon</span></div>
+  <div class="steps">
+
+    <div class="step">
+      <div class="step-header">
+        <div class="step-num">1</div>
+        <div class="step-title">Download the Windows binary</div>
+      </div>
+      <div class="step-body">
+        Go to the <a href="https://github.com/anandhu-here/chakram/releases/latest" target="_blank">latest release page on GitHub</a>
+        and download <strong>chakram-windows.exe</strong>.<br><br>
+        The Windows GUI app installer is coming soon. For now, the command-line binary
+        lets you run a full node and mine CHK from a terminal.
+      </div>
+    </div>
+
+    <div class="step">
+      <div class="step-header">
+        <div class="step-num">2</div>
+        <div class="step-title">Open a terminal (Command Prompt or PowerShell)</div>
+      </div>
+      <div class="step-body">
+        Press <strong>Win + R</strong>, type <strong>cmd</strong>, and press Enter.<br><br>
+        Navigate to the folder where you downloaded the file:
+        <div class="mock">cd C:\Users\YourName\Downloads</div>
+      </div>
+    </div>
+
+    <div class="step">
+      <div class="step-header">
+        <div class="step-num">3</div>
+        <div class="step-title">Create a wallet</div>
+      </div>
+      <div class="step-body">
+        <div class="mock">chakram-windows.exe wallet new --testnet</div>
+        This creates a wallet and shows your 12-word recovery phrase. Write it down.
+      </div>
+    </div>
+
+    <div class="step">
+      <div class="step-header">
+        <div class="step-num">4</div>
+        <div class="step-title">Run a node and start mining</div>
+      </div>
+      <div class="step-body">
+        <div class="mock">chakram-windows.exe node --testnet --mine</div>
+        Your node will connect to the network and start mining. Leave it running.
+        <div class="note"><span class="note-icon">ℹ️</span> Windows Defender may flag the binary — click <strong>More info → Run anyway</strong>. It is safe open-source software.</div>
+      </div>
+    </div>
+
+  </div>
+</div><!-- /windows -->
+
+<!-- ══════════════════════════════════════════════ LINUX ══ -->
+<div id="panel-linux" class="panel">
+  <div class="section-heading">Linux — Command Line</div>
+  <div class="steps">
+
+    <div class="step">
+      <div class="step-header">
+        <div class="step-num">1</div>
+        <div class="step-title">Download the Linux binary</div>
+      </div>
+      <div class="step-body">
+        Go to the <a href="https://github.com/anandhu-here/chakram/releases/latest" target="_blank">latest release page on GitHub</a>
+        and download <strong>chakram-linux</strong>, or use curl:
+        <div class="mock">curl -L https://github.com/anandhu-here/chakram/releases/latest/download/chakram-linux -o chakram</div>
+      </div>
+    </div>
+
+    <div class="step">
+      <div class="step-header">
+        <div class="step-num">2</div>
+        <div class="step-title">Make it executable</div>
+      </div>
+      <div class="step-body">
+        <div class="mock">chmod +x chakram</div>
+      </div>
+    </div>
+
+    <div class="step">
+      <div class="step-header">
+        <div class="step-num">3</div>
+        <div class="step-title">Create a wallet</div>
+      </div>
+      <div class="step-body">
+        <div class="mock">./chakram wallet new --testnet</div>
+        Write down your 12-word recovery phrase somewhere safe.
+      </div>
+    </div>
+
+    <div class="step">
+      <div class="step-header">
+        <div class="step-num">4</div>
+        <div class="step-title">Run a node and start mining</div>
+      </div>
+      <div class="step-body">
+        <div class="mock">./chakram node --testnet --mine</div>
+        To keep it running after you close the terminal, use <strong>screen</strong> or <strong>tmux</strong>:
+        <div class="mock">screen -S chakram<br>./chakram node --testnet --mine<br><br># Press Ctrl+A then D to detach. Node keeps running.</div>
+        <div class="note"><span class="note-icon">💡</span> For a permanent always-on node, see the <a href="/docs">docs</a> for the systemd service setup.</div>
+      </div>
+    </div>
+
+  </div>
+</div><!-- /linux -->
+
+<footer>
+  Chakram (CHK) &mdash; <a href="https://github.com/anandhu-here/chakram" target="_blank">GitHub</a>
+  &middot; <a href="/docs">Docs</a>
+  &middot; <a href="/wallet">Wallet</a>
+</footer>
+
+<script>
+function showTab(os){
+  document.querySelectorAll('.tab').forEach(t=>t.classList.remove('active'));
+  document.querySelectorAll('.panel').forEach(p=>p.classList.remove('active'));
+  event.currentTarget.classList.add('active');
+  document.getElementById('panel-'+os).classList.add('active');
+}
+</script>
+</body>
+</html>

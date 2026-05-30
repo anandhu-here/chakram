@@ -26,6 +26,9 @@ var walletHTML []byte
 //go:embed explorer/docs.html
 var docsHTML []byte
 
+//go:embed explorer/download.html
+var downloadHTML []byte
+
 // ── Server ────────────────────────────────────────────────────────────────────
 
 type RPCServer struct {
@@ -98,6 +101,9 @@ func (r *RPCServer) route(w http.ResponseWriter, req *http.Request) {
 	case "docs":
 		w.Header().Set("Content-Type", "text/html")
 		w.Write(docsHTML) //nolint:errcheck
+	case "download":
+		w.Header().Set("Content-Type", "text/html")
+		w.Write(downloadHTML) //nolint:errcheck
 	case "info":
 		r.handleInfo(w)
 	case "block":
