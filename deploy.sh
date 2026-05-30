@@ -71,7 +71,7 @@ fi
 echo "Configuring nginx on seed-2..."
 ssh $SSH_OPTS anandhusathe@$SEED2 "which nginx >/dev/null 2>&1 || sudo apt-get install -y nginx -q"
 ssh $SSH_OPTS anandhusathe@$SEED2 "
-  if [ ! -f /etc/letsencrypt/live/chakram.one/fullchain.pem ]; then
+  if ! sudo grep -q 'ssl_certificate' /etc/nginx/sites-available/chakram.one 2>/dev/null; then
     sudo tee /etc/nginx/sites-available/chakram.one > /dev/null << 'NGINXEOF'
 $(cat deploy/nginx-chakram.one.conf)
 NGINXEOF
@@ -80,7 +80,7 @@ NGINXEOF
     sudo nginx -t && sudo systemctl enable --now nginx && sudo systemctl reload nginx
     echo '  nginx configured (initial setup — run certbot to enable HTTPS)'
   else
-    sudo systemctl enable --now nginx && sudo nginx -t && sudo systemctl reload nginx
+    sudo nginx -t && sudo systemctl reload nginx
     echo '  nginx reloaded (SSL active)'
   fi
 "
@@ -89,7 +89,7 @@ NGINXEOF
 # Same rule: only install config before certbot runs. After certs exist, just reload.
 
 ssh $SSH_OPTS anandhusathe@$SEED2 "
-  if [ ! -f /etc/letsencrypt/live/wallet.chakram.one/fullchain.pem ]; then
+  if ! sudo grep -q 'ssl_certificate' /etc/nginx/sites-available/chakram-subdomains 2>/dev/null; then
     sudo tee /etc/nginx/sites-available/chakram-subdomains > /dev/null << 'NGINXEOF'
 $(cat deploy/nginx-subdomains.conf)
 NGINXEOF
