@@ -85,6 +85,23 @@ NGINXEOF
   fi
 "
 
+# ── Nginx subdomains on seed-2 ────────────────────────────────────────────────
+# Same rule: only install config before certbot runs. After certs exist, just reload.
+
+ssh $SSH_OPTS anandhusathe@$SEED2 "
+  if [ ! -f /etc/letsencrypt/live/wallet.chakram.one/fullchain.pem ]; then
+    sudo tee /etc/nginx/sites-available/chakram-subdomains > /dev/null << 'NGINXEOF'
+$(cat deploy/nginx-subdomains.conf)
+NGINXEOF
+    sudo ln -sf /etc/nginx/sites-available/chakram-subdomains /etc/nginx/sites-enabled/chakram-subdomains
+    sudo nginx -t && sudo systemctl reload nginx
+    echo '  subdomains nginx configured (run certbot to enable HTTPS)'
+  else
+    sudo nginx -t && sudo systemctl reload nginx
+    echo '  subdomains nginx reloaded (SSL active)'
+  fi
+"
+
 # ── Start nodes in order ──────────────────────────────────────────────────────
 
 echo "Starting seed-1..."
