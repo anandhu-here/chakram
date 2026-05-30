@@ -105,6 +105,9 @@ func (e *RandomXEngine) Init(key []byte) error {
 func (e *RandomXEngine) Hash(input []byte) []byte {
 	e.mu.Lock()
 	defer e.mu.Unlock()
+	if e.vm == nil {
+		return make([]byte, 32)
+	}
 	out := make([]byte, 32)
 	e.vm.CalculateHash(input, out)
 	return out
@@ -140,14 +143,18 @@ func serializeHeader(h BlockHeader) []byte {
 
 // VerifyBlock confirms that b.Hash is the authentic RandomX hash of b's header
 // and that it satisfies the difficulty target. key is the epoch seed (same
-// derivation as MineBlock). Returns true only when both checks pass.
-func VerifyBlock(b *Block, engine PoWEngine, key []byte) bool {
+// derivation as MineBlock). Returns nil on success, ErrInvalidPoW when the
+// hash check fails, or a wrapped error when the engine fails to initialise.
+func VerifyBlock(b *Block, engine PoWEngine, key []byte) error {
 	if err := engine.Init(key); err != nil {
-		return false
+		return fmt.Errorf("engine init failed: %w", err)
 	}
 	data := serializeHeader(b.Header)
 	expected := engine.Hash(data)
-	return bytes.Equal(expected, b.Hash) && b.HashIsValid()
+	if !bytes.Equal(expected, b.Hash) || !b.HashIsValid() {
+		return ErrInvalidPoW
+	}
+	return nil
 }
 
 // MineBlock searches for a Nonce that makes b's hash satisfy the difficulty

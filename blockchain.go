@@ -174,8 +174,12 @@ func (bc *Blockchain) AddBlock(b *Block) error {
 
 		if !skipPoW {
 			key := bc.epochKey(b.Header.Height)
-			if !VerifyBlock(b, bc.VerifyEngine, key) {
-				return fmt.Errorf("%w (height %d hash %x)", ErrInvalidPoW, b.Header.Height, b.Hash)
+			if err := VerifyBlock(b, bc.VerifyEngine, key); err != nil {
+				if errors.Is(err, ErrInvalidPoW) {
+					return fmt.Errorf("%w (height %d hash %x)", ErrInvalidPoW, b.Header.Height, b.Hash)
+				}
+				fmt.Printf("[CHAIN] VerifyBlock engine error at h=%d: %v\n", b.Header.Height, err)
+				return err
 			}
 		}
 	}
