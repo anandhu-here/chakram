@@ -36,7 +36,7 @@ RPC_BASE  = "http://localhost:8339"
 RPC_PORT  = 8339
 PID_FILE  = os.path.expanduser("~/.chakram/mainnet/gui.pid")
 POLL_SECS = 5
-VERSION   = "v1.0.24"
+VERSION   = "v1.0.25"
 
 
 # ── Binary detection ───────────────────────────────────────────────────────────
@@ -571,6 +571,7 @@ class ChakramApp(ctk.CTk):
             stdout=subprocess.PIPE,
             stderr=subprocess.DEVNULL,
             preexec_fn=os.setpgrp if sys.platform != "win32" else None,
+            creationflags=subprocess.CREATE_NO_WINDOW if sys.platform == "win32" else 0,
         )
         self._write_pid_file()
         self._mining = mine
