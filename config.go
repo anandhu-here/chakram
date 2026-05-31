@@ -24,8 +24,8 @@ const (
 	InitialBlockReward uint64 = 50 * CashPerCHK
 
 	// HalvingInterval is the number of blocks between each block-reward halving
-	// (~2 years at a 60-second block time).
-	HalvingInterval uint64 = 1_051_200
+	// (~2 years at a 30-second block time).
+	HalvingInterval uint64 = 2_102_400
 
 	// MinTxFee is the minimum transaction fee in Cash units.
 	MinTxFee uint64 = 1_000
@@ -55,7 +55,7 @@ var (
 
 const (
 	// TargetBlockTime is the desired seconds between blocks.
-	TargetBlockTime int64 = 60
+	TargetBlockTime int64 = 30
 
 	// DifficultyWindow is the number of recent blocks used to compute the next
 	// difficulty target (sliding-window retarget).
@@ -75,8 +75,8 @@ const (
 	MaxBlockSize uint64 = 1 * 1024 * 1024
 
 	// CoinbaseMaturity is the number of confirmations required before a mined
-	// reward can be spent.
-	CoinbaseMaturity uint64 = 100
+	// reward can be spent. 10 blocks × 60 s = ~10 min wait before spending rewards.
+	CoinbaseMaturity uint64 = 10
 
 	// RandomXEpochLen is how many blocks share the same RandomX cache seed.
 	// Argon2d is only re-run when the epoch boundary changes.
@@ -106,9 +106,9 @@ const (
 	// PostBootstrapMinGap is the minimum seconds between consecutive blocks
 	// after the TEB bootstrap window ends. Prevents a single fast miner from
 	// flooding the network with sub-second blocks that cause LWMA to overshoot.
-	// 30s = half the target block time, so the network can never run faster than
+	// 15s = half the target block time, so the network can never run faster than
 	// 2× target rate no matter how much hashrate joins.
-	PostBootstrapMinGap int64 = 30
+	PostBootstrapMinGap int64 = 15
 
 	// RandomXLightMode uses the cache-only (light) RandomX mode (~256 MB RAM).
 	// Full mode requires ~2 GB and is impractical on mobile. Light mode is used
