@@ -3,6 +3,7 @@
 package main
 
 import (
+	"bytes"
 	"context"
 	_ "embed"
 	"encoding/hex"
@@ -28,6 +29,9 @@ var docsHTML []byte
 
 //go:embed explorer/download.html
 var downloadHTML []byte
+
+//go:embed assets/chakram.png
+var logoPNG []byte
 
 // ── Server ────────────────────────────────────────────────────────────────────
 
@@ -61,7 +65,9 @@ func (r *RPCServer) Start() error {
 
 func (r *RPCServer) Stop() {
 	if r.server != nil {
-		r.server.Shutdown(context.Background()) //nolint:errcheck
+		ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+		defer cancel()
+		r.server.Shutdown(ctx) //nolint:errcheck
 	}
 }
 
@@ -92,6 +98,14 @@ func (r *RPCServer) route(w http.ResponseWriter, req *http.Request) {
 	case "", "explorer":
 		w.Header().Set("Content-Type", "text/html")
 		w.Write(explorerHTML) //nolint:errcheck
+	case "assets":
+		if len(parts) == 2 && parts[1] == "chakram.png" {
+			w.Header().Set("Content-Type", "image/png")
+			w.Header().Set("Cache-Control", "public, max-age=86400")
+			w.Write(logoPNG) //nolint:errcheck
+		} else {
+			writeError(w, http.StatusNotFound, "not found")
+		}
 	case "faucet":
 		w.Header().Set("Content-Type", "text/html")
 		w.Write(faucetHTML) //nolint:errcheck
@@ -307,51 +321,48 @@ func (r *RPCServer) handleTx(w http.ResponseWriter, txidStr string) {
 		return
 	}
 	bc := r.node.Blockchain
-	tip := bc.GetHeight()
 
-	// Scan backwards up to 1000 blocks.
-	limit := uint64(1000)
-	start := tip
-	if tip > limit {
-		start = tip
+	// O(1) lookup via the tx index built during block application.
+	height, err := bc.Storage.GetTxHeight(txid)
+	if err != nil {
+		writeError(w, http.StatusNotFound, "transaction not found")
+		return
 	}
 
-	for h := start; ; h-- {
-		b, err := bc.GetBlock(h)
-		if err != nil {
-			break
+	b, err := bc.GetBlock(height)
+	if err != nil {
+		writeError(w, http.StatusNotFound, "block not found")
+		return
+	}
+
+	for _, tx := range b.Transactions {
+		if !bytes.Equal(tx.TxID, txid) {
+			continue
 		}
-		for _, tx := range b.Transactions {
-			if string(tx.TxID) == string(txid) {
-				inputs := make([]map[string]interface{}, 0, len(tx.Inputs))
-				for _, in := range tx.Inputs {
-					inputs = append(inputs, map[string]interface{}{
-						"txid":         hex.EncodeToString(in.TxID),
-						"output_index": in.OutputIndex,
-					})
-				}
-				outputs := make([]map[string]interface{}, 0, len(tx.Outputs))
-				for _, out := range tx.Outputs {
-					outputs = append(outputs, map[string]interface{}{
-						"value":       out.Value,
-						"value_chk":   float64(out.Value) / float64(CashPerCHK),
-						"pubkey_hash": hex.EncodeToString(out.PublicKeyHash),
-					})
-				}
-				writeJSON(w, http.StatusOK, map[string]interface{}{
-					"txid":         hex.EncodeToString(tx.TxID),
-					"block_height": b.Header.Height,
-					"is_coinbase":  tx.IsCoinbase,
-					"inputs":       inputs,
-					"outputs":      outputs,
-					"timestamp":    tx.Timestamp,
-				})
-				return
-			}
+		inputs := make([]map[string]interface{}, 0, len(tx.Inputs))
+		for _, in := range tx.Inputs {
+			inputs = append(inputs, map[string]interface{}{
+				"txid":         hex.EncodeToString(in.TxID),
+				"output_index": in.OutputIndex,
+			})
 		}
-		if h == 0 || (tip >= limit && h <= tip-limit) {
-			break
+		outputs := make([]map[string]interface{}, 0, len(tx.Outputs))
+		for _, out := range tx.Outputs {
+			outputs = append(outputs, map[string]interface{}{
+				"value":       out.Value,
+				"value_chk":   float64(out.Value) / float64(CashPerCHK),
+				"pubkey_hash": hex.EncodeToString(out.PublicKeyHash),
+			})
 		}
+		writeJSON(w, http.StatusOK, map[string]interface{}{
+			"txid":         hex.EncodeToString(tx.TxID),
+			"block_height": b.Header.Height,
+			"is_coinbase":  tx.IsCoinbase,
+			"inputs":       inputs,
+			"outputs":      outputs,
+			"timestamp":    tx.Timestamp,
+		})
+		return
 	}
 	writeError(w, http.StatusNotFound, "transaction not found")
 }

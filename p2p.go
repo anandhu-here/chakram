@@ -110,15 +110,17 @@ func (m Message) Encode() ([]byte, error) {
 }
 
 // DecodeMessage reads one complete message from r.
-// Validates the magic bytes and caps payload size at 32 MB.
-func DecodeMessage(r io.Reader) (Message, error) {
+// Rejects any message whose magic bytes do not match expectedMagic, preventing
+// cross-network message injection (mainnet nodes reject testnet messages and
+// vice versa). Caps payload size at 32 MB.
+func DecodeMessage(r io.Reader, expectedMagic [4]byte) (Message, error) {
 	var msg Message
 
 	if _, err := io.ReadFull(r, msg.Magic[:]); err != nil {
 		return msg, fmt.Errorf("read magic: %w", err)
 	}
-	if msg.Magic != MagicMainnet && msg.Magic != MagicTestnet {
-		return msg, fmt.Errorf("unknown network magic: %x", msg.Magic)
+	if msg.Magic != expectedMagic {
+		return msg, fmt.Errorf("network magic mismatch: got %x, want %x", msg.Magic, expectedMagic)
 	}
 
 	var typeBuf [1]byte
@@ -423,7 +425,7 @@ func (s *Server) readLoop(peer *Peer) {
 			return
 		default:
 		}
-		msg, err := DecodeMessage(peer.Conn)
+		msg, err := DecodeMessage(peer.Conn, s.magic)
 		if err != nil {
 			return
 		}
@@ -652,7 +654,10 @@ func (s *Server) handleTx(peer *Peer, msg Message) error {
 		return fmt.Errorf("decode tx: %w", err)
 	}
 	if err := s.Mempool.Add(&tx); err != nil {
-		return err
+		// Mempool rejection is not a protocol violation — the tx may have raced
+		// a block confirmation, the peer may have been slightly ahead, or the
+		// pool may be full. Do not penalize.
+		return nil
 	}
 	inv, err := NewMessage(s.magic, MsgInv, InvPayload{
 		Items: []InvItem{{Type: 2, Hash: tx.TxID}},

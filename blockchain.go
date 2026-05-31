@@ -5,6 +5,7 @@ package main
 
 import (
 	"bytes"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"sync"
@@ -149,6 +150,10 @@ func (bc *Blockchain) AddBlock(b *Block) error {
 		return fmt.Errorf("invalid block: expected height %d, got %d",
 			parent.Header.Height+1, b.Header.Height)
 	}
+	if expectedDiff := NextDifficulty(bc, b.Header.Height); b.Header.Difficulty != expectedDiff {
+		return fmt.Errorf("invalid block: difficulty %d does not match expected %d at height %d",
+			b.Header.Difficulty, expectedDiff, b.Header.Height)
+	}
 	if !b.HashIsValid() {
 		return errors.New("invalid block: hash does not meet difficulty target")
 	}
@@ -157,11 +162,55 @@ func (bc *Blockchain) AddBlock(b *Block) error {
 			b.Header.Timestamp, parent.Header.Timestamp)
 	}
 
+	// Validate coinbase structure and IsCoinbase field consistency.
+	// A peer can forge any JSON field; we must derive IsCoinbase from structure
+	// (no inputs = coinbase) rather than trusting the wire value. A spoofed
+	// IsCoinbase would bypass input validation and allow coin duplication.
+	if len(b.Transactions) == 0 {
+		return errors.New("invalid block: no transactions")
+	}
+	for i, tx := range b.Transactions {
+		expectedCoinbase := len(tx.Inputs) == 0
+		if tx.IsCoinbase != expectedCoinbase {
+			return fmt.Errorf("invalid block: tx %d IsCoinbase=%v but has %d inputs (must be consistent)",
+				i, tx.IsCoinbase, len(tx.Inputs))
+		}
+		if tx.IsCoinbase && i != 0 {
+			return errors.New("invalid block: coinbase must be the first transaction")
+		}
+	}
+	if !b.Transactions[0].IsCoinbase {
+		return errors.New("invalid block: first transaction must be coinbase")
+	}
+
+	// Re-derive every TxID from canonical content so stored IDs are always
+	// authoritative, regardless of what arrived on the wire.
+	for _, tx := range b.Transactions {
+		tx.TxID = tx.ComputeTxID()
+	}
+
+	// Merkle root validation (uses re-derived TxIDs).
+	if expectedMerkle := ComputeMerkleRoot(b.Transactions); !bytes.Equal(b.Header.MerkleRoot, expectedMerkle) {
+		return errors.New("invalid block: merkle root mismatch")
+	}
+
+	// Enforce maximum block size.
+	{
+		data, err := json.Marshal(blockToJSON(b))
+		if err != nil {
+			return fmt.Errorf("marshal block for size check: %w", err)
+		}
+		if uint64(len(data)) > MaxBlockSize {
+			return fmt.Errorf("invalid block: serialized size %d bytes exceeds MaxBlockSize %d",
+				len(data), MaxBlockSize)
+		}
+	}
+
 	// Bootstrap time floor: during the first DifficultyWindow blocks the protocol
-	// enforces a minimum gap between blocks equal to TargetBlockTime. This makes
-	// the chain hardware-agnostic at genesis — any machine can mine easily at low
-	// difficulty, but blocks are rate-limited by wall-clock time so LWMA always
-	// receives clean ~60s intervals and computes the correct difficulty from block 61.
+	// enforces a minimum gap of TargetBlockTime (60s) between blocks. After
+	// bootstrap a permanent PostBootstrapMinGap (30s) floor remains in force
+	// forever. This prevents any miner from flooding the network with fast blocks
+	// that would cause LWMA to overshoot difficulty regardless of window size.
 	if b.Header.Height <= DifficultyWindow {
 		minTS := parent.Header.Timestamp + TargetBlockTime
 		if b.Header.Timestamp < minTS {
@@ -169,6 +218,12 @@ func (bc *Blockchain) AddBlock(b *Block) error {
 				b.Header.Height, b.Header.Timestamp, minTS)
 		}
 		fmt.Printf("[BOOTSTRAP] h=%d gap=%ds ✓\n", b.Header.Height, b.Header.Timestamp-parent.Header.Timestamp)
+	} else {
+		minTS := parent.Header.Timestamp + PostBootstrapMinGap
+		if b.Header.Timestamp < minTS {
+			return fmt.Errorf("invalid block: minimum block gap violated at h=%d (ts=%d, need>=%d)",
+				b.Header.Height, b.Header.Timestamp, minTS)
+		}
 	}
 
 	// RandomX PoW verification.
@@ -236,6 +291,11 @@ func (bc *Blockchain) applyBlock(b *Block) error {
 	if err := bc.Storage.SaveBlockUndo(b.Hash, undo); err != nil {
 		return fmt.Errorf("save block undo: %w", err)
 	}
+	for _, tx := range b.Transactions {
+		if err := bc.Storage.SaveTxIndex(tx.TxID, b.Header.Height); err != nil {
+			return fmt.Errorf("save tx index: %w", err)
+		}
+	}
 	if err := bc.Storage.SaveChainTip(b.Hash, b.Header.Height); err != nil {
 		return fmt.Errorf("save chain tip: %w", err)
 	}
@@ -274,6 +334,9 @@ func (bc *Blockchain) reorganize(newTip *Block) error {
 		if err := bc.UTXOSet.RollbackBlock(undo); err != nil {
 			return fmt.Errorf("rollback block %x: %w", b.Hash, err)
 		}
+		for _, tx := range b.Transactions {
+			bc.Storage.DeleteTxIndex(tx.TxID) //nolint:errcheck — best-effort on rollback
+		}
 	}
 
 	// Apply new chain from ancestor+1 to newTip.
@@ -287,6 +350,11 @@ func (bc *Blockchain) reorganize(newTip *Block) error {
 		}
 		if err := bc.Storage.SaveBlockUndo(b.Hash, undo); err != nil {
 			return fmt.Errorf("save undo for %x: %w", b.Hash, err)
+		}
+		for _, tx := range b.Transactions {
+			if err := bc.Storage.SaveTxIndex(tx.TxID, b.Header.Height); err != nil {
+				return fmt.Errorf("save tx index for %x: %w", b.Hash, err)
+			}
 		}
 	}
 
@@ -360,7 +428,8 @@ func (bc *Blockchain) GetBlock(height uint64) (*Block, error) {
 }
 
 // IsValid walks the entire main chain from height 1 to bc.Height and verifies
-// linkage, proof-of-work, sequential height, and timestamp ordering.
+// linkage, proof-of-work, sequential height, timestamp ordering, difficulty,
+// Merkle root integrity, and coinbase structure.
 func (bc *Blockchain) IsValid() (bool, error) {
 	for h := uint64(1); h <= bc.GetHeight(); h++ {
 		block, err := bc.GetBlock(h)
@@ -382,6 +451,27 @@ func (bc *Blockchain) IsValid() (bool, error) {
 		}
 		if block.Header.Timestamp <= prev.Header.Timestamp {
 			return false, fmt.Errorf("height %d: timestamp not after previous block", h)
+		}
+		if expectedDiff := NextDifficulty(bc, h); block.Header.Difficulty != expectedDiff {
+			return false, fmt.Errorf("height %d: difficulty %d != expected %d",
+				h, block.Header.Difficulty, expectedDiff)
+		}
+		if expectedMerkle := ComputeMerkleRoot(block.Transactions); !bytes.Equal(block.Header.MerkleRoot, expectedMerkle) {
+			return false, fmt.Errorf("height %d: merkle root mismatch", h)
+		}
+		if len(block.Transactions) == 0 {
+			return false, fmt.Errorf("height %d: no transactions", h)
+		}
+		for i, tx := range block.Transactions {
+			if tx.IsCoinbase != (len(tx.Inputs) == 0) {
+				return false, fmt.Errorf("height %d: tx %d IsCoinbase inconsistent with inputs", h, i)
+			}
+			if tx.IsCoinbase && i != 0 {
+				return false, fmt.Errorf("height %d: coinbase at position %d (must be 0)", h, i)
+			}
+		}
+		if !block.Transactions[0].IsCoinbase {
+			return false, fmt.Errorf("height %d: first transaction is not coinbase", h)
 		}
 	}
 	return true, nil

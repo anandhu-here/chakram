@@ -103,6 +103,13 @@ const (
 	// MinDifficulty is the lowest allowed network difficulty target.
 	MinDifficulty uint64 = 4
 
+	// PostBootstrapMinGap is the minimum seconds between consecutive blocks
+	// after the TEB bootstrap window ends. Prevents a single fast miner from
+	// flooding the network with sub-second blocks that cause LWMA to overshoot.
+	// 30s = half the target block time, so the network can never run faster than
+	// 2× target rate no matter how much hashrate joins.
+	PostBootstrapMinGap int64 = 30
+
 	// RandomXLightMode uses the cache-only (light) RandomX mode (~256 MB RAM).
 	// Full mode requires ~2 GB and is impractical on mobile. Light mode is used
 	// for all platforms; server nodes may switch to full mode in a later phase.

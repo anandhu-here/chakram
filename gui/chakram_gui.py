@@ -15,6 +15,11 @@ import sys
 import os
 import signal
 import re
+try:
+    from PIL import Image as _PILImage
+    _PIL_AVAILABLE = True
+except ImportError:
+    _PIL_AVAILABLE = False
 
 # ── Theme ──────────────────────────────────────────────────────────────────────
 ctk.set_appearance_mode("dark")
@@ -36,7 +41,20 @@ RPC_BASE  = "http://localhost:8339"
 RPC_PORT  = 8339
 PID_FILE  = os.path.expanduser("~/.chakram/mainnet/gui.pid")
 POLL_SECS = 5
-VERSION   = "v1.0.25"
+VERSION   = "v1.0.26"
+
+_LOGO_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "assets", "chakram.png")
+_logo_cache: dict = {}
+
+def _logo(size: tuple) -> "ctk.CTkImage | None":
+    if not _PIL_AVAILABLE:
+        return None
+    if not os.path.exists(_LOGO_PATH):
+        return None
+    if size not in _logo_cache:
+        img = _PILImage.open(_LOGO_PATH).convert("RGBA")
+        _logo_cache[size] = ctk.CTkImage(light_image=img, dark_image=img, size=size)
+    return _logo_cache[size]
 
 
 # ── Binary detection ───────────────────────────────────────────────────────────
@@ -188,8 +206,12 @@ class ChakramApp(ctk.CTk):
         self._clear_overlay()
         f = ctk.CTkFrame(self._overlay, fg_color="transparent")
         f.place(relx=0.5, rely=0.5, anchor="center")
-        ctk.CTkLabel(f, text="⬡ CHAKRAM",
-                     font=("Courier New", 36, "bold"), text_color=GOLD).pack(pady=(0, 6))
+        _li = _logo((120, 120))
+        if _li:
+            ctk.CTkLabel(f, image=_li, text="").pack(pady=(0, 6))
+        else:
+            ctk.CTkLabel(f, text="⬡ CHAKRAM",
+                         font=("Courier New", 36, "bold"), text_color=GOLD).pack(pady=(0, 6))
         ctk.CTkLabel(f, text="ചക്രം — Kerala's Digital Coin",
                      font=("Courier New", 13), text_color=TEXT2).pack(pady=(0, 32))
         ctk.CTkLabel(f, text=msg, font=("Courier New", 13), text_color=TEXT2).pack()
@@ -216,8 +238,12 @@ class ChakramApp(ctk.CTk):
         self._clear_overlay()
         f = ctk.CTkFrame(self._overlay, fg_color="transparent")
         f.place(relx=0.5, rely=0.5, anchor="center")
-        ctk.CTkLabel(f, text="⬡ CHAKRAM",
-                     font=("Courier New", 32, "bold"), text_color=GOLD).pack(pady=(0, 6))
+        _li = _logo((100, 100))
+        if _li:
+            ctk.CTkLabel(f, image=_li, text="").pack(pady=(0, 6))
+        else:
+            ctk.CTkLabel(f, text="⬡ CHAKRAM",
+                         font=("Courier New", 32, "bold"), text_color=GOLD).pack(pady=(0, 6))
         ctk.CTkLabel(f, text="Binary not found",
                      font=("Courier New", 16, "bold"), text_color=RED).pack(pady=(12, 8))
         ctk.CTkLabel(f,
@@ -238,8 +264,12 @@ class ChakramApp(ctk.CTk):
         f = ctk.CTkFrame(self._overlay, fg_color="transparent")
         f.place(relx=0.5, rely=0.5, anchor="center")
 
-        ctk.CTkLabel(f, text="⬡ CHAKRAM",
-                     font=("Courier New", 36, "bold"), text_color=GOLD).pack(pady=(0, 4))
+        _li = _logo((120, 120))
+        if _li:
+            ctk.CTkLabel(f, image=_li, text="").pack(pady=(0, 4))
+        else:
+            ctk.CTkLabel(f, text="⬡ CHAKRAM",
+                         font=("Courier New", 36, "bold"), text_color=GOLD).pack(pady=(0, 4))
         ctk.CTkLabel(f, text="ചക്രം — Kerala's Digital Coin",
                      font=("Courier New", 13), text_color=TEXT2).pack(pady=(0, 4))
         ctk.CTkLabel(f, text="Welcome! Let's set up your wallet.",
@@ -488,8 +518,12 @@ class ChakramApp(ctk.CTk):
         f = ctk.CTkFrame(self._overlay, fg_color="transparent")
         f.place(relx=0.5, rely=0.5, anchor="center")
 
-        ctk.CTkLabel(f, text="⬡ CHAKRAM",
-                     font=("Courier New", 36, "bold"), text_color=GOLD).pack(pady=(0, 4))
+        _li = _logo((120, 120))
+        if _li:
+            ctk.CTkLabel(f, image=_li, text="").pack(pady=(0, 4))
+        else:
+            ctk.CTkLabel(f, text="⬡ CHAKRAM",
+                         font=("Courier New", 36, "bold"), text_color=GOLD).pack(pady=(0, 4))
         ctk.CTkLabel(f, text="Welcome back",
                      font=("Courier New", 13), text_color=TEXT2).pack(pady=(0, 24))
 
@@ -637,9 +671,13 @@ class ChakramApp(ctk.CTk):
         top_row = ctk.CTkFrame(top, fg_color="transparent")
         top_row.pack(fill="x", padx=16, pady=(8, 0))
 
-        ctk.CTkLabel(top_row, text="⬡ CHAKRAM",
-                     font=("Courier New", 22, "bold"), text_color=GOLD).pack(side="left")
-        ctk.CTkLabel(top_row, text="  ചക്രം — Kerala's Digital Coin",
+        _li = _logo((36, 36))
+        if _li:
+            ctk.CTkLabel(top_row, image=_li, text="").pack(side="left", padx=(0, 6))
+        else:
+            ctk.CTkLabel(top_row, text="⬡ CHAKRAM",
+                         font=("Courier New", 22, "bold"), text_color=GOLD).pack(side="left")
+        ctk.CTkLabel(top_row, text="ചക്രം — Kerala's Digital Coin",
                      font=("Courier New", 11), text_color=TEXT2).pack(side="left", padx=(4, 0))
 
         settings_btn = ctk.CTkButton(top_row, text="⚙", width=28, height=24,

@@ -83,6 +83,7 @@ func NewNode(cfg NodeConfig) (*Node, error) {
 	}
 
 	mp := NewMempool()
+	mp.SetBlockchain(bc)
 
 	password := cfg.Password
 	if password == "" {
@@ -290,24 +291,43 @@ func (n *Node) mineLoop() {
 				pubKeyHash = pkh
 			}
 		}
-		cb := NewCoinbaseTransaction(pubKeyHash, height)
-
-		pending := n.Mempool.GetAll()
-		if len(pending) > 100 {
-			pending = pending[:100]
+		// Pick pending transactions, compute fees, filter any whose UTXOs are spent.
+		allPending := n.Mempool.GetAll()
+		if len(allPending) > 100 {
+			allPending = allPending[:100]
 		}
+		var totalFees uint64
+		pending := allPending[:0]
+		for _, tx := range allPending {
+			fee, err := n.Blockchain.UTXOSet.CalculateFee(tx)
+			if err != nil {
+				continue // UTXO already spent or invalid — skip
+			}
+			totalFees += fee
+			pending = append(pending, tx)
+		}
+
+		cb := NewCoinbaseTransaction(pubKeyHash, height, totalFees)
 		txs := make([]*Transaction, 0, 1+len(pending))
 		txs = append(txs, cb)
 		txs = append(txs, pending...)
 
-		// Bootstrap time floor: stall here until wall-clock reaches the minimum
-		// timestamp the network will accept. This ensures the block we create
-		// always has a valid timestamp without needing to re-mine.
-		if height <= DifficultyWindow {
-			minTime := prev.Header.Timestamp + TargetBlockTime
+		// Time floor: enforce minimum gap before creating the next block.
+		// Bootstrap (h ≤ DifficultyWindow): full 60s gap (TEB).
+		// Post-bootstrap: permanent 30s gap to prevent LWMA overshoot.
+		{
+			var minGap int64
+			if height <= DifficultyWindow {
+				minGap = TargetBlockTime
+			} else {
+				minGap = PostBootstrapMinGap
+			}
+			minTime := prev.Header.Timestamp + minGap
 			if now := time.Now().Unix(); now < minTime {
 				wait := time.Duration(minTime-now) * time.Second
-				fmt.Printf("[BOOTSTRAP] h=%d: waiting %v for time floor\n", height, wait.Round(time.Second))
+				if height <= DifficultyWindow {
+					fmt.Printf("[BOOTSTRAP] h=%d: waiting %v for time floor\n", height, wait.Round(time.Second))
+				}
 				select {
 				case <-time.After(wait):
 				case <-n.miningQuit:
@@ -316,7 +336,7 @@ func (n *Node) mineLoop() {
 			}
 		}
 		if height == DifficultyWindow+1 {
-			fmt.Printf("[BOOTSTRAP] complete at h=%d — LWMA now active, real difficulty begins\n", height)
+			fmt.Printf("[BOOTSTRAP] complete at h=%d — permanent 30s floor active, LWMA running\n", height)
 		}
 
 		diff := NextDifficulty(n.Blockchain, height)

@@ -93,6 +93,7 @@ func (sm *SyncManager) syncLoop() {
 			return
 		case <-ticker.C:
 			sm.doSync()
+			sm.CleanPendingBlocks()
 		}
 	}
 }

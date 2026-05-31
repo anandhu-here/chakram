@@ -12,7 +12,7 @@
 }
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
 html{scroll-behavior:smooth}
-body{font-family:'Courier New',Courier,monospace;background:var(--bg);color:var(--text);font-size:14px;line-height:1.7}
+body{font-family:Arial,Helvetica,sans-serif;background:var(--bg);color:var(--text);font-size:14px;line-height:1.7}
 
 /* ── Layout ───────────────────────────────────────────────────────────────── */
 .layout{display:flex;min-height:100vh}
@@ -106,7 +106,7 @@ tr:last-child td{border-bottom:none}
 <body>
 
 <div class="mob-menu">
-  <span class="mob-brand">⬡ CHAKRAM DOCS</span>
+  <span class="mob-brand"><img src="/assets/chakram.png" alt="Chakram" style="height:22px;width:auto;vertical-align:middle;"> DOCS</span>
   <button class="mob-btn" onclick="document.querySelector('.sidebar').classList.toggle('open')">Menu</button>
 </div>
 
@@ -115,7 +115,7 @@ tr:last-child td{border-bottom:none}
 <!-- SIDEBAR -->
 <nav class="sidebar">
   <div class="sidebar-brand">
-    <div class="sidebar-logo">⬡ CHAKRAM</div>
+    <div class="sidebar-logo"><img src="/assets/chakram.png" alt="Chakram" style="height:32px;width:auto;display:block;"></div>
     <div class="sidebar-sub">Protocol Documentation</div>
   </div>
   <div class="sidebar-nav">

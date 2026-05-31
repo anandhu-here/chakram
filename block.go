@@ -9,6 +9,33 @@ import (
 	"time"
 )
 
+// ComputeMerkleRoot builds a Merkle tree over the transaction IDs and returns
+// the 32-byte root. Pairs are combined as SHA256(SHA256(left‖right)).
+// An odd number of leaves duplicates the last leaf (standard Merkle behaviour).
+func ComputeMerkleRoot(txs []*Transaction) []byte {
+	if len(txs) == 0 {
+		return make([]byte, 32)
+	}
+	hashes := make([][]byte, len(txs))
+	for i, tx := range txs {
+		hashes[i] = tx.TxID
+	}
+	for len(hashes) > 1 {
+		if len(hashes)%2 != 0 {
+			hashes = append(hashes, hashes[len(hashes)-1])
+		}
+		next := make([][]byte, len(hashes)/2)
+		for i := 0; i < len(hashes); i += 2 {
+			combined := append(hashes[i], hashes[i+1]...)
+			h := sha256.Sum256(combined)
+			h2 := sha256.Sum256(h[:])
+			next[i/2] = h2[:]
+		}
+		hashes = next
+	}
+	return hashes[0]
+}
+
 // BlockHeader contains the metadata committed to by the block hash.
 type BlockHeader struct {
 	Version      uint32
@@ -36,7 +63,7 @@ func NewBlock(previousHash []byte, height uint64, difficulty uint64, transaction
 			Version:      Version,
 			Height:       height,
 			PreviousHash: previousHash,
-			MerkleRoot:   make([]byte, 32), // placeholder until merkle tree is wired in
+			MerkleRoot:   ComputeMerkleRoot(transactions),
 			Timestamp:    time.Now().Unix(),
 			Difficulty:   difficulty,
 			Nonce:        0,

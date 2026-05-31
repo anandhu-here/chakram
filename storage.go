@@ -445,22 +445,39 @@ func (s *Storage) HasBlock(hash []byte) bool {
 }
 
 // ── UTXO storage ─────────────────────────────────────────────────────────────
+//
+// Address index key scheme:
+//   aidx:<pubKeyHash_hex>:<txid_hex>:<outputIndex>
+// Value is empty — all information is in the key.
 
-// SaveUTXO stores raw UTXO bytes under the given key.
-func (s *Storage) SaveUTXO(key string, data []byte) error {
+func addressIndexKey(pubKeyHash, txID []byte, outputIndex uint32) string {
+	return fmt.Sprintf("aidx:%s:%s:%d", hex.EncodeToString(pubKeyHash), hex.EncodeToString(txID), outputIndex)
+}
+
+// SaveUTXOAndIndex stores the UTXO data and writes the corresponding address
+// index entry in a single atomic transaction.
+func (s *Storage) SaveUTXOAndIndex(key string, data []byte, pubKeyHash, txID []byte, outputIndex uint32) error {
+	idxKey := addressIndexKey(pubKeyHash, txID, outputIndex)
 	return s.DB.Update(func(txn *badger.Txn) error {
-		return txn.Set([]byte(key), data)
+		if err := txn.Set([]byte(key), data); err != nil {
+			return err
+		}
+		return txn.Set([]byte(idxKey), []byte{})
 	})
 }
 
-// DeleteUTXO removes the entry at key. Returns an error if the key does not
-// exist — a missing UTXO on spend is a double-spend attempt.
-func (s *Storage) DeleteUTXO(key string) error {
+// DeleteUTXOAndIndex removes the UTXO and its address index entry atomically.
+// Returns an error if the UTXO does not exist (double-spend attempt).
+func (s *Storage) DeleteUTXOAndIndex(key string, pubKeyHash, txID []byte, outputIndex uint32) error {
+	idxKey := addressIndexKey(pubKeyHash, txID, outputIndex)
 	return s.DB.Update(func(txn *badger.Txn) error {
 		if _, err := txn.Get([]byte(key)); err != nil {
 			return fmt.Errorf("utxo not found: %w", err)
 		}
-		return txn.Delete([]byte(key))
+		if err := txn.Delete([]byte(key)); err != nil {
+			return err
+		}
+		return txn.Delete([]byte(idxKey))
 	})
 }
 
@@ -482,6 +499,55 @@ func (s *Storage) GetUTXO(key string) ([]byte, error) {
 		return nil, fmt.Errorf("get utxo %s: %w", key, err)
 	}
 	return data, nil
+}
+
+// ── Transaction index ─────────────────────────────────────────────────────────
+//
+//  txidx:<txid_hex>  →  8-byte big-endian block height
+// Enables O(1) lookup of the confirmed block containing a given transaction.
+
+func txIndexKey(txID []byte) []byte {
+	return []byte("txidx:" + hex.EncodeToString(txID))
+}
+
+// SaveTxIndex records the block height that confirmed txID.
+func (s *Storage) SaveTxIndex(txID []byte, height uint64) error {
+	var buf [8]byte
+	binary.BigEndian.PutUint64(buf[:], height)
+	return s.DB.Update(func(txn *badger.Txn) error {
+		return txn.Set(txIndexKey(txID), buf[:])
+	})
+}
+
+// GetTxHeight returns the block height of the confirmed block containing txID.
+// Returns an error if the transaction is not indexed (unconfirmed or unknown).
+func (s *Storage) GetTxHeight(txID []byte) (uint64, error) {
+	var height uint64
+	err := s.DB.View(func(txn *badger.Txn) error {
+		item, err := txn.Get(txIndexKey(txID))
+		if err != nil {
+			return err
+		}
+		return item.Value(func(val []byte) error {
+			if len(val) < 8 {
+				return fmt.Errorf("txidx value too short")
+			}
+			height = binary.BigEndian.Uint64(val)
+			return nil
+		})
+	})
+	if err != nil {
+		return 0, fmt.Errorf("tx not indexed: %w", err)
+	}
+	return height, nil
+}
+
+// DeleteTxIndex removes the index entry for txID.
+// Called during chain reorganisation when a block is rolled off the main chain.
+func (s *Storage) DeleteTxIndex(txID []byte) error {
+	return s.DB.Update(func(txn *badger.Txn) error {
+		return txn.Delete(txIndexKey(txID))
+	})
 }
 
 // IteratePrefix calls fn for every key-value pair whose key starts with prefix.

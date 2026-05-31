@@ -7,6 +7,7 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
+	"math"
 	"net/http"
 	"strings"
 )
@@ -30,8 +31,8 @@ func SendCHK(cfg NodeConfig, toAddress string, amountCHK float64) (string, error
 		return "", fmt.Errorf("invalid address: %s", toAddress)
 	}
 
-	// 2. Convert to Cash units.
-	amountCash := uint64(amountCHK * float64(CashPerCHK))
+	// 2. Convert to Cash units (round to nearest to avoid float64 truncation).
+	amountCash := uint64(math.Round(amountCHK * float64(CashPerCHK)))
 	if amountCash == 0 {
 		return "", fmt.Errorf("amount must be greater than 0")
 	}

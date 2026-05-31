@@ -18,6 +18,7 @@ import (
 	"os"
 	"strings"
 
+	"golang.org/x/crypto/argon2"
 	"golang.org/x/crypto/ripemd160"
 )
 
@@ -318,20 +319,32 @@ type walletFile struct {
 	Address             string `json:"address"`
 	Mnemonic            string `json:"mnemonic"`
 	PublicKey           string `json:"public_key"`
+	KDFSalt             string `json:"kdf_salt,omitempty"` // hex-encoded 16-byte Argon2id salt; absent in legacy files
 	Nonce               string `json:"nonce"`
 	EncryptedPrivateKey string `json:"encrypted_private_key"`
 }
 
-func deriveAESKey(password string) []byte {
-	h := sha256.Sum256([]byte(password))
-	return h[:]
+// deriveAESKey derives a 32-byte AES key from password.
+// When salt is non-empty it uses Argon2id (secure); when salt is empty it falls
+// back to raw SHA256 for backward compatibility with legacy wallet files.
+func deriveAESKey(password string, salt []byte) []byte {
+	if len(salt) == 0 {
+		h := sha256.Sum256([]byte(password))
+		return h[:]
+	}
+	// Argon2id: time=3, memory=64 MB, threads=4, key=32 bytes.
+	return argon2.IDKey([]byte(password), salt, 3, 64*1024, 4, 32)
 }
 
 // SaveToFile encrypts and saves the wallet to path using AES-256-GCM.
-// The AES key is SHA256(password). A random 12-byte nonce is generated per save.
+// The AES key is derived via Argon2id with a fresh random 16-byte salt.
 func (w *Wallet) SaveToFile(path string, password string) error {
-	aesKey := deriveAESKey(password)
+	salt := make([]byte, 16)
+	if _, err := rand.Read(salt); err != nil {
+		return fmt.Errorf("generate salt: %w", err)
+	}
 
+	aesKey := deriveAESKey(password, salt)
 	block, err := aes.NewCipher(aesKey)
 	if err != nil {
 		return fmt.Errorf("create cipher: %w", err)
@@ -352,6 +365,7 @@ func (w *Wallet) SaveToFile(path string, password string) error {
 		Address:             w.Address,
 		Mnemonic:            w.Mnemonic,
 		PublicKey:           hex.EncodeToString(w.KeyPair.PublicKey),
+		KDFSalt:             hex.EncodeToString(salt),
 		Nonce:               hex.EncodeToString(nonce),
 		EncryptedPrivateKey: hex.EncodeToString(ciphertext),
 	}
@@ -364,7 +378,8 @@ func (w *Wallet) SaveToFile(path string, password string) error {
 }
 
 // LoadWalletFromFile decrypts and restores a wallet from path.
-// Returns an error if the password is wrong (GCM authentication failure).
+// Supports Argon2id-derived keys (new format with kdf_salt) and legacy SHA256
+// keys (old format without kdf_salt) for backward compatibility.
 func LoadWalletFromFile(path string, password string) (*Wallet, error) {
 	data, err := os.ReadFile(path)
 	if err != nil {
@@ -376,7 +391,15 @@ func LoadWalletFromFile(path string, password string) (*Wallet, error) {
 		return nil, fmt.Errorf("parse wallet file: %w", err)
 	}
 
-	aesKey := deriveAESKey(password)
+	var salt []byte
+	if wf.KDFSalt != "" {
+		salt, err = hex.DecodeString(wf.KDFSalt)
+		if err != nil {
+			return nil, fmt.Errorf("decode kdf_salt: %w", err)
+		}
+	}
+
+	aesKey := deriveAESKey(password, salt) // salt=nil → legacy SHA256 path
 	block, err := aes.NewCipher(aesKey)
 	if err != nil {
 		return nil, fmt.Errorf("create cipher: %w", err)

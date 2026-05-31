@@ -36,9 +36,10 @@ type Transaction struct {
 }
 
 // NewCoinbaseTransaction creates the block-reward transaction for a miner.
+// fees is the total transaction fee collected from non-coinbase txs in the block.
 // The reward halves every HalvingInterval blocks; it reaches 0 when the supply
 // cap is exhausted.
-func NewCoinbaseTransaction(minerPubKeyHash []byte, blockHeight uint64) *Transaction {
+func NewCoinbaseTransaction(minerPubKeyHash []byte, blockHeight uint64, fees uint64) *Transaction {
 	halvings := blockHeight / HalvingInterval
 	var reward uint64
 	if halvings < 64 {
@@ -49,7 +50,7 @@ func NewCoinbaseTransaction(minerPubKeyHash []byte, blockHeight uint64) *Transac
 		IsCoinbase: true,
 		Inputs:     []TxInput{},
 		Outputs: []TxOutput{
-			{Value: reward, PublicKeyHash: minerPubKeyHash},
+			{Value: reward + fees, PublicKeyHash: minerPubKeyHash},
 		},
 		Timestamp: time.Now().Unix(),
 	}

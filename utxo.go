@@ -11,6 +11,8 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
+	"strconv"
+	"strings"
 )
 
 // ── Types ─────────────────────────────────────────────────────────────────────
@@ -95,19 +97,23 @@ func utxoKey(txID []byte, outputIndex uint32) string {
 
 // ── UTXO operations ───────────────────────────────────────────────────────────
 
-// AddUTXO persists a new unspent output to BadgerDB.
+// AddUTXO persists a new unspent output to BadgerDB and updates the address index.
 func (u *UTXOSet) AddUTXO(utxo UTXO) error {
 	data, err := json.Marshal(utxoToJSON(utxo))
 	if err != nil {
 		return fmt.Errorf("marshal utxo: %w", err)
 	}
-	return u.Storage.SaveUTXO(utxoKey(utxo.TxID, utxo.OutputIndex), data)
+	return u.Storage.SaveUTXOAndIndex(utxoKey(utxo.TxID, utxo.OutputIndex), data, utxo.PublicKeyHash, utxo.TxID, utxo.OutputIndex)
 }
 
-// SpendUTXO removes a UTXO from the set, marking it as spent.
+// SpendUTXO removes a UTXO and its address index entry atomically.
 // Returns an error if the UTXO does not exist (double-spend attempt).
 func (u *UTXOSet) SpendUTXO(txID []byte, outputIndex uint32) error {
-	if err := u.Storage.DeleteUTXO(utxoKey(txID, outputIndex)); err != nil {
+	utxo, err := u.GetUTXO(txID, outputIndex)
+	if err != nil {
+		return fmt.Errorf("spend utxo %s:%d: not found: %w", hex.EncodeToString(txID), outputIndex, err)
+	}
+	if err := u.Storage.DeleteUTXOAndIndex(utxoKey(txID, outputIndex), utxo.PublicKeyHash, txID, outputIndex); err != nil {
 		return fmt.Errorf("spend utxo %s:%d: %w", hex.EncodeToString(txID), outputIndex, err)
 	}
 	return nil
@@ -131,25 +137,29 @@ func (u *UTXOSet) GetUTXO(txID []byte, outputIndex uint32) (*UTXO, error) {
 }
 
 // GetUTXOsForAddress returns all unspent outputs locked to the given public key hash.
-// Used to enumerate a wallet's spendable outputs.
+// Uses the address index for O(k) lookup instead of a full UTXO set scan.
 func (u *UTXOSet) GetUTXOsForAddress(pubKeyHash []byte) ([]UTXO, error) {
+	prefix := fmt.Sprintf("aidx:%s:", hex.EncodeToString(pubKeyHash))
 	var results []UTXO
-	err := u.Storage.IteratePrefix("utxo:", func(_, value []byte) error {
-		var j utxoJSON
-		if err := json.Unmarshal(value, &j); err != nil {
-			return err
+	err := u.Storage.IteratePrefix(prefix, func(key, _ []byte) error {
+		// key format: aidx:<pkhHex>:<txidHex>:<outputIndex>
+		parts := strings.SplitN(string(key), ":", 4)
+		if len(parts) != 4 {
+			return fmt.Errorf("malformed address index key: %s", string(key))
 		}
-		pkh, err := hex.DecodeString(j.PubKeyHash)
+		txID, err := hex.DecodeString(parts[2])
 		if err != nil {
-			return err
+			return fmt.Errorf("decode txid from address index: %w", err)
 		}
-		if bytes.Equal(pkh, pubKeyHash) {
-			utxo, err := utxoFromJSON(j)
-			if err != nil {
-				return err
-			}
-			results = append(results, utxo)
+		idx, err := strconv.ParseUint(parts[3], 10, 32)
+		if err != nil {
+			return fmt.Errorf("decode output index from address index: %w", err)
 		}
+		utxo, err := u.GetUTXO(txID, uint32(idx))
+		if err != nil {
+			return fmt.Errorf("get utxo for address index entry: %w", err)
+		}
+		results = append(results, *utxo)
 		return nil
 	})
 	return results, err
@@ -231,6 +241,56 @@ func (u *UTXOSet) ValidateAndSpendInputs(tx *Transaction, currentHeight uint64) 
 	return spent, nil
 }
 
+// ValidateInputsOnly performs the same checks as ValidateAndSpendInputs but
+// does not spend any UTXOs. Used by the mempool to pre-validate transactions.
+func (u *UTXOSet) ValidateInputsOnly(tx *Transaction, currentHeight uint64) error {
+	var inputSum uint64
+	for i, in := range tx.Inputs {
+		utxo, err := u.GetUTXO(in.TxID, in.OutputIndex)
+		if err != nil {
+			return fmt.Errorf("input %d: utxo not found: %w", i, err)
+		}
+		if utxo.IsCoinbase && currentHeight < utxo.BlockHeight+CoinbaseMaturity {
+			return fmt.Errorf("input %d: coinbase not yet mature (height %d, matures at %d)",
+				i, currentHeight, utxo.BlockHeight+CoinbaseMaturity)
+		}
+		msg := signedMessage(in.TxID, in.OutputIndex)
+		if !ed25519.Verify(ed25519.PublicKey(in.PublicKey), msg, in.Signature) {
+			return fmt.Errorf("input %d: invalid Ed25519 signature", i)
+		}
+		derivedHash := pubKeyToHash(in.PublicKey)
+		if !bytes.Equal(derivedHash, utxo.PublicKeyHash) {
+			return fmt.Errorf("input %d: public key does not match UTXO owner", i)
+		}
+		inputSum += utxo.Value
+	}
+	if tx.TotalOutput() > inputSum {
+		return fmt.Errorf("outputs (%d) exceed inputs (%d)", tx.TotalOutput(), inputSum)
+	}
+	return nil
+}
+
+// CalculateFee returns the fee (inputs − outputs) for a non-coinbase transaction.
+// Returns an error if any input UTXO is missing or outputs exceed inputs.
+func (u *UTXOSet) CalculateFee(tx *Transaction) (uint64, error) {
+	if tx.IsCoinbase {
+		return 0, nil
+	}
+	var inputSum uint64
+	for _, in := range tx.Inputs {
+		utxo, err := u.GetUTXO(in.TxID, in.OutputIndex)
+		if err != nil {
+			return 0, fmt.Errorf("input utxo not found: %w", err)
+		}
+		inputSum += utxo.Value
+	}
+	outputSum := tx.TotalOutput()
+	if outputSum > inputSum {
+		return 0, fmt.Errorf("outputs (%d) exceed inputs (%d)", outputSum, inputSum)
+	}
+	return inputSum - outputSum, nil
+}
+
 // ProcessBlock applies an entire block to the UTXO set and returns undo data
 // so the operation can be reversed during a chain reorganisation.
 // Non-coinbase transactions are processed first (spend inputs, create outputs).
@@ -239,6 +299,7 @@ func (u *UTXOSet) ValidateAndSpendInputs(tx *Transaction, currentHeight uint64) 
 func (u *UTXOSet) ProcessBlock(b *Block, height uint64) (*BlockUndo, error) {
 	undo := &BlockUndo{}
 	var coinbaseTx *Transaction
+	var totalFees uint64
 
 	// First pass: non-coinbase transactions.
 	for _, tx := range b.Transactions {
@@ -250,6 +311,17 @@ func (u *UTXOSet) ProcessBlock(b *Block, height uint64) (*BlockUndo, error) {
 		if err != nil {
 			return nil, fmt.Errorf("tx %s: %w", hex.EncodeToString(tx.TxID), err)
 		}
+
+		var inputSum uint64
+		for _, s := range spent {
+			inputSum += s.Value
+		}
+		outputSum := tx.TotalOutput()
+		if outputSum > inputSum {
+			return nil, fmt.Errorf("tx %s: outputs (%d) exceed inputs (%d)", hex.EncodeToString(tx.TxID), outputSum, inputSum)
+		}
+		totalFees += inputSum - outputSum
+
 		undo.SpentUTXOs = append(undo.SpentUTXOs, spent...)
 
 		for idx, out := range tx.Outputs {
@@ -268,8 +340,19 @@ func (u *UTXOSet) ProcessBlock(b *Block, height uint64) (*BlockUndo, error) {
 		}
 	}
 
-	// Second pass: coinbase outputs.
+	// Validate coinbase amount: must not exceed block reward + collected fees.
 	if coinbaseTx != nil {
+		halvings := height / HalvingInterval
+		var blockReward uint64
+		if halvings < 64 {
+			blockReward = InitialBlockReward >> halvings
+		}
+		maxCoinbase := blockReward + totalFees
+		if coinbaseTx.TotalOutput() > maxCoinbase {
+			return nil, fmt.Errorf("coinbase output %d exceeds maximum allowed %d (reward=%d fees=%d)",
+				coinbaseTx.TotalOutput(), maxCoinbase, blockReward, totalFees)
+		}
+
 		for idx, out := range coinbaseTx.Outputs {
 			utxo := UTXO{
 				TxID:          coinbaseTx.TxID,
