@@ -41,7 +41,7 @@ RPC_BASE  = "http://localhost:8339"
 RPC_PORT  = 8339
 PID_FILE  = os.path.expanduser("~/.chakram/mainnet/gui.pid")
 POLL_SECS = 5
-VERSION   = "v1.0.21"
+VERSION   = "v1.0.29"
 
 _LOGO_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "assets", "chakram.png")
 _logo_cache: dict = {}

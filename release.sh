@@ -56,6 +56,13 @@ if [ -f "$GUI_FILE" ]; then
   echo "  ✓ GUI version → $VERSION"
 fi
 
+# ── Build React web app ───────────────────────────────────────────────────────
+# Must run before git add so web/dist/ (embedded into the Go binary) is committed.
+
+echo "Building web app..."
+(cd web && npm run build)
+echo "  ✓ web/dist"
+
 # ── Git commit and tag ────────────────────────────────────────────────────────
 
 echo "Committing and tagging..."

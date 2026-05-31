@@ -5,30 +5,19 @@ package main
 import (
 	"bytes"
 	"context"
-	_ "embed"
+	"embed"
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
+	"io/fs"
 	"net/http"
 	"strconv"
 	"strings"
 	"time"
 )
 
-//go:embed explorer/index.html
-var explorerHTML []byte
-
-//go:embed explorer/faucet.html
-var faucetHTML []byte
-
-//go:embed explorer/wallet.html
-var walletHTML []byte
-
-//go:embed explorer/docs.html
-var docsHTML []byte
-
-//go:embed explorer/download.html
-var downloadHTML []byte
+//go:embed all:web/dist
+var webDist embed.FS
 
 //go:embed assets/chakram.png
 var logoPNG []byte
@@ -95,29 +84,30 @@ func (r *RPCServer) route(w http.ResponseWriter, req *http.Request) {
 	}
 
 	switch parts[0] {
-	case "", "explorer":
-		w.Header().Set("Content-Type", "text/html")
-		w.Write(explorerHTML) //nolint:errcheck
+	case "", "explorer", "wallet", "faucet", "docs", "download":
+		// SPA: always serve index.html — React Router handles client-side routing.
+		idx, err := webDist.ReadFile("web/dist/index.html")
+		if err != nil {
+			writeError(w, http.StatusNotFound, "not found")
+			return
+		}
+		w.Header().Set("Content-Type", "text/html; charset=utf-8")
+		w.Write(idx) //nolint:errcheck
 	case "assets":
+		// /assets/chakram.png — legacy path used by old HTML files kept in explorer/.
 		if len(parts) == 2 && parts[1] == "chakram.png" {
 			w.Header().Set("Content-Type", "image/png")
 			w.Header().Set("Cache-Control", "public, max-age=86400")
 			w.Write(logoPNG) //nolint:errcheck
-		} else {
-			writeError(w, http.StatusNotFound, "not found")
+			return
 		}
-	case "faucet":
-		w.Header().Set("Content-Type", "text/html")
-		w.Write(faucetHTML) //nolint:errcheck
-	case "wallet":
-		w.Header().Set("Content-Type", "text/html")
-		w.Write(walletHTML) //nolint:errcheck
-	case "docs":
-		w.Header().Set("Content-Type", "text/html")
-		w.Write(docsHTML) //nolint:errcheck
-	case "download":
-		w.Header().Set("Content-Type", "text/html")
-		w.Write(downloadHTML) //nolint:errcheck
+		// All other /assets/* — serve the React build output (hashed JS/CSS/images).
+		sub, err := fs.Sub(webDist, "web/dist")
+		if err != nil {
+			writeError(w, http.StatusInternalServerError, "internal error")
+			return
+		}
+		http.FileServer(http.FS(sub)).ServeHTTP(w, req)
 	case "info":
 		r.handleInfo(w)
 	case "block":

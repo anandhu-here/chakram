@@ -24,6 +24,10 @@ fi
 
 # ── Build ─────────────────────────────────────────────────────────────────────
 
+echo "Building web app..."
+(cd web && npm run build)
+echo "  ✓ web/dist"
+
 echo "Building Linux binary..."
 GOOS=linux GOARCH=amd64 go build -o chakram-linux .
 
