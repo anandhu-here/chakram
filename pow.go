@@ -11,6 +11,7 @@ import (
 	"fmt"
 	"runtime"
 	"sync"
+	"time"
 
 	randomx "git.gammaspectra.live/P2Pool/go-randomx"
 )
@@ -178,6 +179,9 @@ func MineBlock(b *Block, engine PoWEngine, key []byte, quit <-chan struct{}) err
 	}
 
 	startNonce := b.Header.Nonce
+	var hashCount uint64
+	lastReport := time.Now()
+
 	for {
 		select {
 		case <-quit:
@@ -187,14 +191,21 @@ func MineBlock(b *Block, engine PoWEngine, key []byte, quit <-chan struct{}) err
 
 		data := serializeHeader(b.Header)
 		b.Hash = engine.Hash(data)
-		runtime.Gosched() // yield after each ~500ms hash so RPC goroutines can run
+		hashCount++
+		runtime.Gosched()
+
+		if time.Since(lastReport) >= 30*time.Second {
+			hps := float64(hashCount) / time.Since(lastReport).Seconds()
+			fmt.Printf("[MINER] diff=%d hashrate=%.0f H/s\n", b.Header.Difficulty, hps)
+			hashCount = 0
+			lastReport = time.Now()
+		}
 
 		if b.HashIsValid() {
 			return nil
 		}
 
 		b.Header.Nonce++
-		// Detect full uint64 wrap-around.
 		if b.Header.Nonce == startNonce {
 			return errors.New("mine: nonce exhausted — no valid hash found across full nonce space")
 		}
