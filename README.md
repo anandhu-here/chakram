@@ -11,7 +11,7 @@ Chakram is a fast, CPU-mineable cryptocurrency inspired by the ancient Travancor
 ## Features
 
 - ⛏ **CPU Mining** — RandomX algorithm, ASIC resistant. Mine with any laptop or desktop.
-- ⚡ **Fast** — 60 second block time, near-instant confirmations.
+- ⚡ **Fast** — 30 second block time, near-instant confirmations.
 - 🔒 **Secure** — Ed25519 signatures, double SHA256, BadgerDB storage.
 - 🌍 **Decentralised** — P2P network, no central authority.
 - 📱 **Mobile Ready** — Android mining node coming in v1.1.
@@ -120,10 +120,10 @@ http://35.207.217.64:18339
 | P2P Port | 18338 | 8338 |
 | RPC Port | 18339 | 8339 |
 | Seeds | 35.207.229.32, 34.1.166.49 | — |
-| Block time | ~60 sec | ~60 sec |
-| Halving | every 1,051,200 blocks | every 1,051,200 blocks |
+| Block time | ~30 sec | ~30 sec |
+| Halving | every 2,102,400 blocks | every 2,102,400 blocks |
 | Initial reward | 50 CHK | 50 CHK |
-| Max supply | ~105,000,000 CHK | ~105,000,000 CHK |
+| Max supply | 44,800,000 CHK | 44,800,000 CHK |
 
 ## Build from Source
 

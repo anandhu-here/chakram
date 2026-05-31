@@ -106,10 +106,11 @@ During the first `DifficultyWindow` (60) blocks:
 
 ### Difficulty system
 ```
-Bootstrap (h ≤ 60):  TEB enforces 60s floor, difficulty = InitialDifficulty = 4
-Post-bootstrap:       LWMA-3 adjusts per-block based on 60-block window
+Bootstrap (h ≤ 60):  TEB enforces 30s floor, difficulty = InitialDifficulty = 4
+Post-bootstrap:       LWMA-3 adjusts per-block based on 60-block window, 15s permanent floor
 Floor:               MinDifficulty = 4
 Cap:                 4× per window upward, no downward cap
+CoinbaseMaturity:    10 blocks (~5 min)
 ```
 
 ### Mining loop

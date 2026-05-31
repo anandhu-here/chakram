@@ -168,7 +168,7 @@ tr:last-child td{border-bottom:none}
   <tr><td>Signature scheme</td><td>Ed25519</td></tr>
   <tr><td>Proof of work</td><td>RandomX</td></tr>
   <tr><td>Consensus model</td><td>UTXO (Unspent Transaction Output)</td></tr>
-  <tr><td>Block time</td><td>10 seconds (target)</td></tr>
+  <tr><td>Block time</td><td>30 seconds (target)</td></tr>
   <tr><td>Max block size</td><td>1 MB</td></tr>
   <tr><td>Genesis message</td><td>ചക്രം — കേരളത്തിന്റെ പൈതൃകം ഡിജിറ്റൽ യുഗത്തിൽ പുനർജനിക്കുന്നു</td></tr>
 </table>
@@ -189,10 +189,10 @@ tr:last-child td{border-bottom:none}
 <h3>Difficulty Adjustment</h3>
 <table>
   <tr><th>Parameter</th><th>Value</th></tr>
-  <tr><td>Target block time</td><td>10 seconds</td></tr>
-  <tr><td>Adjustment interval</td><td>Every 2,016 blocks (~5.6 hours)</td></tr>
+  <tr><td>Target block time</td><td>30 seconds</td></tr>
+  <tr><td>Adjustment interval</td><td>Per block (LWMA-3, after bootstrap window)</td></tr>
   <tr><td>Difficulty window</td><td>60 blocks (look-back for retarget)</td></tr>
-  <tr><td>Minimum difficulty</td><td>1</td></tr>
+  <tr><td>Minimum difficulty</td><td>4</td></tr>
 </table>
 </section>
 
@@ -206,8 +206,8 @@ tr:last-child td{border-bottom:none}
   <tr><td>1 CHK</td><td>1,000,000 Cash</td></tr>
   <tr><td>Minimum transaction fee</td><td>1,000 Cash (0.001 CHK)</td></tr>
   <tr><td>Initial block reward</td><td>50 CHK (50,000,000 Cash)</td></tr>
-  <tr><td>Halving interval</td><td>1,051,200 blocks (~4 months)</td></tr>
-  <tr><td>Coinbase maturity</td><td>100 blocks before mining rewards are spendable</td></tr>
+  <tr><td>Halving interval</td><td>2,102,400 blocks (~2 years)</td></tr>
+  <tr><td>Coinbase maturity</td><td>10 blocks before mining rewards are spendable</td></tr>
   <tr><td>Max supply</td><td>44,800,000 CHK</td></tr>
 </table>
 
@@ -296,7 +296,7 @@ tr:last-child td{border-bottom:none}
 <!-- /tx -->
 <div class="endpoint" id="api-tx">
   <div class="endpoint-title"><span class="badge badge-get">GET</span> <span class="endpoint-path">/tx/{txid}</span></div>
-  <div class="endpoint-desc">Looks up a transaction by its hex-encoded transaction ID. Scans the most recent 1,000 blocks.</div>
+  <div class="endpoint-desc">Looks up a transaction by its hex-encoded transaction ID. O(1) lookup via the node's transaction index.</div>
 <pre><code><span class="url">GET /tx/a1b2c3d4e5f6...</span>
 
 {
@@ -330,7 +330,7 @@ tr:last-child td{border-bottom:none}
 <!-- /utxos -->
 <div class="endpoint" id="api-utxos">
   <div class="endpoint-title"><span class="badge badge-get">GET</span> <span class="endpoint-path">/utxos/{address}</span></div>
-  <div class="endpoint-desc">Returns all unspent outputs for an address. Use this to build transactions — each UTXO is a spendable input. <code>mature</code> is <code>false</code> for coinbase outputs that have not yet reached 100-block maturity.</div>
+  <div class="endpoint-desc">Returns all unspent outputs for an address. Use this to build transactions — each UTXO is a spendable input. <code>mature</code> is <code>false</code> for coinbase outputs that have not yet reached 10-block maturity.</div>
 <pre><code><span class="url">GET /utxos/CK1AbcDef...</span>
 
 [
@@ -515,7 +515,7 @@ input[i].PublicKey = base64_encode(ed25519.PublicKey(seed))</code></pre>
 <p>The node verifies each input by:</p>
 <ol style="color:var(--text2);padding-left:20px;margin:10px 0 14px">
   <li style="padding:4px 0">Looking up the UTXO — it must exist and not be spent</li>
-  <li style="padding:4px 0">Checking coinbase maturity — coinbase UTXOs need 100 confirmations</li>
+  <li style="padding:4px 0">Checking coinbase maturity — coinbase UTXOs need 10 confirmations</li>
   <li style="padding:4px 0">Verifying the Ed25519 signature against SHA256(TxID‖OutputIndex)</li>
   <li style="padding:4px 0">Checking that RIPEMD160(SHA256(publicKey)) matches the UTXO's stored pubkey hash</li>
 </ol>
@@ -551,7 +551,7 @@ change = total_input - amount - fee
 if change > 0:
     add output: { Value: change, PublicKeyHash: sender_pkh }</code></pre>
 
-<div class="box box-info">Only select UTXOs where <code>mature === true</code>. Block rewards (coinbase outputs) require 100 confirmations before they can be spent. Regular transaction outputs have no maturity requirement.</div>
+<div class="box box-info">Only select UTXOs where <code>mature === true</code>. Block rewards (coinbase outputs) require 10 confirmations (~5 minutes) before they can be spent. Regular transaction outputs have no maturity requirement.</div>
 </section>
 
 <!-- ── Running a Node ─────────────────────────────────────────────────────────── -->
@@ -606,11 +606,11 @@ chmod +x chakram
 <table>
   <tr><th>Parameter</th><th>Value</th></tr>
   <tr><td>Algorithm</td><td>RandomX (light mode)</td></tr>
-  <tr><td>Epoch length</td><td>64 blocks (~10 minutes)</td></tr>
+  <tr><td>Epoch length</td><td>64 blocks (~32 minutes)</td></tr>
   <tr><td>Mining threads</td><td>1 (configured in binary)</td></tr>
   <tr><td>Block reward (era 1)</td><td>50 CHK</td></tr>
-  <tr><td>Halving interval</td><td>Every 1,051,200 blocks (~4 months)</td></tr>
-  <tr><td>Coinbase maturity</td><td>100 blocks before reward is spendable</td></tr>
+  <tr><td>Halving interval</td><td>Every 2,102,400 blocks (~2 years)</td></tr>
+  <tr><td>Coinbase maturity</td><td>10 blocks before reward is spendable</td></tr>
 </table>
 
 <div class="box box-info">The RandomX epoch seed is deterministic: <code>"chakram-epoch-N"</code> where N is <code>height / 64</code>. All nodes compute the same seed for the same epoch — no consensus on seed data is required.</div>
@@ -722,9 +722,9 @@ sig      := ed25519.Sign(privKey, message[:])</code></pre>
   <tr><td>400</td><td>mempool rejected: insufficient fee</td><td>Fee &lt; 1,000 Cash</td></tr>
   <tr><td>400</td><td>mempool rejected: utxo not found</td><td>Input references a spent or non-existent UTXO</td></tr>
   <tr><td>400</td><td>mempool rejected: invalid Ed25519 signature</td><td>Signature does not verify against the input message</td></tr>
-  <tr><td>400</td><td>mempool rejected: coinbase output not yet mature</td><td>Trying to spend a block reward before 100 confirmations</td></tr>
+  <tr><td>400</td><td>mempool rejected: coinbase output not yet mature</td><td>Trying to spend a block reward before 10 confirmations</td></tr>
   <tr><td>404</td><td>block not found</td><td>No block at that height or hash</td></tr>
-  <tr><td>404</td><td>transaction not found</td><td>TxID not in recent 1,000 blocks</td></tr>
+  <tr><td>404</td><td>transaction not found</td><td>TxID not found in block index</td></tr>
   <tr><td>405</td><td>method not allowed</td><td>Wrong HTTP method for the route</td></tr>
 </table>
 
