@@ -61,10 +61,12 @@ const (
 	// difficulty target (sliding-window retarget).
 	DifficultyWindow uint64 = 60
 
-	// InitialDifficulty is the difficulty used for the first DifficultyWindow
-	// blocks before LWMA has enough history. Set to target ~60 s per block on
-	// the launch hardware (~6000 H/s RandomX light-mode): 2^19 / 6000 ≈ 87 s.
-	InitialDifficulty uint64 = 19
+	// InitialDifficulty is the PoW baseline during the bootstrap window.
+	// With timestamp-enforced bootstrap (TEB), block rate is controlled by the
+	// 60-second time floor, not by this value. This only needs to be high enough
+	// to prevent trivial block forgery. 2^4 = 16 expected hashes — achievable in
+	// seconds on any hardware, so the time floor always controls the actual rate.
+	InitialDifficulty uint64 = 4
 
 	// DifficultyAdjustmentInterval is kept for reference / future batch retarget.
 	DifficultyAdjustmentInterval uint64 = 2016
@@ -99,7 +101,7 @@ const (
 	MiningAlgorithm = "RandomX"
 
 	// MinDifficulty is the lowest allowed network difficulty target.
-	MinDifficulty uint64 = 1
+	MinDifficulty uint64 = 4
 
 	// RandomXLightMode uses the cache-only (light) RandomX mode (~256 MB RAM).
 	// Full mode requires ~2 GB and is impractical on mobile. Light mode is used
