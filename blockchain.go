@@ -157,6 +157,20 @@ func (bc *Blockchain) AddBlock(b *Block) error {
 			b.Header.Timestamp, parent.Header.Timestamp)
 	}
 
+	// Bootstrap time floor: during the first DifficultyWindow blocks the protocol
+	// enforces a minimum gap between blocks equal to TargetBlockTime. This makes
+	// the chain hardware-agnostic at genesis — any machine can mine easily at low
+	// difficulty, but blocks are rate-limited by wall-clock time so LWMA always
+	// receives clean ~60s intervals and computes the correct difficulty from block 61.
+	if b.Header.Height <= DifficultyWindow {
+		minTS := parent.Header.Timestamp + TargetBlockTime
+		if b.Header.Timestamp < minTS {
+			return fmt.Errorf("invalid block: bootstrap time floor violated at h=%d (ts=%d, need>=%d)",
+				b.Header.Height, b.Header.Timestamp, minTS)
+		}
+		fmt.Printf("[BOOTSTRAP] h=%d gap=%ds ✓\n", b.Header.Height, b.Header.Timestamp-parent.Header.Timestamp)
+	}
+
 	// RandomX PoW verification.
 	// During IBD we skip the expensive RandomX hash for old blocks — structural
 	// checks above (sequential height, difficulty target, timestamps) are

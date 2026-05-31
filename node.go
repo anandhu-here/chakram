@@ -300,6 +300,25 @@ func (n *Node) mineLoop() {
 		txs = append(txs, cb)
 		txs = append(txs, pending...)
 
+		// Bootstrap time floor: stall here until wall-clock reaches the minimum
+		// timestamp the network will accept. This ensures the block we create
+		// always has a valid timestamp without needing to re-mine.
+		if height <= DifficultyWindow {
+			minTime := prev.Header.Timestamp + TargetBlockTime
+			if now := time.Now().Unix(); now < minTime {
+				wait := time.Duration(minTime-now) * time.Second
+				fmt.Printf("[BOOTSTRAP] h=%d: waiting %v for time floor\n", height, wait.Round(time.Second))
+				select {
+				case <-time.After(wait):
+				case <-n.miningQuit:
+					continue
+				}
+			}
+		}
+		if height == DifficultyWindow+1 {
+			fmt.Printf("[BOOTSTRAP] complete at h=%d — LWMA now active, real difficulty begins\n", height)
+		}
+
 		diff := NextDifficulty(n.Blockchain, height)
 		b := NewBlock(prev.Hash, height, diff, txs)
 		if b.Header.Timestamp <= prev.Header.Timestamp {
