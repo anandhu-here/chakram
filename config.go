@@ -63,9 +63,8 @@ const (
 
 	// InitialDifficulty is the difficulty used for the first DifficultyWindow
 	// blocks before LWMA has enough history. Set to target ~60 s per block on
-	// the launch hardware (~135 H/s RandomX light-mode): 2^13 / 135 ≈ 60 s.
-	// If the miner is significantly faster, increase this value before launch.
-	InitialDifficulty uint64 = 13
+	// the launch hardware (~6000 H/s RandomX light-mode): 2^19 / 6000 ≈ 87 s.
+	InitialDifficulty uint64 = 19
 
 	// DifficultyAdjustmentInterval is kept for reference / future batch retarget.
 	DifficultyAdjustmentInterval uint64 = 2016
