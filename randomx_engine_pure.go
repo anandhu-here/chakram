@@ -1,4 +1,4 @@
-//go:build !cgo
+//go:build !cgo || !((darwin && amd64) || (linux && amd64) || (windows && amd64))
 
 // randomx_engine_pure.go — Pure-Go RandomX fallback engine.
 // Used automatically when CGo is unavailable (cross-compiled Linux builds).
