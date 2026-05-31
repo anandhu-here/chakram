@@ -8,6 +8,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"math/big"
 	"sync"
 )
 
@@ -116,12 +117,35 @@ func (bc *Blockchain) epochKey(height uint64) []byte {
 	return []byte(fmt.Sprintf("chakram-epoch-%d", epochNum))
 }
 
+// blockWork returns the expected number of hashes required for one block at
+// the given difficulty: 2^difficulty. Summing this across all blocks gives
+// cumulative chainwork — the canonical Bitcoin fork-selection metric.
+func blockWork(difficulty uint64) *big.Int {
+	return new(big.Int).Lsh(big.NewInt(1), uint(difficulty))
+}
+
+// chainWork sums proof-of-work for every block from genesis through b.
+// Called only during fork evaluation (rare), so O(height) is acceptable.
+func (bc *Blockchain) chainWork(b *Block) *big.Int {
+	total := blockWork(b.Header.Difficulty)
+	cur := b
+	for cur.Header.Height > 0 {
+		parent, err := bc.Storage.GetBlockByHash(cur.Header.PreviousHash)
+		if err != nil {
+			break
+		}
+		total.Add(total, blockWork(parent.Header.Difficulty))
+		cur = parent
+	}
+	return total
+}
+
 // AddBlock validates b and integrates it into the chain.
 //
 // Accepted cases:
 //   1. Direct extension of the current tip → apply to main chain immediately.
-//   2. Longer competing chain (height > bc.Height) → trigger a reorg.
-//   3. Shorter side chain → store by hash for future reference, no tip change.
+//   2. Competing chain with more cumulative chainwork → trigger a reorg.
+//   3. Less-work side chain → store by hash for future reference, no tip change.
 //
 // Returns ErrOrphanBlock when the parent is not yet known; the sync layer uses
 // this signal to request the missing ancestor from the peer.
@@ -268,12 +292,21 @@ func (bc *Blockchain) AddBlock(b *Block) error {
 		// Fast path: direct extension of the main chain.
 		return bc.applyBlock(b)
 
-	case b.Header.Height > height:
-		// Longer fork — reorganise to this chain.
-		return bc.reorganize(b)
+	case b.Header.Height >= height:
+		// Candidate chain: same height or taller. Compare cumulative chainwork
+		// so two miners finding blocks at the same height resolve deterministically
+		// (most total proof-of-work wins — the Bitcoin rule).
+		currentTip, err := bc.Storage.GetBlockByHash(tip)
+		if err != nil {
+			return fmt.Errorf("fetch current tip for chainwork comparison: %w", err)
+		}
+		if bc.chainWork(b).Cmp(bc.chainWork(currentTip)) > 0 {
+			return bc.reorganize(b)
+		}
+		return nil
 
 	default:
-		// Shorter side chain — stored for completeness, no tip change.
+		// Shorter, less-work side chain — stored for completeness, no tip change.
 		return nil
 	}
 }

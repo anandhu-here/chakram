@@ -164,10 +164,11 @@ func (sm *SyncManager) OnBlockReceived(b *Block, from *Peer) {
 	}
 
 	// Reorg rate limiting: a block triggers a reorg when its parent is not
-	// the current tip but its height exceeds ours. Limit to one reorg per 2s
-	// so a fast miner cannot flood seeds with reorganisation work.
+	// the current tip and it is at least as tall as ours (same-height competing
+	// blocks may carry more chainwork and must not be skipped). Limit to one
+	// reorg per 2s so a fast miner cannot flood seeds with reorganisation work.
 	wouldReorg := !bytes.Equal(b.Header.PreviousHash, sm.blockchain.GetTip()) &&
-		b.Header.Height > sm.blockchain.GetHeight()
+		b.Header.Height >= sm.blockchain.GetHeight()
 	if wouldReorg {
 		sm.reorgMu.Lock()
 		if time.Since(sm.lastReorg) < 2*time.Second {
