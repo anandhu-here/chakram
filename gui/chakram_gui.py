@@ -36,7 +36,7 @@ RPC_BASE  = "http://localhost:8339"
 RPC_PORT  = 8339
 PID_FILE  = os.path.expanduser("~/.chakram/mainnet/gui.pid")
 POLL_SECS = 5
-VERSION   = "v1.0.23"
+VERSION   = "v1.0.24"
 
 
 # ── Binary detection ───────────────────────────────────────────────────────────
@@ -98,13 +98,27 @@ def rpc_get(path):
 
 class Tooltip:
     def __init__(self, widget, text):
-        self._widget = widget
-        self._text   = text
-        self._tip    = None
-        widget.bind("<Enter>", self._show)
+        self._widget   = widget
+        self._text     = text
+        self._tip      = None
+        self._after_id = None
+        widget.bind("<Enter>", self._schedule)
         widget.bind("<Leave>", self._hide)
 
-    def _show(self, _):
+    def _schedule(self, _):
+        self._cancel()
+        self._after_id = self._widget.after(400, self._show)
+
+    def _cancel(self):
+        if self._after_id:
+            try:
+                self._widget.after_cancel(self._after_id)
+            except Exception:
+                pass
+            self._after_id = None
+
+    def _show(self):
+        self._after_id = None
         try:
             x = self._widget.winfo_rootx() + 12
             y = self._widget.winfo_rooty() + self._widget.winfo_height() + 4
@@ -114,10 +128,12 @@ class Tooltip:
             self._tip.wm_geometry(f"+{x}+{y}")
             ctk.CTkLabel(self._tip, text=self._text, fg_color=BG3, corner_radius=4,
                          font=("Courier New", 10), text_color=TEXT2).pack(padx=8, pady=4)
+            self._tip.bind("<Enter>", self._hide)
         except Exception:
             pass
 
-    def _hide(self, _):
+    def _hide(self, _=None):
+        self._cancel()
         if self._tip:
             try:
                 self._tip.destroy()
@@ -144,6 +160,7 @@ class ChakramApp(ctk.CTk):
         self._password         = "chakram"
         self._binary           = None
         self._poll_stop        = threading.Event()
+        self._last_blocks_hash = None
 
         atexit.register(self._stop_node)
         self._address          = ""
@@ -868,7 +885,10 @@ class ChakramApp(ctk.CTk):
                                       hover_color=BORDER, text_color=TEXT2)
 
         if blocks:
-            self._render_blocks(blocks)
+            sig = str([(b.get("height"), b.get("hash")) for b in blocks[:15]])
+            if sig != self._last_blocks_hash:
+                self._last_blocks_hash = sig
+                self._render_blocks(blocks)
             self._check_mined_blocks(blocks)
 
         self._statusbar.configure(
