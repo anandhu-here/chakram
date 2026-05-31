@@ -102,11 +102,14 @@ func (r *RPCServer) route(w http.ResponseWriter, req *http.Request) {
 			return
 		}
 		// All other /assets/* — serve the React build output (hashed JS/CSS/images).
+		// Must delete the pre-set application/json header: Go's FileServer skips
+		// setting Content-Type if the header is already populated.
 		sub, err := fs.Sub(webDist, "web/dist")
 		if err != nil {
 			writeError(w, http.StatusInternalServerError, "internal error")
 			return
 		}
+		w.Header().Del("Content-Type")
 		http.FileServer(http.FS(sub)).ServeHTTP(w, req)
 	case "info":
 		r.handleInfo(w)
