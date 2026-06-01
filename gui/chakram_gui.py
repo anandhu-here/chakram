@@ -41,9 +41,22 @@ RPC_BASE  = "http://localhost:8339"
 RPC_PORT  = 8339
 PID_FILE  = os.path.expanduser("~/.chakram/mainnet/gui.pid")
 POLL_SECS = 5
-VERSION   = "v1.0.30"
+VERSION   = "v1.0.31"
 
-_LOGO_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "assets", "chakram.png")
+def _get_logo_path():
+    # When bundled with PyInstaller, sys._MEIPASS is the temp extract dir.
+    # The logo is added there via --add-data "chakram.png:.".
+    if hasattr(sys, '_MEIPASS'):
+        for candidate in [
+            os.path.join(sys._MEIPASS, 'chakram.png'),
+            os.path.join(sys._MEIPASS, 'assets', 'chakram.png'),
+        ]:
+            if os.path.exists(candidate):
+                return candidate
+    # Running from source: gui/ is next to assets/
+    return os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', 'assets', 'chakram.png')
+
+_LOGO_PATH = _get_logo_path()
 _logo_cache: dict = {}
 
 def _logo(size: tuple) -> "ctk.CTkImage | None":
@@ -1126,12 +1139,14 @@ class ChakramApp(ctk.CTk):
                          text_color=TEXT, anchor="w").pack(side="left")
 
         def open_data_dir():
+            os.makedirs(data_dir, exist_ok=True)
             if sys.platform == "darwin":
-                os.system(f"open '{data_dir}'")
+                subprocess.Popen(["open", data_dir])
             elif sys.platform.startswith("linux"):
-                os.system(f"xdg-open '{data_dir}'")
+                subprocess.Popen(["xdg-open", data_dir])
             else:
-                os.system(f"explorer '{data_dir}'")
+                # os.startfile is the correct Windows API — no shell quoting issues.
+                os.startfile(data_dir)
 
         ctk.CTkButton(win, text="Open Data Folder", width=160, height=30,
                       fg_color=BG3, hover_color=BORDER, text_color=TEXT2,

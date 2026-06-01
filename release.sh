@@ -110,6 +110,7 @@ if [ ! -f "$GCP_KEY" ]; then
 else
   echo "Building Intel Mac GUI..."
   cp chakram-mac gui/chakram
+  cp assets/chakram.png gui/chakram.png
   chmod +x gui/chakram
   cd gui
   rm -rf dist/ build/ Chakram.spec
@@ -118,6 +119,7 @@ else
     --windowed \
     --name "Chakram" \
     --add-binary "chakram:." \
+    --add-data "chakram.png:." \
     --hidden-import customtkinter \
     --hidden-import PIL \
     --hidden-import "PIL._tkinter_finder" \

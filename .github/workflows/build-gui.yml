@@ -71,9 +71,11 @@ jobs:
         shell: pwsh
         run: |
           Copy-Item ..\chakram-windows-cgo.exe chakram.exe
+          Copy-Item ..\assets\chakram.png chakram.png
           Remove-Item -ErrorAction SilentlyContinue -Recurse dist, build, Chakram.spec
           pyinstaller --onefile --windowed --name "Chakram" `
             "--add-binary=chakram.exe;." `
+            "--add-data=chakram.png;." `
             --hidden-import customtkinter `
             --hidden-import PIL `
             --hidden-import "PIL._tkinter_finder" `

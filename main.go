@@ -116,13 +116,28 @@ func runWallet(args []string) {
 
 	switch args[0] {
 	case "new":
+		cfg := DefaultConfig(testnet)
+		password := flags["password"]
+		if password == "" {
+			password = "chakram"
+			fmt.Println("WARNING: using default password 'chakram'. Pass --password to set a secure one.")
+		}
+		if err := os.MkdirAll(cfg.DataDir, 0755); err != nil {
+			fmt.Fprintf(os.Stderr, "FATAL: create data dir: %v\n", err)
+			os.Exit(1)
+		}
 		w, err := NewWallet()
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "FATAL: %v\n", err)
 			os.Exit(1)
 		}
+		if err := w.SaveToFile(cfg.WalletFile, password); err != nil {
+			fmt.Fprintf(os.Stderr, "FATAL: save wallet: %v\n", err)
+			os.Exit(1)
+		}
 		fmt.Printf("Address:  %s\n", w.Address)
 		fmt.Printf("Mnemonic: %s\n", w.Mnemonic)
+		fmt.Printf("Saved to: %s\n", cfg.WalletFile)
 		fmt.Println("IMPORTANT: Back up your mnemonic phrase — it cannot be recovered!")
 
 	case "recover":

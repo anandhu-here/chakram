@@ -272,8 +272,17 @@ func (n *Node) mineLoop() {
 		default:
 		}
 
-		if peers := n.Server.PeerCount(); peers < 2 {
-			fmt.Printf("Mining paused — waiting for peers (have %d, need 2)\n", peers)
+		// Use ConnectedPeers (handshake complete) not PeerCount (includes dead
+		// connections not yet evicted by the ping loop).
+		connPeers := n.Server.ConnectedPeers()
+		if len(connPeers) < 2 {
+			fmt.Printf("Mining paused — waiting for peers (have %d connected, need 2)\n", len(connPeers))
+			// Immediately attempt reconnect to seeds instead of waiting for the 30s ticker.
+			for _, seed := range n.Config.Seeds {
+				if !n.Server.isOwnAddress(seed) && !n.Server.IsConnected(seed) {
+					n.Server.ConnectToPeer(seed) //nolint:errcheck
+				}
+			}
 			time.Sleep(5 * time.Second)
 			continue
 		}
@@ -366,6 +375,16 @@ func (n *Node) mineLoop() {
 			Items: []InvItem{{Type: 1, Hash: b.Hash}},
 		})
 		if err == nil {
+			// If no connected peers at broadcast time, immediately reconnect to seeds
+			// so the block reaches the network without waiting for the 30s ticker.
+			if len(n.Server.ConnectedPeers()) == 0 {
+				for _, seed := range n.Config.Seeds {
+					if !n.Server.isOwnAddress(seed) && !n.Server.IsConnected(seed) {
+						n.Server.ConnectToPeer(seed) //nolint:errcheck
+					}
+				}
+				time.Sleep(2 * time.Second) // brief wait for handshake before broadcast
+			}
 			n.Server.Broadcast(inv, nil)
 		}
 
