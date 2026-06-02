@@ -243,7 +243,7 @@ function GridCell({ block, idx, total, isSelected, onClick }) {
       title={block.hash}
       style={{ gridRow: row + 1, gridColumn: col + 1 }}
       className={[
-        'relative rounded-xl border text-left p-2.5 transition-all duration-200 animate-slide-down',
+        'relative rounded-xl border text-left p-2.5 transition-all duration-200 overflow-hidden',
         'focus:outline-none focus:ring-2 focus:ring-gold/40',
         isSelected
           ? 'bg-goldbg border-gold/60'
@@ -326,7 +326,7 @@ function BoustrophedonGrid({ blocks, selected, onSelect }) {
         className="grid gap-2"
         style={{
           gridTemplateColumns: `repeat(${COLS}, 1fr)`,
-          gridTemplateRows:    `repeat(${ROWS}, 72px)`,
+          gridTemplateRows:    `repeat(${ROWS}, 92px)`,
         }}
       >
         {ordered.length === 0 ? (

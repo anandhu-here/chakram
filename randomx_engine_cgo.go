@@ -1,4 +1,4 @@
-//go:build cgo && ((darwin && amd64) || (linux && amd64) || (windows && amd64))
+//go:build cgo && ((darwin && amd64) || (darwin && arm64) || (linux && amd64) || (windows && amd64))
 
 // randomx_engine_cgo.go — CGo RandomX engine using the C reference implementation.
 // Gives ~50-4000 H/s depending on platform vs ~1 H/s for the pure-Go fallback.
@@ -9,6 +9,7 @@ package main
 /*
 #cgo CFLAGS: -I${SRCDIR}/lib
 #cgo darwin,amd64  LDFLAGS: ${SRCDIR}/lib/darwin_amd64/librandomx.a  -lstdc++ -lpthread
+#cgo darwin,arm64  LDFLAGS: ${SRCDIR}/lib/darwin_arm64/librandomx.a  -lstdc++ -lpthread
 #cgo linux,amd64   LDFLAGS: ${SRCDIR}/lib/linux_amd64/librandomx.a   -lstdc++ -lpthread
 #cgo windows,amd64 LDFLAGS: ${SRCDIR}/lib/windows_amd64/librandomx.a -lstdc++ -lpthread
 

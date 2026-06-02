@@ -99,6 +99,8 @@ gh release create "$VERSION" \
   chakram-windows.exe \
   --title "Chakram $VERSION" \
   --notes "$NOTES"
+# chakram-mac-arm is built natively on the macos-14 Actions runner and
+# uploaded to this release automatically by the build-mac-arm job.
 
 # ── Build Intel Mac GUI and upload to GCS ─────────────────────────────────────
 

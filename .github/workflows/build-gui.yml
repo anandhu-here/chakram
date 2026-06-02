@@ -12,7 +12,9 @@ permissions:
 
 jobs:
 
-  # ── Upload CLI binaries to GCS ────────────────────────────────────────────────
+  # ── Upload Intel CLI binaries (mac/linux/windows) to GCS ─────────────────────
+  # These are built locally on the Intel Mac by release.sh and attached to the
+  # GitHub release before this workflow starts. ARM is handled by build-mac-arm.
   upload-cli:
     runs-on: ubuntu-latest
     steps:
@@ -40,10 +42,12 @@ jobs:
             gsutil cp "$f" "gs://$GCS_BUCKET/latest/$f"
           done
           gsutil -m setmeta -h "Cache-Control:no-cache, no-store" \
-            "gs://$GCS_BUCKET/latest/**" 2>/dev/null || true
+            "gs://$GCS_BUCKET/latest/chakram-mac" \
+            "gs://$GCS_BUCKET/latest/chakram-linux" \
+            "gs://$GCS_BUCKET/latest/chakram-windows.exe" 2>/dev/null || true
           echo "CLI binaries uploaded to gs://$GCS_BUCKET"
 
-  # ── Windows GUI ───────────────────────────────────────────────────────────────
+  # ── Windows GUI (CGo, native build) ──────────────────────────────────────────
   build-windows:
     runs-on: windows-latest
     steps:
@@ -57,7 +61,7 @@ jobs:
         with:
           go-version: '1.22'
 
-      - name: Install dependencies
+      - name: Install Python dependencies
         run: pip install pyinstaller customtkinter requests pillow
 
       - name: Build chakram-windows.exe natively with CGo
@@ -87,7 +91,7 @@ jobs:
 
       - uses: google-github-actions/setup-gcloud@v2
 
-      - name: Upload to GCS
+      - name: Upload Windows GUI to GCS
         shell: bash
         run: |
           TAG="${{ github.event.release.tag_name }}"
@@ -97,7 +101,9 @@ jobs:
             "gs://$GCS_BUCKET/latest/Chakram.exe" 2>/dev/null || true
           echo "Windows GUI uploaded"
 
-  # ── Mac GUI — Apple Silicon (ARM) ─────────────────────────────────────────────
+  # ── Mac Apple Silicon — CLI binary + GUI (native CGo on M1 runner) ───────────
+  # macos-14 runner is Apple Silicon (M1). lib/darwin_arm64/librandomx.a is
+  # checked into the repo, so CGo links correctly without any extra setup.
   build-mac-arm:
     runs-on: macos-14
     steps:
@@ -107,28 +113,38 @@ jobs:
         with:
           python-version: '3.11'
 
-      - name: Install dependencies
+      - uses: actions/setup-go@v5
+        with:
+          go-version: '1.22'
+
+      - name: Install Python dependencies
         run: pip3 install pyinstaller customtkinter requests pillow
 
-      - name: Download chakram-mac from release
+      - name: Build chakram-mac-arm (native CGo, Apple Silicon)
+        run: |
+          CGO_ENABLED=1 GOARCH=arm64 go build -o chakram-mac-arm .
+          chmod +x chakram-mac-arm
+
+      - name: Upload chakram-mac-arm CLI to GitHub release
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          gh release download "${{ github.event.release.tag_name }}" \
-            --pattern "chakram-mac" \
-            --dir gui/
-          mv gui/chakram-mac gui/chakram
-          chmod +x gui/chakram
+          gh release upload "${{ github.event.release.tag_name }}" chakram-mac-arm \
+            --repo ${{ github.repository }} --clobber
 
       - name: Build Mac GUI (Apple Silicon)
-        working-directory: gui
         run: |
+          cp chakram-mac-arm gui/chakram
+          cp assets/chakram.png gui/chakram.png
+          chmod +x gui/chakram
+          cd gui
           rm -rf dist/ build/ Chakram.spec
           python3 -m PyInstaller \
             --onedir \
             --windowed \
             --name "Chakram" \
             --add-binary "chakram:." \
+            --add-data "chakram.png:." \
             --hidden-import customtkinter \
             --hidden-import PIL \
             --hidden-import "PIL._tkinter_finder" \
@@ -141,12 +157,14 @@ jobs:
 
       - uses: google-github-actions/setup-gcloud@v2
 
-      - name: Upload to GCS
+      - name: Upload ARM CLI and GUI to GCS
         run: |
           TAG="${{ github.event.release.tag_name }}"
+          gsutil cp chakram-mac-arm "gs://$GCS_BUCKET/$TAG/chakram-mac-arm"
+          gsutil cp chakram-mac-arm "gs://$GCS_BUCKET/latest/chakram-mac-arm"
           gsutil cp gui/dist/Chakram-mac-arm.zip "gs://$GCS_BUCKET/$TAG/Chakram-mac-arm.zip"
           gsutil cp gui/dist/Chakram-mac-arm.zip "gs://$GCS_BUCKET/latest/Chakram-mac-arm.zip"
-          gsutil setmeta -h "Cache-Control:no-cache, no-store" \
+          gsutil -m setmeta -h "Cache-Control:no-cache, no-store" \
+            "gs://$GCS_BUCKET/latest/chakram-mac-arm" \
             "gs://$GCS_BUCKET/latest/Chakram-mac-arm.zip" 2>/dev/null || true
-          echo "Mac ARM GUI uploaded"
-
+          echo "Mac ARM CLI and GUI uploaded"

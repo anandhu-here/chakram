@@ -41,7 +41,7 @@ RPC_BASE  = "http://localhost:8339"
 RPC_PORT  = 8339
 PID_FILE  = os.path.expanduser("~/.chakram/mainnet/gui.pid")
 POLL_SECS = 5
-VERSION   = "v1.0.31"
+VERSION   = "v1.0.32"
 
 def _get_logo_path():
     # When bundled with PyInstaller, sys._MEIPASS is the temp extract dir.
@@ -192,6 +192,7 @@ class ChakramApp(ctk.CTk):
         self._binary           = None
         self._poll_stop        = threading.Event()
         self._last_blocks_hash = None
+        self._hashrate         = ""
 
         atexit.register(self._stop_node)
         self._address          = ""
@@ -635,6 +636,9 @@ class ChakramApp(ctk.CTk):
                 m = re.search(r'[Mm]ined block (\d+)', line)
                 if m:
                     self._last_mined_block = int(m.group(1))
+                m = re.search(r'hashrate=([\d.]+)\s*H/s', line)
+                if m:
+                    self._hashrate = f"{float(m.group(1)):.0f} H/s"
         except Exception:
             pass
 
@@ -927,7 +931,11 @@ class ChakramApp(ctk.CTk):
             threading.Thread(target=self._fetch_transactions, args=(addr,), daemon=True).start()
 
         if self._mining:
-            txt = f"⛏  block {self._last_mined_block}" if self._last_mined_block else "⛏ Mining"
+            hr = f"  {self._hashrate}" if self._hashrate else ""
+            if self._last_mined_block:
+                txt = f"⛏  block {self._last_mined_block}{hr}"
+            else:
+                txt = f"⛏  Mining{hr}"
             self._mining_label.configure(text=txt, text_color=GREEN)
             self._mine_btn.configure(text="Stop Mining", fg_color=RED,
                                       hover_color="#a03030", text_color=TEXT)
@@ -1155,6 +1163,8 @@ class ChakramApp(ctk.CTk):
 
     def _toggle_mining(self):
         self._we_started_node = True
+        if self._mining:
+            self._hashrate = ""
         self._launch_node(mine=not self._mining)
         self._status_label.configure(text="Restarting node…")
 
