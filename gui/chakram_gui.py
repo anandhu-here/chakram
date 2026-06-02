@@ -41,7 +41,7 @@ RPC_BASE  = "http://localhost:8339"
 RPC_PORT  = 8339
 PID_FILE  = os.path.expanduser("~/.chakram/mainnet/gui.pid")
 POLL_SECS = 5
-VERSION   = "v1.0.33"
+VERSION   = "v1.0.34"
 
 def _get_logo_path():
     # When bundled with PyInstaller, sys._MEIPASS is the temp extract dir.
