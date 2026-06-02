@@ -121,8 +121,10 @@ jobs:
         run: pip3 install pyinstaller customtkinter requests pillow
 
       - name: Build chakram-mac-arm (native CGo, Apple Silicon)
+        env:
+          CGO_ENABLED: "1"
         run: |
-          CGO_ENABLED=1 GOARCH=arm64 go build -o chakram-mac-arm .
+          go build -o chakram-mac-arm .
           chmod +x chakram-mac-arm
 
       - name: Upload chakram-mac-arm CLI to GitHub release
