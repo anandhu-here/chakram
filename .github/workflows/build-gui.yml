@@ -3,6 +3,11 @@ name: Build and Distribute
 on:
   release:
     types: [published]
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: 'Release tag to build GUIs for (e.g. v1.0.31)'
+        required: true
 
 env:
   GCS_BUCKET: chakram-dist
@@ -28,7 +33,7 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          gh release download "${{ github.event.release.tag_name }}" \
+          gh release download "${{ github.event.release.tag_name || inputs.tag }}" \
             --pattern "chakram-mac" \
             --pattern "chakram-linux" \
             --pattern "chakram-windows.exe" \
@@ -36,7 +41,7 @@ jobs:
 
       - name: Upload to GCS
         run: |
-          TAG="${{ github.event.release.tag_name }}"
+          TAG="${{ github.event.release.tag_name || inputs.tag }}"
           for f in chakram-mac chakram-linux chakram-windows.exe; do
             gsutil cp "$f" "gs://$GCS_BUCKET/$TAG/$f"
             gsutil cp "$f" "gs://$GCS_BUCKET/latest/$f"
@@ -94,7 +99,7 @@ jobs:
       - name: Upload Windows GUI to GCS
         shell: bash
         run: |
-          TAG="${{ github.event.release.tag_name }}"
+          TAG="${{ github.event.release.tag_name || inputs.tag }}"
           gsutil cp gui/dist/Chakram.exe "gs://$GCS_BUCKET/$TAG/Chakram.exe"
           gsutil cp gui/dist/Chakram.exe "gs://$GCS_BUCKET/latest/Chakram.exe"
           gsutil setmeta -h "Cache-Control:no-cache, no-store" \
@@ -131,7 +136,7 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          gh release upload "${{ github.event.release.tag_name }}" chakram-mac-arm \
+          gh release upload "${{ github.event.release.tag_name || inputs.tag }}" chakram-mac-arm \
             --repo ${{ github.repository }} --clobber
 
       - name: Build Mac GUI (Apple Silicon)
@@ -161,7 +166,7 @@ jobs:
 
       - name: Upload ARM CLI and GUI to GCS
         run: |
-          TAG="${{ github.event.release.tag_name }}"
+          TAG="${{ github.event.release.tag_name || inputs.tag }}"
           gsutil cp chakram-mac-arm "gs://$GCS_BUCKET/$TAG/chakram-mac-arm"
           gsutil cp chakram-mac-arm "gs://$GCS_BUCKET/latest/chakram-mac-arm"
           gsutil cp gui/dist/Chakram-mac-arm.zip "gs://$GCS_BUCKET/$TAG/Chakram-mac-arm.zip"
