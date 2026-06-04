@@ -126,18 +126,21 @@ func blockWork(difficulty uint64) *big.Int {
 
 // chainWork sums proof-of-work for every block from genesis through b.
 // Called only during fork evaluation (rare), so O(height) is acceptable.
-func (bc *Blockchain) chainWork(b *Block) *big.Int {
+// Returns an error if any ancestor is missing — incomplete work must never
+// be compared against a complete chain, as it would bias fork selection.
+func (bc *Blockchain) chainWork(b *Block) (*big.Int, error) {
 	total := blockWork(b.Header.Difficulty)
 	cur := b
 	for cur.Header.Height > 0 {
 		parent, err := bc.Storage.GetBlockByHash(cur.Header.PreviousHash)
 		if err != nil {
-			break
+			return nil, fmt.Errorf("chainwork: missing ancestor %x at height %d: %w",
+				cur.Header.PreviousHash, cur.Header.Height-1, err)
 		}
 		total.Add(total, blockWork(parent.Header.Difficulty))
 		cur = parent
 	}
-	return total
+	return total, nil
 }
 
 // AddBlock validates b and integrates it into the chain.
@@ -174,12 +177,22 @@ func (bc *Blockchain) AddBlock(b *Block) error {
 		return fmt.Errorf("invalid block: expected height %d, got %d",
 			parent.Header.Height+1, b.Header.Height)
 	}
-	if expectedDiff := NextDifficulty(bc, b.Header.Height); b.Header.Difficulty != expectedDiff {
+	if expectedDiff := NextDifficultyFromParent(bc.Storage, b.Header.Height, parent); b.Header.Difficulty != expectedDiff {
 		return fmt.Errorf("invalid block: difficulty %d does not match expected %d at height %d",
 			b.Header.Difficulty, expectedDiff, b.Header.Height)
 	}
 	if !b.HashIsValid() {
 		return errors.New("invalid block: hash does not meet difficulty target")
+	}
+
+	// Checkpoint: a block at a checkpointed height must exactly match the
+	// known-good hash committed to by this binary. Rejects any fork that
+	// diverges from the canonical history before the checkpoint.
+	if expected, ok := Checkpoints[b.Header.Height]; ok {
+		if fmt.Sprintf("%x", b.Hash) != expected {
+			return fmt.Errorf("block %d rejected: hash conflicts with checkpoint (got %x, want %s)",
+				b.Header.Height, b.Hash, expected)
+		}
 	}
 	if b.Header.Timestamp <= parent.Header.Timestamp {
 		return fmt.Errorf("invalid block: timestamp %d not after parent timestamp %d",
@@ -300,7 +313,15 @@ func (bc *Blockchain) AddBlock(b *Block) error {
 		if err != nil {
 			return fmt.Errorf("fetch current tip for chainwork comparison: %w", err)
 		}
-		if bc.chainWork(b).Cmp(bc.chainWork(currentTip)) > 0 {
+		newWork, err := bc.chainWork(b)
+		if err != nil {
+			return fmt.Errorf("chainwork for candidate: %w", err)
+		}
+		curWork, err := bc.chainWork(currentTip)
+		if err != nil {
+			return fmt.Errorf("chainwork for current tip: %w", err)
+		}
+		if newWork.Cmp(curWork) > 0 {
 			return bc.reorganize(b)
 		}
 		return nil
@@ -353,6 +374,12 @@ func (bc *Blockchain) reorganize(newTip *Block) error {
 	ancestor, rollback, apply, err := bc.findReorgPath(oldTip, newTip)
 	if err != nil {
 		return fmt.Errorf("find reorg path: %w", err)
+	}
+
+	// Never roll back past the highest checkpoint — that history is immutable.
+	if cp := highestCheckpoint(); cp > 0 && ancestor.Header.Height < cp {
+		return fmt.Errorf("reorganize rejected: common ancestor at height %d is below checkpoint at height %d",
+			ancestor.Header.Height, cp)
 	}
 
 	fmt.Printf("⛓  Reorg: common ancestor at height %d, rolling back %d, applying %d\n",
@@ -485,7 +512,7 @@ func (bc *Blockchain) IsValid() (bool, error) {
 		if block.Header.Timestamp <= prev.Header.Timestamp {
 			return false, fmt.Errorf("height %d: timestamp not after previous block", h)
 		}
-		if expectedDiff := NextDifficulty(bc, h); block.Header.Difficulty != expectedDiff {
+		if expectedDiff := NextDifficultyFromParent(bc.Storage, h, prev); block.Header.Difficulty != expectedDiff {
 			return false, fmt.Errorf("height %d: difficulty %d != expected %d",
 				h, block.Header.Difficulty, expectedDiff)
 		}

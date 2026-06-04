@@ -7,9 +7,41 @@ package main
 const (
 	CoinName      = "Chakram"
 	Ticker        = "CHK"
-	Version       = 1
 	AddressPrefix = "CK1"
+
+	// ProtocolVersion is the current network protocol version, embedded in
+	// every block header and P2P handshake. Increment this for each hard fork.
+	// Old nodes will be rejected once MinProtocolVersion is raised to match.
+	ProtocolVersion uint32 = 1
+
+	// MinProtocolVersion is the lowest peer protocol version this node accepts
+	// during the handshake. Raise this (with a new release) after a hard fork
+	// to isolate nodes that have not upgraded.
+	MinProtocolVersion uint32 = 1
+
+	// SoftwareVersion is the human-readable release string. Bumped by release.sh.
+	SoftwareVersion = "v1.0.35"
 )
+
+// ForkActivations maps each protocol version to the block height at which its
+// consensus rules activate. Version 1 always starts at genesis (height 0).
+//
+// To schedule a hard fork:
+//  1. Implement the new rules guarded by ProtocolVersionAt(height) >= newVer.
+//  2. Add newVer → activationHeight here and set ProtocolVersion = newVer.
+//  3. Release the binary with at least activationHeight–currentHeight blocks
+//     of lead time so miners can upgrade before rules change.
+//  4. After the fork activates, raise MinProtocolVersion = newVer in the
+//     following release to disconnect nodes still running old code.
+var ForkActivations = map[uint32]uint64{
+	1: 0, // genesis rules, always active
+}
+
+// Checkpoints are immutable (height → hex-encoded hash) entries committed to
+// by this binary. Any block at a checkpointed height must exactly match.
+// Reorganizations may never roll back past the highest checkpoint.
+// Add a new entry with each major release after the chain has stabilised.
+var Checkpoints = map[uint64]string{}
 
 // ── Supply & Economics ───────────────────────────────────────────────────────
 

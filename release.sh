@@ -48,7 +48,10 @@ echo "  Previous : $LATEST"
 echo "  Message  : $NOTES"
 echo ""
 
-# ── Sync GUI version ──────────────────────────────────────────────────────────
+# ── Sync software version ─────────────────────────────────────────────────────
+
+sed -i '' "s|SoftwareVersion = \"v[0-9]*\.[0-9]*\.[0-9]*\"|SoftwareVersion = \"$VERSION\"|" "config.go"
+echo "  ✓ config.go version → $VERSION"
 
 GUI_FILE="gui/chakram_gui.py"
 if [ -f "$GUI_FILE" ]; then

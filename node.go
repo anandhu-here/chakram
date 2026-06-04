@@ -348,6 +348,14 @@ func (n *Node) mineLoop() {
 			fmt.Printf("[BOOTSTRAP] complete at h=%d — permanent 30s floor active, LWMA running\n", height)
 		}
 
+		// Warn miners when a protocol upgrade is approaching.
+		for ver, actHeight := range ForkActivations {
+			if actHeight > height && actHeight-height <= 500 {
+				fmt.Printf("[UPGRADE] Protocol v%d activates in %d blocks (at #%d) — update your node or you will fork off!\n",
+					ver, actHeight-height, actHeight)
+			}
+		}
+
 		diff := NextDifficulty(n.Blockchain, height)
 		b := NewBlock(prev.Hash, height, diff, txs)
 		if b.Header.Timestamp <= prev.Header.Timestamp {

@@ -1,4 +1,4 @@
-// difficulty.go — LWMA-3 difficulty retarget for Chakram.
+// difficulty.go — LWMA-3 difficulty retarget and fork-version helpers for Chakram.
 // Uses Linearly Weighted Moving Average (LWMA-3) giving more weight to recent
 // blocks. Adopted by low-hashrate networks (Zcash, Beam) to resist timestamp
 // manipulation and hash-rate volatility.
@@ -68,6 +68,89 @@ func NextDifficulty(bc *Blockchain, height uint64) uint64 {
 
 	// Cap increases at 4× per window; no downward cap so the chain can recover
 	// from overshoots without getting permanently stuck.
+	if next > current*4 {
+		next = current * 4
+	}
+	if next < MinDifficulty {
+		next = MinDifficulty
+	}
+	return next
+}
+
+// ProtocolVersionAt returns the consensus rule set that applies at height.
+// Validation code gates new rules behind: ProtocolVersionAt(height) >= newVer.
+// When a new fork is scheduled, add its entry to ForkActivations in config.go.
+func ProtocolVersionAt(height uint64) uint32 {
+	var best uint32 = 1
+	for ver, actHeight := range ForkActivations {
+		if height >= actHeight && ver > best {
+			best = ver
+		}
+	}
+	return best
+}
+
+// highestCheckpoint returns the highest checkpointed block height, or 0 if none.
+func highestCheckpoint() uint64 {
+	var h uint64
+	for height := range Checkpoints {
+		if height > h {
+			h = height
+		}
+	}
+	return h
+}
+
+// NextDifficultyFromParent computes the expected difficulty for a new block
+// whose immediate parent is parent. Unlike NextDifficulty, it walks ancestor
+// blocks via GetBlockByHash so it works correctly for blocks on a fork that
+// has not yet been adopted as the canonical chain.
+func NextDifficultyFromParent(s *Storage, height uint64, parent *Block) uint64 {
+	if height <= DifficultyWindow {
+		return InitialDifficulty
+	}
+
+	N := int(DifficultyWindow)
+
+	// Walk back N+1 blocks via parent hashes (oldest at index 0).
+	blocks := make([]*Block, N+1)
+	blocks[N] = parent
+	cur := parent
+	for i := N - 1; i >= 0; i-- {
+		prev, err := s.GetBlockByHash(cur.Header.PreviousHash)
+		if err != nil {
+			return InitialDifficulty
+		}
+		blocks[i] = prev
+		cur = prev
+	}
+
+	current := blocks[N].Header.Difficulty
+	if current < InitialDifficulty {
+		current = InitialDifficulty
+	}
+
+	var weightedSum, divisor int64
+	for i := 1; i <= N; i++ {
+		solveTime := blocks[i].Header.Timestamp - blocks[i-1].Header.Timestamp
+		if solveTime < 1 {
+			solveTime = 1
+		}
+		if solveTime > 6*TargetBlockTime {
+			solveTime = 6 * TargetBlockTime
+		}
+		weight := int64(i)
+		weightedSum += solveTime * weight
+		divisor += weight
+	}
+
+	avg := weightedSum / divisor
+	if avg < 1 {
+		avg = 1
+	}
+
+	next := uint64(float64(current) * float64(TargetBlockTime) / float64(avg))
+
 	if next > current*4 {
 		next = current * 4
 	}

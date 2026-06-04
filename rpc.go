@@ -238,7 +238,8 @@ func (r *RPCServer) handleInfo(w http.ResponseWriter) {
 	writeJSON(w, http.StatusOK, map[string]interface{}{
 		"name":               CoinName,
 		"ticker":             Ticker,
-		"version":            Version,
+		"version":            SoftwareVersion,
+		"protocol_version":   ProtocolVersion,
 		"network":            network,
 		"height":             bc.GetHeight(),
 		"peers":              len(r.node.Server.ConnectedPeers()),

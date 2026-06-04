@@ -441,9 +441,9 @@ func (s *Server) readLoop(peer *Peer) {
 // sendVersion sends our node's current version and chain height to peer.
 func (s *Server) sendVersion(peer *Peer) error {
 	vp := VersionPayload{
-		Version:   Version,
+		Version:   ProtocolVersion,
 		Height:    s.Blockchain.GetHeight(),
-		UserAgent: "Chakram/1.0",
+		UserAgent: fmt.Sprintf("Chakram/%s (protocol %d)", SoftwareVersion, ProtocolVersion),
 		Timestamp: time.Now().Unix(),
 		Nonce:     s.nonce,
 	}
@@ -497,6 +497,11 @@ func (s *Server) handleVersion(peer *Peer, msg Message) error {
 	}
 	peer.Height = vp.Height
 	peer.Version = vp.Version
+
+	if vp.Version < MinProtocolVersion {
+		return fmt.Errorf("peer %s: protocol version %d below minimum %d — upgrade required",
+			peer.Address, vp.Version, MinProtocolVersion)
+	}
 
 	// Send our version back if we haven't yet — ensures the peer always learns
 	// our current height even when they initiated the connection.

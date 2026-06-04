@@ -60,7 +60,7 @@ type Block struct {
 func NewBlock(previousHash []byte, height uint64, difficulty uint64, transactions []*Transaction) *Block {
 	b := &Block{
 		Header: BlockHeader{
-			Version:      Version,
+			Version:      ProtocolVersion,
 			Height:       height,
 			PreviousHash: previousHash,
 			MerkleRoot:   ComputeMerkleRoot(transactions),
@@ -115,7 +115,7 @@ func (b *Block) HashIsValid() bool {
 func NewGenesisBlock() *Block {
 	genesis := &Block{
 		Header: BlockHeader{
-			Version:      Version,
+			Version:      ProtocolVersion,
 			Height:       0,
 			PreviousHash: make([]byte, 32), // all zeros: no previous block
 			MerkleRoot:   make([]byte, 32),
