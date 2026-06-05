@@ -4,8 +4,8 @@ After=network.target
 
 [Service]
 Type=simple
-User=anandhusathe
-ExecStart=/home/anandhusathe/chakram node
+User=ubuntu
+ExecStart=/home/ubuntu/chakram node
 Restart=always
 RestartSec=10
 StandardOutput=journal

@@ -20,7 +20,7 @@ const (
 	MinProtocolVersion uint32 = 1
 
 	// SoftwareVersion is the human-readable release string. Bumped by release.sh.
-	SoftwareVersion = "v1.0.35"
+	SoftwareVersion = "v1.0.36"
 )
 
 // ForkActivations maps each protocol version to the block height at which its
@@ -142,10 +142,10 @@ const (
 	// 2× target rate no matter how much hashrate joins.
 	PostBootstrapMinGap int64 = 15
 
-	// RandomXLightMode uses the cache-only (light) RandomX mode (~256 MB RAM).
-	// Full mode requires ~2 GB and is impractical on mobile. Light mode is used
-	// for all platforms; server nodes may switch to full mode in a later phase.
-	RandomXLightMode = true
+	// RandomXLightMode is retained for reference. The CGo engine uses full mode
+	// (2 GB dataset, ~10x faster) on all supported platforms and falls back to
+	// light mode automatically if the system cannot allocate the dataset.
+	RandomXLightMode = false
 
 	// MiningThreads is the default number of threads used during mining.
 	// Can be overridden via the node config file in a later phase.

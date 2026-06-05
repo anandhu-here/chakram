@@ -11,7 +11,7 @@ pip3 install customtkinter requests pillow
 python3 chakram_gui.py
 ```
 
-The `chakram-mac` (or `chakram`) binary must be in the same folder as `chakram_gui.py`, or one directory up, or in `~/Downloads`. Download it from the [releases page](https://github.com/anandhu-here/chakram/releases).
+The `chakram-mac` (or `chakram`) binary must be in the same folder as `chakram_gui.py`, or one directory up, or in `~/Downloads`. Download it from the [releases page](https://github.com/anandhusathe/chakram/releases).
 
 ## Building a standalone Mac app
 

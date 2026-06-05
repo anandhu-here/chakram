@@ -10,29 +10,25 @@ Chakram is a fast, CPU-mineable cryptocurrency inspired by the ancient Travancor
 
 ## Features
 
-- ⛏ **CPU Mining** — RandomX algorithm, ASIC resistant. Mine with any laptop or desktop.
-- ⚡ **Fast** — 30 second block time, near-instant confirmations.
-- 🔒 **Secure** — Ed25519 signatures, double SHA256, BadgerDB storage.
-- 🌍 **Decentralised** — P2P network, no central authority.
-- 📱 **Mobile Ready** — Android mining node coming in v1.1.
-- 🏛 **Cultural Heritage** — Named after the real Travancore Chakram coin.  
+- **CPU Mining** — RandomX algorithm, ASIC resistant. Mine with any laptop or desktop.
+- **Fast** — 30 second block time, near-instant confirmations.
+- **Secure** — Ed25519 signatures, double SHA256, BadgerDB storage.
+- **Decentralised** — P2P network, no central authority.
+- **Mobile Ready** — Android mining node coming in v1.1.
+- **Cultural Heritage** — Named after the real Travancore Chakram coin.
   1 CHK = 1,000,000 Cash. The word "cash" comes from the Malayalam "Kasu".
 
 ## Installation
 
-Download the latest binary for your platform from [Releases](https://github.com/anandhusathe/chakram/releases).
+Download the latest binary for your platform from [Releases](https://github.com/anandhusathe/chakram/releases), or get the GUI desktop app from [chakram.one/download](https://chakram.one/download).
 
 ### macOS
-
-1. Download `chakram-mac`
-2. Open Terminal (search "Terminal" in Spotlight)
-3. Run these commands:
 
 ```bash
 cd ~/Downloads
 chmod +x chakram-mac
 xattr -d com.apple.quarantine chakram-mac
-./chakram-mac node --testnet
+./chakram-mac node
 ```
 
 > If you see "cannot be opened" — right-click the file, select **Open**, then click **Open** in the dialog.
@@ -41,19 +37,13 @@ xattr -d com.apple.quarantine chakram-mac
 
 1. Download `chakram-windows.exe`
 2. Double-click to run
-3. If Windows SmartScreen appears:
-   - Click **More info**
-   - Click **Run anyway**
-4. A terminal window will open with your node running
+3. If Windows SmartScreen appears: click **More info** → **Run anyway**
 
 ### Linux
 
-1. Download `chakram-linux`
-2. Open terminal:
-
 ```bash
 chmod +x chakram-linux
-./chakram-linux node --testnet
+./chakram-linux node
 ```
 
 ## Quick Start
@@ -61,25 +51,23 @@ chmod +x chakram-linux
 ### Run a Node
 
 ```bash
-# macOS/Linux — after installation steps above
-./chakram-mac node --testnet
-
-# Windows — double-click or run in terminal
-chakram-windows.exe node --testnet
+./chakram-mac node       # macOS
+./chakram-linux node     # Linux
+chakram-windows.exe node # Windows (or double-click)
 ```
 
 Your node will:
 1. Generate a wallet automatically
-2. Connect to the Chakram testnet
+2. Connect to the Chakram network
 3. Start syncing the blockchain
 4. Display your CK1 address
 
-**⚠️ Back up your 12-word mnemonic phrase immediately.**
+**Back up your 12-word mnemonic phrase immediately.**
 
 ### Mine Chakram
 
 ```bash
-./chakram-mac node --testnet --mine
+./chakram-mac node --mine
 ```
 
 Mining rewards go directly to your wallet address.
@@ -88,38 +76,39 @@ Mining rewards go directly to your wallet address.
 
 ```bash
 # Show your wallet address
-./chakram-mac wallet address --testnet
+./chakram-mac wallet address
 
 # Check your balance
-./chakram-mac wallet balance --testnet
+./chakram-mac wallet balance
+
+# Send CHK
+./chakram-mac send CK1... 10.5
 
 # Generate a new wallet
 ./chakram-mac wallet new
+
+# Recover from mnemonic
+./chakram-mac wallet recover --mnemonic "word1 word2 ... word12"
 ```
 
 ### Block Explorer
 
-Once your node is running, open your browser:
+Once your node is running, open your browser at:
 
 ```
-http://localhost:18339
+http://localhost:8339
 ```
 
-The block explorer is built into the node binary. No separate server needed.
+The block explorer is built into the node — no separate server needed.
 
-You can also browse the live testnet explorer at:
-
-```
-http://35.207.217.64:18339
-```
+Live explorer: **https://chakram.one**
 
 ## Network
 
-| | Testnet | Mainnet |
+| | Mainnet | Testnet |
 |---|---|---|
-| P2P Port | 18338 | 8338 |
-| RPC Port | 18339 | 8339 |
-| Seeds | 35.207.229.32, 34.1.166.49 | — |
+| P2P Port | 8338 | 18338 |
+| RPC Port | 8339 | 18339 |
 | Block time | ~30 sec | ~30 sec |
 | Halving | every 2,102,400 blocks | every 2,102,400 blocks |
 | Initial reward | 50 CHK | 50 CHK |
@@ -133,18 +122,29 @@ Requires Go 1.21+.
 git clone https://github.com/anandhusathe/chakram
 cd chakram
 
-# Build for your platform
+# Build for your platform (CGo enabled — requires a C compiler for RandomX)
 go build -o chakram .
 
-# Cross-compile
-GOOS=linux   GOARCH=amd64 go build -o chakram-linux .
+# Cross-compile (pure-Go RandomX fallback, sufficient for relay nodes)
+GOOS=linux   GOARCH=amd64 CGO_ENABLED=0 go build -o chakram-linux .
 GOOS=windows GOARCH=amd64 go build -o chakram-windows.exe .
 GOOS=darwin  GOARCH=amd64 go build -o chakram-mac .
 ```
 
-## Configuration
+### RandomX Libraries
 
-Copy the example config and edit as needed:
+Pre-built static libraries are vendored in `lib/` for supported platforms:
+
+| Platform | Path |
+|---|---|
+| macOS Intel | `lib/darwin_amd64/librandomx.a` |
+| macOS Apple Silicon | `lib/darwin_arm64/librandomx.a` |
+| Linux AMD64 | `lib/linux_amd64/librandomx.a` |
+| Windows AMD64 | `lib/windows_amd64/librandomx.a` |
+
+To rebuild a library from source, see the [RandomX repository](https://github.com/tevador/RandomX).
+
+## Configuration
 
 ```bash
 cp chakram.conf.example ~/.chakram/chakram.conf
@@ -158,7 +158,6 @@ The node exposes a JSON HTTP API on the RPC port:
 
 | Endpoint | Description |
 |---|---|
-| `GET /` | Block explorer UI |
 | `GET /info` | Node info, height, peers, supply |
 | `GET /block/:height` | Block by height |
 | `GET /block/hash/:hash` | Block by hash |
@@ -166,6 +165,13 @@ The node exposes a JSON HTTP API on the RPC port:
 | `GET /tx/:txid` | Transaction by ID |
 | `GET /address/:address` | Address balance and UTXOs |
 | `GET /peers` | Connected peers |
+| `GET /mempool` | Pending transactions |
+
+## Protocol Upgrades
+
+Chakram uses a versioned fork activation system. Scheduled hard forks activate at a specific block height — miners have advance notice to upgrade before the rules change. Old nodes that miss the upgrade are rejected by `MinProtocolVersion` in subsequent releases.
+
+See `config.go` (`ForkActivations`, `ProtocolVersion`, `MinProtocolVersion`) for details.
 
 ## About the Name
 

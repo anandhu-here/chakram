@@ -10,8 +10,9 @@ set -e
 # Usage:
 #   ./deploy-ui.sh
 
-WEB_NODE="34.1.166.49"   # seed-2 — the one running nginx + chakram.one
-REMOTE_BIN="/home/anandhusathe/chakram"
+WEB_NODE="34.1.166.49"
+REMOTE_USER="${CHAKRAM_SSH_USER:-anandhusathe}"   # override: CHAKRAM_SSH_USER=myuser ./deploy-ui.sh
+REMOTE_BIN="/home/$REMOTE_USER/chakram"
 SSH_OPTS="-o StrictHostKeyChecking=no -o ConnectTimeout=10 -o BatchMode=yes"
 
 echo "=== Chakram UI Deploy → seed-2 (chakram.one) ==="
@@ -33,25 +34,25 @@ echo "  ✓ chakram-linux"
 # ── Stop seed-2 ───────────────────────────────────────────────────────────────
 
 echo "Stopping seed-2..."
-ssh $SSH_OPTS anandhusathe@$WEB_NODE \
+ssh $SSH_OPTS $REMOTE_USER@$WEB_NODE \
   "sudo systemctl stop chakram-mainnet 2>/dev/null || sudo systemctl stop chakram-seed 2>/dev/null || true"
 
 # ── Push binary ───────────────────────────────────────────────────────────────
 
 echo "Copying binary to seed-2..."
-scp $SSH_OPTS ./chakram-linux anandhusathe@$WEB_NODE:$REMOTE_BIN
-ssh $SSH_OPTS anandhusathe@$WEB_NODE "chmod +x $REMOTE_BIN"
+scp $SSH_OPTS ./chakram-linux $REMOTE_USER@$WEB_NODE:$REMOTE_BIN
+ssh $SSH_OPTS $REMOTE_USER@$WEB_NODE "chmod +x $REMOTE_BIN"
 echo "  ✓ binary uploaded"
 
 # ── Start seed-2 ──────────────────────────────────────────────────────────────
 
 echo "Starting seed-2..."
-ssh $SSH_OPTS anandhusathe@$WEB_NODE "sudo systemctl start chakram-mainnet"
+ssh $SSH_OPTS $REMOTE_USER@$WEB_NODE "sudo systemctl start chakram-mainnet"
 
 # ── Reload nginx (picks up any config reload, does NOT overwrite SSL certs) ───
 
 echo "Reloading nginx..."
-ssh $SSH_OPTS anandhusathe@$WEB_NODE "sudo nginx -t && sudo systemctl reload nginx"
+ssh $SSH_OPTS $REMOTE_USER@$WEB_NODE "sudo nginx -t && sudo systemctl reload nginx"
 
 # ── Done ──────────────────────────────────────────────────────────────────────
 

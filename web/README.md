@@ -1,16 +1,36 @@
-# React + Vite
+# Chakram Web App
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+React + Vite frontend for the Chakram node. Embedded into the Go binary at build time via `go:embed` — no separate web server needed. Served directly from the node at the RPC port.
 
-Currently, two official plugins are available:
+## Pages
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)
+| Route | Description |
+|-------|-------------|
+| `/` | Block explorer — live chain, recent blocks, search |
+| `/wallet` | Browser-based wallet — send, receive, balance |
+| `/faucet` | Testnet faucet |
+| `/download` | Download page for binaries |
+| `/docs` | API reference |
 
-## React Compiler
+## Development
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+```bash
+cd web
+npm install
+npm run dev        # dev server at localhost:5173 (proxies API calls to localhost:8339)
+```
 
-## Expanding the ESLint configuration
+## Building
 
-If you are developing a production application, we recommend using TypeScript with type-aware lint rules enabled. Check out the [TS template](https://github.com/vitejs/vite/tree/main/packages/create-vite/template-react-ts) for information on how to integrate TypeScript and [`typescript-eslint`](https://typescript-eslint.io) in your project.
+```bash
+npm run build      # outputs to web/dist/
+```
+
+The Go build embeds `web/dist/` automatically. Run `npm run build` before `go build` to include the latest frontend.
+
+## Stack
+
+- React 18
+- Vite
+- CSS modules (no UI framework)
+- Ed25519 key derivation via BIP39 in-browser (`src/lib/walletCrypto.js`)
