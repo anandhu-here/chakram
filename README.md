@@ -163,9 +163,10 @@ The node exposes a JSON HTTP API on the RPC port:
 | `GET /block/hash/:hash` | Block by hash |
 | `GET /blocks/latest/:n` | Last N blocks (max 50) |
 | `GET /tx/:txid` | Transaction by ID |
-| `GET /address/:address` | Address balance and UTXOs |
+| `GET /address/:address` | Address balance (balance, balance_chk, utxo_count) |
+| `GET /utxos/:address` | Unspent outputs for an address (use as tx inputs) |
 | `GET /peers` | Connected peers |
-| `GET /mempool` | Pending transactions |
+| `POST /tx/submit` | Broadcast a signed transaction |
 
 ## Protocol Upgrades
 

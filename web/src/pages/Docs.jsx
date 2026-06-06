@@ -201,7 +201,7 @@ export default function Docs() {
               ['P2P port',    '8338',                    '18338'],
               ['RPC port',    '8339',                    '18339'],
               ['Magic bytes', '43 48 41 4B (CHAK)',      '43 48 41 54 (CHAT)'],
-              ['Seed nodes',  '35.207.229.32:8338\n34.1.166.49:8338', '35.207.229.32:18338\n34.1.166.49:18338'],
+              ['Seed nodes',  '35.207.229.32:8338\n34.1.166.49:8338\n35.207.217.64:8338', '35.207.229.32:18338\n34.1.166.49:18338'],
             ]} />
             <H3>Difficulty Adjustment</H3>
             <DataTable headers={['Parameter', 'Value']} rows={[
@@ -237,8 +237,9 @@ export default function Docs() {
               <Pre>{`{
   "name":               "Chakram",
   "ticker":             "CHK",
-  "version":            1,
-  "network":            "testnet",
+  "version":            "v1.0.37",
+  "protocol_version":   1,
+  "network":            "mainnet",
   "height":             14823,
   "peers":              3,
   "sync_status":        "Synced — height 14823",
@@ -297,8 +298,8 @@ export default function Docs() {
 { "txid": "a1b2c3...", "status": "submitted" }
 
 // Error
-{ "error": "mempool rejected: insufficient fee" }`}</Pre>
-              <Callout type="warn"><strong>Encoding:</strong> All byte fields (TxID, PublicKey, Signature, PublicKeyHash) must be <strong>base64-encoded</strong>. The <code className="font-mono text-xs">/tx/</code> lookup endpoint returns TxIDs in hex — convert to base64 when building inputs.</Callout>
+{ "error": "mempool rejected: mempool: input 0: invalid Ed25519 signature" }`}</Pre>
+              <Callout type="warn"><strong>Encoding:</strong> All byte fields (TxID, PublicKey, Signature, PublicKeyHash) must be <strong>base64-encoded</strong> in the request JSON. The <code className="font-mono text-xs">/utxos/</code> and <code className="font-mono text-xs">/tx/</code> endpoints return TxIDs as hex — hex-decode them to raw bytes, then base64-encode for submission.</Callout>
             </Endpoint>
           </section>
 
@@ -335,18 +336,19 @@ for each output: [8B] Value (uint64 LE) + [20B] PublicKeyHash
 [8B]   Timestamp (int64 LE)
 
 TxID = SHA256(SHA256(canonical_bytes))`}</Pre>
-            <Callout type="tip">Compute TxID <strong>before</strong> signing. Use zero-filled Signature and PublicKey. TxID is stable after signatures are added.</Callout>
+            <Callout type="tip">Compute TxID <strong>before</strong> signing. TxID does not commit to Signature or PublicKey — it is stable after signatures are added.</Callout>
           </section>
 
           <section id="signing">
             <H2 id="signing">Signing</H2>
-            <Pre>{`// For each input i:
-preimage  = base64_decode(input[i].TxID) ++ uint32_LE(input[i].OutputIndex)
+            <Pre>{`// For each input i (txid_bytes = hex-decoded from /utxos response):
+preimage  = txid_bytes ++ uint32_LE(output_index)
 message   = SHA256(preimage)
-signature = ed25519.Sign(seed, message)
+signature = ed25519.Sign(privKey, message)
 
-input[i].Signature = base64_encode(signature)
-input[i].PublicKey = base64_encode(ed25519.PublicKey(seed))`}</Pre>
+// When submitting via /tx/submit, Go's JSON encoder base64-encodes []byte fields:
+input[i].Signature  → base64(signature)      // set automatically
+input[i].PublicKey  → base64(pubKey)         // set automatically`}</Pre>
             <P>Fee is implicit: <code className="bg-surface2 border border-border px-1 py-0.5 rounded text-xs font-mono">fee = Σ inputs − Σ outputs</code>. Minimum: 1,000 Cash. Add a change output if needed.</P>
           </section>
 
@@ -363,10 +365,10 @@ input[i].PublicKey = base64_encode(ed25519.PublicKey(seed))`}</Pre>
 
           <section id="running">
             <H2 id="running">Running a Node</H2>
-            <Pre>{`./chakram                          # mainnet
-./chakram --testnet                # testnet
-./chakram --peer 35.207.229.32:18338
-./chakram --datadir /var/lib/chakram`}</Pre>
+            <Pre>{`./chakram node                     # mainnet
+./chakram node --testnet           # testnet
+./chakram node --mine              # mainnet with mining
+./chakram node --testnet --mine    # testnet with mining`}</Pre>
             <DataTable headers={['Port', 'Protocol', 'Purpose']} rows={[
               ['8338 / 18338', 'TCP', 'P2P peer connections'],
               ['8339 / 18339', 'TCP', 'HTTP RPC, explorer, wallet'],
@@ -376,10 +378,10 @@ input[i].PublicKey = base64_encode(ed25519.PublicKey(seed))`}</Pre>
           <section id="mining">
             <H2 id="mining">Mining</H2>
             <P>Chakram uses <strong className="text-text">RandomX</strong> — ASIC-resistant CPU mining. Built into the node binary.</P>
-            <Pre>{`./chakram --mine
-./chakram --testnet --mine`}</Pre>
+            <Pre>{`./chakram node --mine
+./chakram node --testnet --mine`}</Pre>
             <DataTable headers={['Parameter', 'Value']} rows={[
-              ['Algorithm',        'RandomX (light mode)'],
+              ['Algorithm',        'RandomX'],
               ['Epoch length',     '64 blocks (~32 min)'],
               ['Block reward',     '50 CHK (era 1)'],
               ['Halving interval', '2,102,400 blocks (~2 years)'],
@@ -389,19 +391,22 @@ input[i].PublicKey = base64_encode(ed25519.PublicKey(seed))`}</Pre>
 
           <section id="p2p">
             <H2 id="p2p">P2P Protocol</H2>
-            <Pre>{`[4B]  Magic (0x43484143 mainnet / 0x43484154 testnet)
+            <Pre>{`[4B]  Magic (0x4348414B mainnet / 0x43484154 testnet)
 [1B]  Message type
 [4B]  Payload length (uint32 big-endian)
 [NB]  Payload (JSON)`}</Pre>
             <DataTable headers={['Type', 'Name', 'Description']} rows={[
-              ['0x01','Version',   'Handshake — announces height + version'],
-              ['0x02','GetBlocks', 'Request blocks from height N'],
-              ['0x03','Blocks',    'Block response'],
-              ['0x04','Inv',       'Announce new block or tx hash'],
-              ['0x05','GetData',   'Request specific block or tx'],
-              ['0x06','Tx',        'Relay a transaction'],
-              ['0x07','GetPeers',  'Request peer list'],
-              ['0x08','Peers',     'Peer list response'],
+              ['0x01','Version',   'Handshake — announces height, protocol version, user agent'],
+              ['0x02','VerAck',    'Handshake acknowledgement'],
+              ['0x03','GetBlocks', 'Request block inventory from height N'],
+              ['0x04','Inv',       'Announce new block or tx by hash'],
+              ['0x05','GetData',   'Request a specific block or tx'],
+              ['0x06','Block',     'Full block delivery'],
+              ['0x07','Tx',        'Relay a transaction'],
+              ['0x08','Ping',      'Keepalive ping'],
+              ['0x09','Pong',      'Keepalive response'],
+              ['0x0A','GetPeers',  'Request peer list'],
+              ['0x0B','Peers',     'Peer list response'],
             ]} />
           </section>
 
@@ -434,17 +439,19 @@ sig      := ed25519.Sign(privKey, message[:])`}</Pre>
 
           <section id="errors">
             <H2 id="errors">Error Reference</H2>
-            <DataTable headers={['HTTP', 'Error', 'Cause']} rows={[
-              ['400', 'invalid height',                          'Non-integer height'],
-              ['400', 'invalid hash',                           'Non-hex hash string'],
-              ['400', 'invalid address',                        'Not a valid CK1 address'],
-              ['400', 'mempool rejected: insufficient fee',     'Fee < 1,000 Cash'],
-              ['400', 'mempool rejected: utxo not found',      'Spent or non-existent UTXO'],
-              ['400', 'mempool rejected: invalid Ed25519 signature', 'Signature does not verify'],
-              ['400', 'mempool rejected: coinbase output not yet mature', 'Reward before 10 confirmations'],
-              ['404', 'block not found',                        'No block at height/hash'],
-              ['404', 'transaction not found',                  'TxID not in index'],
-              ['405', 'method not allowed',                     'Wrong HTTP method'],
+            <DataTable headers={['HTTP', 'Error pattern', 'Cause']} rows={[
+              ['400', 'invalid height',                                      'Non-integer height in /block/:height'],
+              ['400', 'invalid hash',                                        'Non-hex hash in /block/hash/:hash'],
+              ['400', 'invalid txid',                                        'Non-hex txid in /tx/:txid'],
+              ['400', 'invalid address',                                     'Not a valid CK1 address'],
+              ['400', 'transaction invalid: ...',                            'Structural validation failed (missing fields, zero value, etc.)'],
+              ['400', 'mempool rejected: mempool: input N: utxo not found',  'UTXO spent or non-existent'],
+              ['400', 'mempool rejected: mempool: input N: invalid Ed25519 signature', 'Signature does not verify'],
+              ['400', 'mempool rejected: mempool: input N: coinbase output not yet mature', 'Coinbase UTXO before 10 confirmations'],
+              ['400', 'mempool rejected: mempool: full',                     'Mempool at 10,000 tx limit'],
+              ['404', 'block not found',                                     'No block at height/hash'],
+              ['404', 'transaction not found',                               'TxID not in chain index'],
+              ['405', 'method not allowed',                                  'Wrong HTTP method'],
             ]} />
             <div className="mt-12 pt-6 border-t border-border text-xs text-muted">
               Chakram Protocol — Kerala's Digital Currency —{' '}
