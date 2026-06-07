@@ -41,7 +41,7 @@ RPC_BASE  = "http://localhost:8339"
 RPC_PORT  = 8339
 PID_FILE  = os.path.expanduser("~/.chakram/mainnet/gui.pid")
 POLL_SECS = 5
-VERSION   = "v1.0.42"
+VERSION   = "v1.0.43"
 
 def _get_logo_path():
     # When bundled with PyInstaller, sys._MEIPASS is the temp extract dir.
@@ -603,23 +603,54 @@ class ChakramApp(ctk.CTk):
         self.after(0, self._show_node_timeout)
 
     def _launch_node(self, mine=False):
+        # Kill our tracked process if it's still alive.
         if self._node_proc and self._node_proc.poll() is None:
-            self._node_proc.terminate()
+            if sys.platform != "win32":
+                try:
+                    os.killpg(os.getpgid(self._node_proc.pid), signal.SIGTERM)
+                except (ProcessLookupError, OSError):
+                    self._node_proc.terminate()
+            else:
+                self._node_proc.terminate()
             try:
                 self._node_proc.wait(timeout=6)
             except subprocess.TimeoutExpired:
                 self._node_proc.kill()
+                try:
+                    self._node_proc.wait(timeout=2)
+                except subprocess.TimeoutExpired:
+                    pass
+            self._node_proc = None
 
-        # On Windows, terminate() calls TerminateProcess() — an immediate hard
-        # kill with no signal handling. BadgerDB never flushes, leaving a LOCK
-        # file that prevents the next node instance from opening the database.
-        # Remove it before launching so the new process starts cleanly.
+        # If the node is still responding (GUI connected to an externally-started
+        # node — self._node_proc is None), kill the orphan before launching.
+        # Without this the new node can't bind to ports or open the database.
+        if node_is_running():
+            self._kill_orphan_node()
+            # On Windows fall back to killing by port when no PID file exists.
+            if node_is_running() and sys.platform == "win32":
+                self._kill_node_by_port_win()
+            # Wait until RPC goes dark (up to 4 s).
+            for _ in range(8):
+                time.sleep(0.5)
+                if not node_is_running():
+                    break
+
+        # On Windows, TerminateProcess() is an immediate hard kill — no SIGTERM,
+        # no BadgerDB flush.  The OS may not release the LOCK file handle for
+        # hundreds of milliseconds after proc.wait() returns.  Sleep first, then
+        # retry deletion so the new node can open the database cleanly.
         if sys.platform == "win32":
+            time.sleep(0.6)
             lock = os.path.join(os.path.expanduser("~/.chakram/mainnet"), "LOCK")
-            try:
-                os.remove(lock)
-            except OSError:
-                pass
+            for _ in range(10):
+                try:
+                    os.remove(lock)
+                    break
+                except FileNotFoundError:
+                    break  # already gone — fine
+                except OSError:
+                    time.sleep(0.25)
 
         cmd = [self._binary, "node", "--password", self._password]
         if mine:
@@ -1247,8 +1278,17 @@ class ChakramApp(ctk.CTk):
         self._we_started_node = True
         if self._mining:
             self._hashrate = ""
-        self._launch_node(mine=not self._mining)
+        new_mine = not self._mining
+        # Disable button while switching to prevent double-click race.
+        self._mine_btn.configure(state="disabled", text="Restarting…")
         self._status_label.configure(text="Restarting node…")
+        threading.Thread(target=self._do_toggle_mining,
+                         args=(new_mine,), daemon=True).start()
+
+    def _do_toggle_mining(self, mine):
+        self._launch_node(mine=mine)
+        # Re-enable the button once the new node process is launched.
+        self.after(0, lambda: self._mine_btn.configure(state="normal"))
 
     def _do_send(self):
         to_addr = self._to_entry.get().strip()
@@ -1332,9 +1372,13 @@ class ChakramApp(ctk.CTk):
                 with open(PID_FILE) as f:
                     pid = int(f.read().strip())
                 try:
-                    os.kill(pid, signal.SIGTERM)
+                    if sys.platform == "win32":
+                        subprocess.run(["taskkill", "/F", "/PID", str(pid)],
+                                       capture_output=True, timeout=5)
+                    else:
+                        os.kill(pid, signal.SIGTERM)
                     time.sleep(0.3)
-                except (ProcessLookupError, OSError):
+                except (ProcessLookupError, OSError, Exception):
                     pass
                 self._clear_pid_file()
                 return
@@ -1342,6 +1386,7 @@ class ChakramApp(ctk.CTk):
             pass
 
         if sys.platform == "win32":
+            self._kill_node_by_port_win()
             return
         try:
             result = subprocess.run(
@@ -1353,6 +1398,23 @@ class ChakramApp(ctk.CTk):
                     os.kill(int(line.strip()), signal.SIGTERM)
                 except (ProcessLookupError, ValueError, OSError):
                     pass
+        except Exception:
+            pass
+
+    def _kill_node_by_port_win(self):
+        """Windows fallback: find and kill whatever process owns RPC_PORT."""
+        try:
+            result = subprocess.run(
+                ["netstat", "-ano"],
+                capture_output=True, text=True, timeout=5
+            )
+            for line in result.stdout.splitlines():
+                if f":{RPC_PORT}" in line and "LISTENING" in line:
+                    parts = line.split()
+                    if parts:
+                        pid = int(parts[-1])
+                        subprocess.run(["taskkill", "/F", "/PID", str(pid)],
+                                       capture_output=True, timeout=5)
         except Exception:
             pass
 
