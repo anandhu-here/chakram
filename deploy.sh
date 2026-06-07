@@ -43,9 +43,14 @@ sleep 5
 # ── Copy binary ───────────────────────────────────────────────────────────────
 
 echo "Copying binary..."
-scp $SSH_OPTS $BINARY $REMOTE_USER@$SEED1:$REMOTE_BIN && ssh $SSH_OPTS $REMOTE_USER@$SEED1 "chmod +x $REMOTE_BIN" && echo "  seed-1 done"
-scp $SSH_OPTS $BINARY $REMOTE_USER@$SEED2:$REMOTE_BIN && ssh $SSH_OPTS $REMOTE_USER@$SEED2 "chmod +x $REMOTE_BIN" && echo "  seed-2 done"
-scp $SSH_OPTS $BINARY $REMOTE_USER@$SEED3:$REMOTE_BIN && ssh $SSH_OPTS $REMOTE_USER@$SEED3 "chmod +x $REMOTE_BIN" && echo "  seed-3 done"
+for HOST in $SEED1 $SEED2 $SEED3; do
+  # Remove the old binary first — a running process holds the file open on Linux,
+  # which causes scp to fail with "dest open: Failure" even after systemctl stop.
+  ssh $SSH_OPTS $REMOTE_USER@$HOST "rm -f $REMOTE_BIN"
+  scp $SSH_OPTS $BINARY $REMOTE_USER@$HOST:$REMOTE_BIN && \
+    ssh $SSH_OPTS $REMOTE_USER@$HOST "chmod +x $REMOTE_BIN" && \
+    echo "  $HOST done" || echo "  $HOST FAILED"
+done
 
 # ── Install mainnet service ───────────────────────────────────────────────────
 

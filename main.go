@@ -6,6 +6,7 @@ import (
 	"os"
 	"os/signal"
 	"runtime"
+	"strconv"
 	"strings"
 	"syscall"
 	"time"
@@ -74,6 +75,11 @@ func runNode(args []string) {
 	}
 	if m := flags["mineraddress"]; m != "" {
 		cfg.MinerAddr = m
+	}
+	if t := flags["threads"]; t != "" {
+		if n, err := strconv.Atoi(t); err == nil && n > 0 {
+			cfg.MiningThreads = n
+		}
 	}
 
 	node, err := NewNode(cfg)

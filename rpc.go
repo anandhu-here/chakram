@@ -10,9 +10,11 @@ import (
 	"encoding/json"
 	"fmt"
 	"io/fs"
+	"net"
 	"net/http"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 )
 
@@ -22,16 +24,85 @@ var webDist embed.FS
 //go:embed assets/chakram.png
 var logoPNG []byte
 
+// ── Rate limiter ──────────────────────────────────────────────────────────────
+
+// ipBucket is a token-bucket rate limiter entry per remote IP.
+type ipBucket struct {
+	tokens   float64
+	lastFill time.Time
+}
+
+type rateLimiter struct {
+	mu      sync.Mutex
+	clients map[string]*ipBucket
+}
+
+func newRateLimiter() *rateLimiter {
+	rl := &rateLimiter{clients: make(map[string]*ipBucket)}
+	go rl.cleanup()
+	return rl
+}
+
+// allow returns true if the IP is within its rate limit.
+// rate = sustained tokens/second, burst = maximum token accumulation.
+func (rl *rateLimiter) allow(ip string, rate, burst float64) bool {
+	rl.mu.Lock()
+	defer rl.mu.Unlock()
+	b, ok := rl.clients[ip]
+	if !ok {
+		b = &ipBucket{tokens: burst, lastFill: time.Now()}
+		rl.clients[ip] = b
+	}
+	now := time.Now()
+	b.tokens = min(burst, b.tokens+now.Sub(b.lastFill).Seconds()*rate)
+	b.lastFill = now
+	if b.tokens < 1 {
+		return false
+	}
+	b.tokens--
+	return true
+}
+
+// cleanup removes stale entries every 5 minutes to prevent unbounded growth.
+func (rl *rateLimiter) cleanup() {
+	for range time.Tick(5 * time.Minute) {
+		cutoff := time.Now().Add(-10 * time.Minute)
+		rl.mu.Lock()
+		for ip, b := range rl.clients {
+			if b.lastFill.Before(cutoff) {
+				delete(rl.clients, ip)
+			}
+		}
+		rl.mu.Unlock()
+	}
+}
+
+// remoteIP extracts the client IP, respecting X-Forwarded-For from nginx.
+func remoteIP(req *http.Request) string {
+	if xff := req.Header.Get("X-Forwarded-For"); xff != "" {
+		if ip, _, err := net.SplitHostPort(strings.TrimSpace(strings.Split(xff, ",")[0])); err == nil {
+			return ip
+		}
+		return strings.TrimSpace(strings.Split(xff, ",")[0])
+	}
+	ip, _, err := net.SplitHostPort(req.RemoteAddr)
+	if err != nil {
+		return req.RemoteAddr
+	}
+	return ip
+}
+
 // ── Server ────────────────────────────────────────────────────────────────────
 
 type RPCServer struct {
-	node   *Node
-	port   int
-	server *http.Server
+	node    *Node
+	port    int
+	server  *http.Server
+	limiter *rateLimiter
 }
 
 func NewRPCServer(node *Node, port int) *RPCServer {
-	return &RPCServer{node: node, port: port}
+	return &RPCServer{node: node, port: port, limiter: newRateLimiter()}
 }
 
 func (r *RPCServer) Start() error {
@@ -66,16 +137,29 @@ func (r *RPCServer) route(w http.ResponseWriter, req *http.Request) {
 	w.Header().Set("Access-Control-Allow-Origin", "*")
 	w.Header().Set("Content-Type", "application/json")
 
+	ip := remoteIP(req)
 	parts := strings.Split(strings.Trim(req.URL.Path, "/"), "/")
 
-	// POST routes
+	// POST routes — stricter limit: 5 req burst, 0.2/s sustained (~12/min).
 	if req.Method == http.MethodPost {
 		if len(parts) == 2 && parts[0] == "tx" && parts[1] == "submit" {
+			if !r.limiter.allow(ip, 0.2, 5) {
+				writeError(w, http.StatusTooManyRequests, "rate limit exceeded")
+				return
+			}
 			r.handleTxSubmit(w, req)
 			return
 		}
 		writeError(w, http.StatusMethodNotAllowed, "method not allowed")
 		return
+	}
+
+	// GET routes — general limit: 20 req burst, 2/s sustained.
+	if req.Method == http.MethodGet {
+		if !r.limiter.allow(ip, 2, 20) {
+			writeError(w, http.StatusTooManyRequests, "rate limit exceeded")
+			return
+		}
 	}
 
 	if req.Method != http.MethodGet {

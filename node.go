@@ -14,15 +14,16 @@ import (
 // ── Config ────────────────────────────────────────────────────────────────────
 
 type NodeConfig struct {
-	DataDir    string
-	WalletFile string
-	Password   string
-	Port       int
-	Testnet    bool
-	Mine       bool
-	MinerAddr  string
-	LogLevel   string
-	Seeds      []string
+	DataDir        string
+	WalletFile     string
+	Password       string
+	Port           int
+	Testnet        bool
+	Mine           bool
+	MinerAddr      string
+	MiningThreads  int
+	LogLevel       string
+	Seeds          []string
 }
 
 // DefaultConfig returns sensible defaults for mainnet or testnet.
@@ -199,14 +200,16 @@ func (n *Node) Start() error {
 		for {
 			select {
 			case <-ticker.C:
-				if len(n.Server.ConnectedPeers()) < MinPeers {
-					for _, seed := range n.Config.Seeds {
-						if n.Server.isOwnAddress(seed) {
-							continue
-						}
-						if !n.Server.IsConnected(seed) {
-							n.Server.ConnectToPeer(seed) //nolint:errcheck
-						}
+				// Seeds are hardcoded infrastructure — always reconnect to them
+				// unconditionally, regardless of total peer count. This keeps
+				// block propagation alive across seed restarts without requiring
+				// miners to restart too.
+				for _, seed := range n.Config.Seeds {
+					if n.Server.isOwnAddress(seed) {
+						continue
+					}
+					if !n.Server.IsConnected(seed) {
+						n.Server.ConnectToPeer(seed) //nolint:errcheck
 					}
 				}
 			case <-n.quit:
