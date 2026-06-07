@@ -41,7 +41,7 @@ RPC_BASE  = "http://localhost:8339"
 RPC_PORT  = 8339
 PID_FILE  = os.path.expanduser("~/.chakram/mainnet/gui.pid")
 POLL_SECS = 5
-VERSION   = "v1.0.41"
+VERSION   = "v1.0.42"
 
 def _get_logo_path():
     # When bundled with PyInstaller, sys._MEIPASS is the temp extract dir.
@@ -610,6 +610,17 @@ class ChakramApp(ctk.CTk):
             except subprocess.TimeoutExpired:
                 self._node_proc.kill()
 
+        # On Windows, terminate() calls TerminateProcess() — an immediate hard
+        # kill with no signal handling. BadgerDB never flushes, leaving a LOCK
+        # file that prevents the next node instance from opening the database.
+        # Remove it before launching so the new process starts cleanly.
+        if sys.platform == "win32":
+            lock = os.path.join(os.path.expanduser("~/.chakram/mainnet"), "LOCK")
+            try:
+                os.remove(lock)
+            except OSError:
+                pass
+
         cmd = [self._binary, "node", "--password", self._password]
         if mine:
             cmd.append("--mine")
@@ -1110,7 +1121,7 @@ class ChakramApp(ctk.CTk):
         info = rpc_get("/info")
         win = ctk.CTkToplevel(self)
         win.title("Settings")
-        win.geometry("460x310")
+        win.geometry("460x330")
         win.configure(fg_color=BG)
         win.grab_set()
         win.focus()
@@ -1156,10 +1167,81 @@ class ChakramApp(ctk.CTk):
                 # os.startfile is the correct Windows API — no shell quoting issues.
                 os.startfile(data_dir)
 
-        ctk.CTkButton(win, text="Open Data Folder", width=160, height=30,
+        btn_row = ctk.CTkFrame(win, fg_color="transparent")
+        btn_row.pack(pady=16)
+        ctk.CTkButton(btn_row, text="Open Data Folder", width=160, height=30,
                       fg_color=BG3, hover_color=BORDER, text_color=TEXT2,
                       font=("Courier New", 11),
-                      command=open_data_dir).pack(pady=16)
+                      command=open_data_dir).pack(side="left", padx=(0, 10))
+        ctk.CTkButton(btn_row, text="Reset Node Data", width=160, height=30,
+                      fg_color=BG3, hover_color="#5a1010", text_color=RED,
+                      font=("Courier New", 11),
+                      command=lambda: self._confirm_reset(win)).pack(side="left")
+
+    def _confirm_reset(self, parent):
+        parent.grab_release()
+        dlg = ctk.CTkToplevel(self)
+        dlg.title("Reset Node Data")
+        dlg.geometry("460x320")
+        dlg.configure(fg_color=BG)
+        dlg.grab_set()
+        dlg.focus()
+
+        ctk.CTkLabel(dlg, text="⚠  Reset Node Data",
+                     font=("Courier New", 16, "bold"), text_color=RED).pack(pady=(24, 4))
+
+        card = ctk.CTkFrame(dlg, fg_color=BG2, corner_radius=10)
+        card.pack(fill="x", padx=24, pady=(8, 0))
+        ctk.CTkLabel(card,
+                     text="This will permanently delete your local chain data.\n"
+                          "This action cannot be undone.\n\n"
+                          "⚠  Any CHK stored only on this node will be lost.\n"
+                          "Transfer your balance to another wallet first.",
+                     font=("Courier New", 11), text_color=TEXT2,
+                     justify="center", wraplength=390).pack(padx=16, pady=16)
+
+        ctk.CTkLabel(dlg, text='Type  RESET  to confirm:',
+                     font=("Courier New", 11), text_color=TEXT2).pack(pady=(12, 4))
+        confirm_entry = ctk.CTkEntry(dlg, width=180, fg_color=BG3, border_color=RED,
+                                     text_color=TEXT, font=("Courier New", 13, "bold"),
+                                     justify="center")
+        confirm_entry.pack()
+
+        err_lbl = ctk.CTkLabel(dlg, text="", font=("Courier New", 10), text_color=RED)
+        err_lbl.pack(pady=(4, 0))
+
+        btn_row = ctk.CTkFrame(dlg, fg_color="transparent")
+        btn_row.pack(pady=12)
+        ctk.CTkButton(btn_row, text="Cancel", width=110, height=34,
+                      fg_color=BG3, hover_color=BORDER, text_color=TEXT2,
+                      font=("Courier New", 12),
+                      command=dlg.destroy).pack(side="left", padx=(0, 12))
+        ctk.CTkButton(btn_row, text="Reset Everything", width=150, height=34,
+                      fg_color=RED, hover_color="#a03030", text_color=TEXT,
+                      font=("Courier New", 12, "bold"),
+                      command=lambda: self._do_reset(confirm_entry.get(), err_lbl, dlg)
+                      ).pack(side="left")
+
+    def _do_reset(self, typed, err_lbl, dlg):
+        if typed.strip() != "RESET":
+            err_lbl.configure(text='You must type  RESET  exactly.')
+            return
+        dlg.destroy()
+        self._stop_node()
+        data_dir = os.path.expanduser("~/.chakram/mainnet")
+        import shutil
+        try:
+            shutil.rmtree(data_dir)
+        except Exception as e:
+            pass
+        self._last_balance    = -1.0
+        self._last_mined_block = None
+        self._last_tx_count   = 0
+        self._balance_label.configure(text="— CHK")
+        self._addr_label.configure(text="—")
+        self._address = ""
+        self.after(500, lambda: threading.Thread(
+            target=self._connect_or_start, daemon=True).start())
 
     def _toggle_mining(self):
         self._we_started_node = True
