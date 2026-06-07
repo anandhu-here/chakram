@@ -396,9 +396,11 @@ func (n *Node) mineLoop() {
 
 		n.Mempool.ClearConfirmed(b.Transactions)
 
-		inv, err := NewMessage(n.Server.magic, MsgInv, InvPayload{
-			Items: []InvItem{{Type: 1, Hash: b.Hash}},
-		})
+		// Broadcast the full block directly — no inv→getdata round-trip from seeds.
+		// Using MsgBlock here (instead of MsgInv) closes the last remaining path
+		// where a stale pendingInv entry or failed GetData could silently drop the
+		// newly mined block before it reaches the other miner.
+		blockMsg, err := NewMessage(n.Server.magic, MsgBlock, b)
 		if err == nil {
 			// If no connected peers at broadcast time, immediately reconnect to seeds
 			// so the block reaches the network without waiting for the 30s ticker.
@@ -410,7 +412,7 @@ func (n *Node) mineLoop() {
 				}
 				time.Sleep(2 * time.Second) // brief wait for handshake before broadcast
 			}
-			n.Server.Broadcast(inv, nil)
+			n.Server.Broadcast(blockMsg, nil)
 		}
 
 		fmt.Printf("⛏  Mined block %d — hash: %x\n", height, b.Hash)

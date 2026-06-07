@@ -167,6 +167,10 @@ func (sm *SyncManager) OnBlockReceived(b *Block, from *Peer) {
 	// the current tip and it is at least as tall as ours (same-height competing
 	// blocks may carry more chainwork and must not be skipped). Limit to one
 	// reorg per 2s so a fast miner cannot flood seeds with reorganisation work.
+	// IMPORTANT: only update lastReorg when a reorg actually occurs (tip changes
+	// to b.Hash). Updating it for side-chain blocks (competing blocks that lose
+	// the chainwork/hash comparison) would suppress the winning competing block
+	// that arrives next, causing multi-block chain divergence between miners.
 	wouldReorg := !bytes.Equal(b.Header.PreviousHash, sm.blockchain.GetTip()) &&
 		b.Header.Height >= sm.blockchain.GetHeight()
 	if wouldReorg {
@@ -175,8 +179,8 @@ func (sm *SyncManager) OnBlockReceived(b *Block, from *Peer) {
 			sm.reorgMu.Unlock()
 			return
 		}
-		sm.lastReorg = time.Now()
 		sm.reorgMu.Unlock()
+		// Do NOT set lastReorg here — set it only after confirming an actual reorg.
 	}
 
 	if err := sm.blockchain.AddBlock(b); err != nil {
@@ -196,6 +200,16 @@ func (sm *SyncManager) OnBlockReceived(b *Block, from *Peer) {
 				b.Header.Height, peerAddr(from), err)
 		}
 		return
+	}
+
+	// Now that AddBlock succeeded, record the reorg timestamp if a reorg actually
+	// occurred (tip changed to this block). A side-chain block (one that lost the
+	// chainwork/hash comparison inside AddBlock) must NOT update lastReorg —
+	// the actual winning competing block from the other miner is still in flight.
+	if wouldReorg && bytes.Equal(sm.blockchain.GetTip(), b.Hash) {
+		sm.reorgMu.Lock()
+		sm.lastReorg = time.Now()
+		sm.reorgMu.Unlock()
 	}
 
 	// Keep peer.Height current so doSync has accurate data.
