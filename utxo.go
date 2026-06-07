@@ -376,12 +376,20 @@ func (u *UTXOSet) ProcessBlock(b *Block, height uint64) (*BlockUndo, error) {
 // Used during chain reorganisation to revert the old main chain before
 // switching to the new one.
 func (u *UTXOSet) RollbackBlock(undo *BlockUndo) error {
-	// Delete all UTXOs created by the block.
+	// Delete all UTXOs created by the block. If a UTXO is already missing
+	// (e.g. UTXO index was corrupted by a prior relay bug), treat it as
+	// already deleted — the goal is for it to not exist, and it doesn't.
 	for _, ref := range undo.CreatedRefs {
-		if err := u.SpendUTXO(ref.TxID, ref.OutputIndex); err != nil {
-			return fmt.Errorf("rollback: delete created utxo %x:%d: %w",
-				ref.TxID, ref.OutputIndex, err)
+		err := u.SpendUTXO(ref.TxID, ref.OutputIndex)
+		if err == nil {
+			continue
 		}
+		// SpendUTXO failed — only a real error if the UTXO still exists.
+		if _, getErr := u.GetUTXO(ref.TxID, ref.OutputIndex); getErr != nil {
+			continue // already gone — goal achieved
+		}
+		return fmt.Errorf("rollback: delete created utxo %x:%d: %w",
+			ref.TxID, ref.OutputIndex, err)
 	}
 	// Restore all UTXOs that the block spent.
 	for _, utxo := range undo.SpentUTXOs {
