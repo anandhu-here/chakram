@@ -41,7 +41,7 @@ RPC_BASE  = "http://localhost:8339"
 RPC_PORT  = 8339
 PID_FILE  = os.path.expanduser("~/.chakram/mainnet/gui.pid")
 POLL_SECS = 5
-VERSION   = "v1.0.44"
+VERSION   = "v1.0.45"
 
 def _get_logo_path():
     # When bundled with PyInstaller, sys._MEIPASS is the temp extract dir.
@@ -598,9 +598,13 @@ class ChakramApp(ctk.CTk):
             if node_is_running():
                 self.after(0, self._on_node_ready)
                 return
+            # If the process already died, no point waiting the full 30 s.
+            if self._node_proc and self._node_proc.poll() is not None:
+                break
             time.sleep(1)
 
-        self.after(0, self._show_node_timeout)
+        crash_reason = self._read_crash_reason()
+        self.after(0, self._show_node_timeout, crash_reason)
 
     def _launch_node(self, mine=False):
         # Kill our tracked process if it's still alive.
@@ -693,20 +697,73 @@ class ChakramApp(ctk.CTk):
         except Exception:
             pass
 
-    def _show_node_timeout(self):
+    def _read_crash_reason(self):
+        """Read the last FATAL line from node.log and return a user-friendly tuple
+        (headline, detail, suggest_reset) or None if no crash found."""
+        log_path = os.path.join(os.path.expanduser("~/.chakram/mainnet"), "node.log")
+        try:
+            with open(log_path, "r", errors="replace") as f:
+                lines = f.readlines()
+            # Scan from the end for the most recent FATAL line.
+            for line in reversed(lines):
+                low = line.lower()
+                if "fatal" not in low and "error" not in low:
+                    continue
+                if "not enough space" in low or "no space left" in low:
+                    return ("Disk full", "Free up space on your main drive, then retry.", False)
+                if "vlog" in low or "truncate" in low or "create a new file" in low or "open existing" in low:
+                    return ("Corrupted chain data",
+                            "The database was damaged (likely a previous crash or disk-full event).\n"
+                            "Use Reset Node Data to wipe and resync from the network.",
+                            True)
+                if "lock" in low and "badger" in low:
+                    return ("Database locked",
+                            "Another Chakram process may still be running.\n"
+                            "Close all Chakram windows and retry.",
+                            False)
+                if "fatal" in low:
+                    # Generic FATAL — show the raw line trimmed.
+                    detail = line.replace("FATAL:", "").strip()[:120]
+                    return ("Node crashed on startup", detail, False)
+        except Exception:
+            pass
+        return None
+
+    def _show_node_timeout(self, crash=None):
         self._clear_overlay()
         f = ctk.CTkFrame(self._overlay, fg_color="transparent")
         f.place(relx=0.5, rely=0.5, anchor="center")
-        ctk.CTkLabel(f, text="Node failed to start",
-                     font=("Courier New", 16, "bold"), text_color=RED).pack(pady=(0, 8))
-        ctk.CTkLabel(f, text="Chakram node did not respond within 30 seconds.",
-                     font=("Courier New", 12), text_color=TEXT2).pack()
-        ctk.CTkButton(f, text="Retry",
-                      fg_color=GOLD, hover_color=GOLD_HOVER, text_color="#000",
-                      width=120, height=36,
-                      command=lambda: threading.Thread(
-                          target=self._connect_or_start, daemon=True).start()
-                      ).pack(pady=20)
+
+        if crash:
+            headline, detail, suggest_reset = crash
+            ctk.CTkLabel(f, text=headline,
+                         font=("Courier New", 16, "bold"), text_color=RED).pack(pady=(0, 8))
+            ctk.CTkLabel(f, text=detail, font=("Courier New", 11), text_color=TEXT2,
+                         wraplength=420, justify="center").pack(padx=20)
+            btn_row = ctk.CTkFrame(f, fg_color="transparent")
+            btn_row.pack(pady=20)
+            ctk.CTkButton(btn_row, text="Retry",
+                          fg_color=BG3, hover_color=BORDER, text_color=TEXT2,
+                          width=100, height=34,
+                          command=lambda: threading.Thread(
+                              target=self._connect_or_start, daemon=True).start()
+                          ).pack(side="left", padx=(0, 10))
+            if suggest_reset:
+                ctk.CTkButton(btn_row, text="Reset Node Data", width=150, height=34,
+                              fg_color=RED, hover_color="#a03030", text_color=TEXT,
+                              font=("Courier New", 12, "bold"),
+                              command=lambda: self._confirm_reset(f)).pack(side="left")
+        else:
+            ctk.CTkLabel(f, text="Node failed to start",
+                         font=("Courier New", 16, "bold"), text_color=RED).pack(pady=(0, 8))
+            ctk.CTkLabel(f, text="Chakram node did not respond within 30 seconds.",
+                         font=("Courier New", 12), text_color=TEXT2).pack()
+            ctk.CTkButton(f, text="Retry",
+                          fg_color=GOLD, hover_color=GOLD_HOVER, text_color="#000",
+                          width=120, height=36,
+                          command=lambda: threading.Thread(
+                              target=self._connect_or_start, daemon=True).start()
+                          ).pack(pady=20)
 
     def _on_node_ready(self):
         self._overlay.place_forget()

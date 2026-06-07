@@ -20,7 +20,7 @@ const (
 	MinProtocolVersion uint32 = 1
 
 	// SoftwareVersion is the human-readable release string. Bumped by release.sh.
-	SoftwareVersion = "v1.0.44"
+	SoftwareVersion = "v1.0.45"
 )
 
 // ForkActivations maps each protocol version to the block height at which its
@@ -138,9 +138,9 @@ const (
 	// PostBootstrapMinGap is the minimum seconds between consecutive blocks
 	// after the TEB bootstrap window ends. Prevents a single fast miner from
 	// flooding the network with sub-second blocks that cause LWMA to overshoot.
-	// 15s = half the target block time, so the network can never run faster than
-	// 2× target rate no matter how much hashrate joins.
-	PostBootstrapMinGap int64 = 15
+	// 45s floor means blocks can run at most 1.33× faster than target during
+	// calibration, keeping the LWMA overshoot small at bootstrap boundary.
+	PostBootstrapMinGap int64 = 45
 
 	// RandomXLightMode is retained for reference. The CGo engine uses full mode
 	// (2 GB dataset, ~10x faster) on all supported platforms and falls back to

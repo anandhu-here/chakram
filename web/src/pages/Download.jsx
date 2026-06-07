@@ -62,7 +62,7 @@ export default function Download() {
       <Navbar />
 
       {/* Hero */}
-      <div className="max-w-4xl mx-auto px-4 sm:px-6 pt-16 pb-10 text-center">
+      <div className=" mx-auto px-4 sm:px-6 pt-16 pb-10 text-center">
         <h1 className="text-4xl sm:text-5xl font-bold text-text mb-4 leading-tight">
           Run a <span className="text-gold">Chakram</span> Node
         </h1>
@@ -90,7 +90,7 @@ export default function Download() {
       </div>
 
       {/* Platform tabs */}
-      <div className="max-w-2xl mx-auto px-4 sm:px-6 mb-8">
+      <div className=" mx-auto px-4 sm:px-6 mb-8">
         <div className="flex bg-surface2 border border-border rounded-xl p-1 gap-1">
           {TABS.map(t => (
             <button
@@ -109,7 +109,7 @@ export default function Download() {
       </div>
 
       {/* Content */}
-      <div className="max-w-2xl mx-auto px-4 sm:px-6 pb-16">
+      <div className=" mx-auto px-4 sm:px-6 pb-16">
 
         {tab === 'mac' && (
           <div>

@@ -204,7 +204,9 @@ type Storage struct {
 // NewStorage opens (or creates) a BadgerDB database at the given directory path.
 // The caller is responsible for calling Close when done.
 func NewStorage(path string) (*Storage, error) {
-	opts := badger.DefaultOptions(path).WithLogger(nil)
+	opts := badger.DefaultOptions(path).
+		WithLogger(nil).
+		WithValueLogFileSize(64 << 20) // 64 MB per vlog file (default is 1 GB)
 	db, err := badger.Open(opts)
 	if err != nil {
 		return nil, fmt.Errorf("open badger at %s: %w", path, err)

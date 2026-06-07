@@ -1,4 +1,7 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
+import { Capacitor } from '@capacitor/core'
+import { Clipboard } from '@capacitor/clipboard'
+import { Share } from '@capacitor/share'
 import { QRCodeSVG } from 'qrcode.react'
 import { useTheme } from '../context/ThemeContext.jsx'
 import chakramLogo from '../assets/chakram.png'
@@ -47,7 +50,7 @@ function Toast({ msg, type, show }) {
   const ok   = 'border-green/40 bg-greenbg text-green'
   const err  = 'border-red/40 bg-redbg text-red'
   return (
-    <div className={`fixed bottom-24 left-1/2 -translate-x-1/2 z-[9998] px-5 py-2.5 rounded-2xl border shadow-lg text-sm font-medium transition-all duration-200 max-w-[300px] text-center pointer-events-none
+    <div style={{ bottom: 'calc(6rem + env(safe-area-inset-bottom))' }} className={`fixed left-1/2 -translate-x-1/2 z-[9998] px-5 py-2.5 rounded-2xl border shadow-lg text-sm font-medium transition-all duration-200 max-w-[300px] text-center pointer-events-none
       ${show ? 'translate-y-0 opacity-100' : 'translate-y-3 opacity-0'}
       ${type === 'ok' ? ok : type === 'err' ? err : base}`}>
       {msg}
@@ -546,14 +549,14 @@ function ReceiveTab({ address, showToast }) {
 
       <div className="flex gap-3 w-full">
         <button
-          onClick={() => navigator.clipboard.writeText(address).then(() => showToast('Address copied!', 'ok')).catch(() => {})}
+          onClick={() => Clipboard.write({ string: address }).then(() => showToast('Address copied!', 'ok')).catch(() => {})}
           className="flex-1 py-3 rounded-2xl bg-gold hover:bg-golddim text-white font-bold text-sm shadow-sm active:scale-[0.98] transition-all"
         >
           Copy Address
         </button>
-        {navigator.share && (
+        {(Capacitor.isNativePlatform() || !!navigator.share) && (
           <button
-            onClick={() => navigator.share({ title: 'My Chakram Address', text: address })}
+            onClick={() => Share.share({ title: 'My Chakram Address', text: address })}
             className="flex-1 py-3 rounded-2xl bg-surface2 border border-border text-text font-semibold text-sm active:scale-[0.98] transition-all"
           >
             Share
@@ -868,7 +871,7 @@ function WalletApp({ state, onLock, onRemove, showToast }) {
       )}
 
       {/* Bottom tab bar */}
-      <div className="bg-surface border-t border-border shrink-0 safe-area-inset-bottom">
+      <div className="bg-surface border-t border-border shrink-0" style={{ paddingBottom: 'env(safe-area-inset-bottom)' }}>
         <div className="flex">
           {TABS.map(t => (
             <button key={t.id} onClick={() => { setSendTo(null); setTab(t.id) }}
@@ -1147,7 +1150,7 @@ export default function Wallet() {
 
   return (
     <div className="min-h-screen bg-surface2 dark:bg-bg flex justify-center">
-      <div className="w-full max-w-[430px] bg-surface dark:bg-surface min-h-screen flex flex-col relative shadow-2xl dark:shadow-none overflow-hidden">
+      <div className="w-full max-w-[430px] bg-surface dark:bg-surface min-h-screen flex flex-col relative shadow-2xl dark:shadow-none overflow-hidden" style={{ paddingTop: 'env(safe-area-inset-top)' }}>
         {screen === 'loading'  && <div className="flex-1 bg-surface" />}
         {screen === 'welcome'  && <WelcomeScreen  onNew={() => setScreen('create')} onRestore={() => setScreen('restore')} />}
         {screen === 'unlock'   && <UnlockScreen   onUnlock={handleUnlock} />}
