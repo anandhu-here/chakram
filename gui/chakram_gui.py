@@ -41,7 +41,7 @@ RPC_BASE  = "http://localhost:8339"
 RPC_PORT  = 8339
 PID_FILE  = os.path.expanduser("~/.chakram/mainnet/gui.pid")
 POLL_SECS = 5
-VERSION   = "v1.0.38"
+VERSION   = "v1.0.39"
 
 def _get_logo_path():
     # When bundled with PyInstaller, sys._MEIPASS is the temp extract dir.
@@ -1128,7 +1128,7 @@ class ChakramApp(ctk.CTk):
         ht_val   = "—"
         if info:
             net_val = str(info.get("network", "—")).capitalize()
-            ver_val = f"protocol v{info.get('version', '—')}"
+            ver_val = str(info.get("version", "—"))
             ht_val  = str(info.get("height", "—"))
 
         rows = [

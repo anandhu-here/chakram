@@ -20,7 +20,7 @@ const (
 	MinProtocolVersion uint32 = 1
 
 	// SoftwareVersion is the human-readable release string. Bumped by release.sh.
-	SoftwareVersion = "v1.0.38"
+	SoftwareVersion = "v1.0.39"
 )
 
 // ForkActivations maps each protocol version to the block height at which its

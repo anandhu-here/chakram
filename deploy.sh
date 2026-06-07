@@ -51,9 +51,12 @@ scp $SSH_OPTS $BINARY $REMOTE_USER@$SEED3:$REMOTE_BIN && ssh $SSH_OPTS $REMOTE_U
 
 echo "Installing mainnet service..."
 for HOST in $SEED1 $SEED2 $SEED3; do
-  scp $SSH_OPTS deploy/chakram-mainnet.service $REMOTE_USER@$HOST:~/chakram-mainnet.service
-  ssh $SSH_OPTS $REMOTE_USER@$HOST \
-    "sudo cp ~/chakram-mainnet.service /etc/systemd/system/chakram-mainnet.service && \
+  # Substitute the actual remote user into the service file on the fly.
+  # The template uses 'ubuntu' (good open-source default); we replace it here
+  # so the installed service matches whoever $REMOTE_USER actually is.
+  sed "s|User=ubuntu|User=$REMOTE_USER|g; s|/home/ubuntu/|/home/$REMOTE_USER/|g" \
+    deploy/chakram-mainnet.service | ssh $SSH_OPTS $REMOTE_USER@$HOST \
+    "sudo tee /etc/systemd/system/chakram-mainnet.service > /dev/null && \
      sudo systemctl daemon-reload && \
      sudo systemctl enable chakram-mainnet"
 done

@@ -321,7 +321,7 @@ func (bc *Blockchain) AddBlock(b *Block) error {
 		if err != nil {
 			return fmt.Errorf("chainwork for current tip: %w", err)
 		}
-		if newWork.Cmp(curWork) > 0 {
+		if newWork.Cmp(curWork) >= 0 {
 			return bc.reorganize(b)
 		}
 		return nil
