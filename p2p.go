@@ -520,6 +520,13 @@ func (s *Server) handleVersion(peer *Peer, msg Message) error {
 
 func (s *Server) handleVerAck(peer *Peer, msg Message) error {
 	peer.Connected = true
+
+	// Ask every new peer for their peer list so we discover the full network,
+	// not just the seeds we hardcoded.
+	if gp, err := NewMessage(s.magic, MsgGetPeers, struct{}{}); err == nil {
+		peer.Send(gp) //nolint:errcheck — best-effort discovery
+	}
+
 	if s.SyncManager != nil {
 		s.SyncManager.OnPeerConnected(peer)
 		return nil
