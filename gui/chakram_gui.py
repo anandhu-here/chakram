@@ -41,7 +41,7 @@ RPC_BASE  = "http://localhost:8339"
 RPC_PORT  = 8339
 PID_FILE  = os.path.expanduser("~/.chakram/mainnet/gui.pid")
 POLL_SECS = 5
-VERSION   = "v1.0.46"
+VERSION   = "v1.0.47"
 
 def _get_logo_path():
     # When bundled with PyInstaller, sys._MEIPASS is the temp extract dir.
@@ -1379,8 +1379,20 @@ class ChakramApp(ctk.CTk):
             try:
                 res = subprocess.run(cmd, capture_output=True, text=True, timeout=30)
                 out = res.stdout.strip() or res.stderr.strip()
-                col = GREEN if res.returncode == 0 else RED
-                self.after(0, self._send_result.configure, {"text": out, "text_color": col})
+                if res.returncode == 0:
+                    # Parse TxID from output line "  TxID:   abc123..."
+                    txid = ""
+                    for line in out.splitlines():
+                        if "TxID" in line:
+                            txid = line.split(":", 1)[-1].strip()
+                            break
+                    self.after(0, self._send_result.configure,
+                               {"text": "✓ Sent", "text_color": GREEN})
+                    self.after(0, self._show_send_success, to_addr, amt_str, txid)
+                    self.after(0, self._clear_send_fields)
+                else:
+                    self.after(0, self._send_result.configure,
+                               {"text": f"⚠ {out[:80]}", "text_color": RED})
             except subprocess.TimeoutExpired:
                 self.after(0, self._send_result.configure,
                            {"text": "⚠ Timed out", "text_color": RED})
@@ -1389,6 +1401,52 @@ class ChakramApp(ctk.CTk):
                            {"text": f"⚠ {e}", "text_color": RED})
 
         threading.Thread(target=run, daemon=True).start()
+
+    def _clear_send_fields(self):
+        self._to_entry.delete(0, "end")
+        self._amt_entry.delete(0, "end")
+
+    def _show_send_success(self, to_addr, amount, txid):
+        win = ctk.CTkToplevel(self)
+        win.title("Transaction Sent")
+        win.geometry("480x280")
+        win.configure(fg_color=BG)
+        win.grab_set()
+        win.focus()
+
+        ctk.CTkLabel(win, text="✓  Transaction Submitted",
+                     font=("Courier New", 16, "bold"), text_color=GREEN).pack(pady=(22, 4))
+        ctk.CTkLabel(win, text="Will confirm in the next block (~60 seconds)",
+                     font=("Courier New", 11), text_color=TEXT2).pack(pady=(0, 14))
+
+        card = ctk.CTkFrame(win, fg_color=BG2, corner_radius=10)
+        card.pack(fill="x", padx=24)
+
+        for label, value in [("To", trunc(to_addr, 34)), ("Amount", f"{amount} CHK"), ("TxID", trunc(txid, 34))]:
+            row = ctk.CTkFrame(card, fg_color="transparent")
+            row.pack(fill="x", padx=16, pady=4)
+            ctk.CTkLabel(row, text=f"{label}:", font=("Courier New", 11),
+                         text_color=TEXT2, width=60, anchor="w").pack(side="left")
+            ctk.CTkLabel(row, text=value, font=("Courier New", 11),
+                         text_color=TEXT, anchor="w").pack(side="left")
+
+        btn_row = ctk.CTkFrame(win, fg_color="transparent")
+        btn_row.pack(pady=18)
+
+        def copy_txid():
+            self.clipboard_clear()
+            self.clipboard_append(txid)
+            copy_btn.configure(text="Copied!")
+            win.after(1500, lambda: copy_btn.configure(text="Copy TxID"))
+
+        copy_btn = ctk.CTkButton(btn_row, text="Copy TxID", width=120, height=32,
+                                  fg_color=BG3, hover_color=BORDER, text_color=TEXT2,
+                                  font=("Courier New", 11), command=copy_txid)
+        copy_btn.pack(side="left", padx=(0, 10))
+        ctk.CTkButton(btn_row, text="Close", width=100, height=32,
+                      fg_color=GOLD, hover_color=GOLD_HOVER, text_color="#000",
+                      font=("Courier New", 11, "bold"),
+                      command=win.destroy).pack(side="left")
 
     # ═══════════════════════════════════════════════════════════════════════════
     # Shutdown
