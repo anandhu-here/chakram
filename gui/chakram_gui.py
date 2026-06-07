@@ -40,8 +40,9 @@ ORANGE     = "#ff8c00"
 RPC_BASE  = "http://localhost:8339"
 RPC_PORT  = 8339
 PID_FILE  = os.path.expanduser("~/.chakram/mainnet/gui.pid")
-POLL_SECS = 5
-VERSION   = "v1.0.53"
+POLL_SECS        = 5
+VERSION          = "v1.0.53"
+CoinbaseMaturity = 10  # blocks until mining reward is spendable — must match config.go
 
 def _get_logo_path():
     # When bundled with PyInstaller, sys._MEIPASS is the temp extract dir.
@@ -199,6 +200,8 @@ class ChakramApp(ctk.CTk):
         self._last_mined_block = None
         self._last_tx_count    = 0
         self._last_balance     = -1.0
+        self._last_pending     = 0.0
+        self._last_height      = 0
 
         self._build_main_ui()
 
@@ -856,6 +859,10 @@ class ChakramApp(ctk.CTk):
                                             text_color=GOLD)
         self._balance_label.pack(anchor="w")
         Tooltip(self._balance_label, "Your spendable CHK balance (confirmed UTXOs)")
+        self._pending_label = ctk.CTkLabel(bal_left, text="",
+                                            font=("Courier New", 10),
+                                            text_color=ORANGE)
+        self._pending_label.pack(anchor="w")
 
         bal_right = ctk.CTkFrame(bal_inner, fg_color="transparent")
         bal_right.pack(side="right")
@@ -1052,12 +1059,14 @@ class ChakramApp(ctk.CTk):
             self._mine_btn.configure(text="Start Mining", fg_color=BG3,
                                       hover_color=BORDER, text_color=TEXT2)
 
+        self._last_height = height
+
         if blocks:
             sig = str([(b.get("height"), b.get("hash")) for b in blocks[:15]])
             if sig != self._last_blocks_hash:
                 self._last_blocks_hash = sig
-                self._render_blocks(blocks)
-            self._check_mined_blocks(blocks)
+                self._render_blocks(blocks, height)
+            self._check_mined_blocks(blocks, height)
 
         self._statusbar.configure(
             text=f"Chakram {net}  |  Height: {height}  |  Peers: {peers}  |  {VERSION}")
@@ -1067,16 +1076,24 @@ class ChakramApp(ctk.CTk):
     def _fetch_balance(self, addr):
         data = rpc_get(f"/address/{addr}")
         if data:
-            chk = data.get("balance_chk", 0.0)
-            self.after(0, self._apply_balance, chk)
+            chk     = data.get("balance_chk", 0.0)
+            pending = data.get("pending_chk", 0.0)
+            self.after(0, self._apply_balance, chk, pending)
         else:
-            self.after(0, self._balance_label.configure, {"text": "0.000000 CHK"})
+            self.after(0, self._apply_balance, 0.0, 0.0)
 
-    def _apply_balance(self, chk):
+    def _apply_balance(self, chk, pending=0.0):
         self._balance_label.configure(text=f"{chk:,.6f} CHK")
+        if pending > 0:
+            self._pending_label.configure(
+                text=f"+ {pending:,.6f} CHK maturing…")
+        else:
+            self._pending_label.configure(text="")
+        # Flash gold only when confirmed balance increases (block matured / received CHK).
         if self._last_balance >= 0 and chk > self._last_balance:
             self._flash_balance_gold()
-        self._last_balance = chk
+        self._last_balance  = chk
+        self._last_pending  = pending
 
     def _flash_balance_gold(self):
         self._balance_label.configure(text_color="#ffffff")
@@ -1092,11 +1109,16 @@ class ChakramApp(ctk.CTk):
         utxos = rpc_get(f"/utxos/{addr}")
         self.after(0, self._render_tx_history, utxos or [])
 
-    def _check_mined_blocks(self, blocks):
-        earned = [b for b in blocks if b.get("miner", "") == self._address]
-        if self._mining and len(earned) > self._last_tx_count:
+    def _check_mined_blocks(self, blocks, current_height=0):
+        mine_blocks = [b for b in blocks if b.get("miner", "") == self._address]
+        # Flash green when one of our blocks just crossed the maturity threshold.
+        newly_matured = [
+            b for b in mine_blocks
+            if current_height - b.get("height", 0) == CoinbaseMaturity
+        ]
+        if newly_matured:
             self._flash_balance_green()
-        self._last_tx_count = len(earned)
+        self._last_tx_count = len(mine_blocks)
 
     def _render_tx_history(self, utxos):
         for w in self._tx_frame.winfo_children():
@@ -1133,28 +1155,37 @@ class ChakramApp(ctk.CTk):
 
     # ── Blocks ─────────────────────────────────────────────────────────────────
 
-    def _render_blocks(self, blocks):
+    def _render_blocks(self, blocks, current_height=0):
         for w in self._blocks_frame.winfo_children():
             w.destroy()
 
         for b in blocks[:15]:
-            height  = b.get("height", "—")
+            height  = b.get("height", 0)
             hash_   = b.get("hash", "")
             miner   = b.get("miner", "—")
             ts      = b.get("timestamp", 0)
             tx_cnt  = b.get("tx_count", "—")
             is_mine = (miner == self._address)
+            confs   = current_height - height if isinstance(height, int) else 0
+            mature  = confs >= CoinbaseMaturity
+
+            if is_mine:
+                miner_col = GREEN if mature else ORANGE
+                row_bg    = BG3
+            else:
+                miner_col = TEXT2
+                row_bg    = "transparent"
 
             url = f"{RPC_BASE}/block/{height}"
             row = ctk.CTkFrame(self._blocks_frame,
-                                fg_color=BG3 if is_mine else "transparent",
+                                fg_color=row_bg,
                                 corner_radius=3, cursor="hand2")
             row.pack(fill="x", pady=1)
 
             for txt, w, col in [
                 (str(height),        58,  GOLD),
                 (trunc(hash_, 18),  150,  TEXT2),
-                (trunc(miner, 20),  148,  GREEN if is_mine else TEXT2),
+                (trunc(miner, 20),  148,  miner_col),
                 (time_ago(ts),       88,  TEXT2),
                 (str(tx_cnt),        40,  TEXT),
             ]:

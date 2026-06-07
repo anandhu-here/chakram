@@ -456,14 +456,21 @@ func (r *RPCServer) handleAddress(w http.ResponseWriter, address string) {
 		writeError(w, http.StatusInternalServerError, "failed to query UTXOs")
 		return
 	}
-	var balance uint64
+	height := r.node.Blockchain.GetHeight()
+	var balance, pending uint64
 	for _, u := range utxos {
-		balance += u.Value
+		if !u.IsCoinbase || height >= u.BlockHeight+CoinbaseMaturity {
+			balance += u.Value
+		} else {
+			pending += u.Value
+		}
 	}
 	writeJSON(w, http.StatusOK, map[string]interface{}{
 		"address":     address,
 		"balance":     balance,
 		"balance_chk": float64(balance) / float64(CashPerCHK),
+		"pending":     pending,
+		"pending_chk": float64(pending) / float64(CashPerCHK),
 		"utxo_count":  len(utxos),
 	})
 }
