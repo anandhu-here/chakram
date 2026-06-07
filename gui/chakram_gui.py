@@ -41,7 +41,7 @@ RPC_BASE  = "http://localhost:8339"
 RPC_PORT  = 8339
 PID_FILE  = os.path.expanduser("~/.chakram/mainnet/gui.pid")
 POLL_SECS = 5
-VERSION   = "v1.0.43"
+VERSION   = "v1.0.44"
 
 def _get_logo_path():
     # When bundled with PyInstaller, sys._MEIPASS is the temp extract dir.
@@ -656,10 +656,19 @@ class ChakramApp(ctk.CTk):
         if mine:
             cmd.append("--mine")
 
+        # Log stderr to a file so crashes are diagnosable (was DEVNULL before).
+        log_path = os.path.join(os.path.expanduser("~/.chakram/mainnet"), "node.log")
+        try:
+            os.makedirs(os.path.dirname(log_path), exist_ok=True)
+            log_file = open(log_path, "a")
+            log_file.write(f"\n--- launch {'mine' if mine else 'sync'} {time.strftime('%Y-%m-%d %H:%M:%S')} ---\n")
+        except Exception:
+            log_file = subprocess.DEVNULL
+
         self._node_proc = subprocess.Popen(
             cmd,
             stdout=subprocess.PIPE,
-            stderr=subprocess.DEVNULL,
+            stderr=log_file,
             preexec_fn=os.setpgrp if sys.platform != "win32" else None,
             creationflags=subprocess.CREATE_NO_WINDOW if sys.platform == "win32" else 0,
         )
