@@ -304,6 +304,14 @@ func (n *Node) mineLoop() {
 			continue
 		}
 
+		// Never mine while syncing — we'd extend our local fork instead of the
+		// canonical chain, making the reorg deeper and the sync take longer.
+		if n.Blockchain.IsSyncing() {
+			fmt.Printf("Mining paused — syncing (%s)\n", n.SyncManager.SyncStatus())
+			time.Sleep(5 * time.Second)
+			continue
+		}
+
 		prev, err := n.Blockchain.GetLastBlock()
 		if err != nil {
 			time.Sleep(time.Second)

@@ -117,8 +117,10 @@ export const loadW  = () => { const r = localStorage.getItem(WKEY); return r ? J
 export const clearW = () => localStorage.removeItem(WKEY)
 
 // ── RPC ───────────────────────────────────────────────────────────────────────
+const BASE = (import.meta.env.VITE_API_URL ?? '').replace(/\/$/, '')
+
 const rpc = async (p, o) => {
-  const r = await fetch(p, o)
+  const r = await fetch(BASE + p, o)
   const d = await r.json()
   if (d.error) throw new Error(d.error)
   return d
