@@ -643,6 +643,8 @@ func (s *Server) handleBlock(peer *Peer, msg Message) error {
 	if err := json.Unmarshal(msg.Payload, &b); err != nil {
 		return fmt.Errorf("decode block: %w", err)
 	}
+	// Snapshot before processing so we can detect whether this block was new.
+	alreadyHad := s.Blockchain.HasBlock(b.Hash)
 	if s.SyncManager != nil {
 		s.SyncManager.OnBlockReceived(&b, peer)
 	} else {
@@ -650,14 +652,12 @@ func (s *Server) handleBlock(peer *Peer, msg Message) error {
 			return err
 		}
 	}
-	// Relay to all other peers regardless of which path handled the block.
-	if s.Blockchain.HasBlock(b.Hash) {
-		inv, err := NewMessage(s.magic, MsgInv, InvPayload{
-			Items: []InvItem{{Type: 1, Hash: b.Hash}},
-		})
-		if err == nil {
-			s.Broadcast(inv, peer)
-		}
+	// Relay the full block directly to all other peers when it was new to us.
+	// Direct MsgBlock relay is unconditional — no inv→getdata round-trip, no
+	// pendingInv dedup races, no timing windows where the sender might not yet
+	// have the block indexed for a GetData response.
+	if !alreadyHad && s.Blockchain.HasBlock(b.Hash) {
+		s.Broadcast(msg, peer)
 	}
 	return nil
 }

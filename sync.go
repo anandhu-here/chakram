@@ -214,11 +214,10 @@ func (sm *SyncManager) OnBlockReceived(b *Block, from *Peer) {
 
 	sm.ProcessOrphans(b.Hash)
 
-	inv, err := NewMessage(sm.server.magic, MsgInv, InvPayload{
-		Items: []InvItem{{Type: 1, Hash: b.Hash}},
-	})
+	// Relay the full block directly — no inv→getdata round-trip.
+	blockMsg, err := NewMessage(sm.server.magic, MsgBlock, b)
 	if err == nil {
-		sm.server.Broadcast(inv, from)
+		sm.server.Broadcast(blockMsg, from)
 	}
 
 	if sm.bestPeer != nil && sm.blockchain.GetHeight() >= sm.bestPeer.Height {
