@@ -8,27 +8,27 @@ function Badge({ type }) {
     get:  'bg-blue/10 text-blue border-blue/25',
     post: 'bg-green/10 text-green border-green/25',
   }
-  return <span className={`text-[10px] font-bold px-2 py-0.5 rounded border uppercase tracking-widest ${s[type]}`}>{type}</span>
+  return <span className={`text-xs font-bold px-2.5 py-0.5 rounded border uppercase tracking-widest ${s[type]}`}>{type}</span>
 }
 
 function Endpoint({ id, method, path, desc, children }) {
   return (
-    <div id={id} className="border border-border rounded-xl mb-6 overflow-hidden">
-      <div className="px-5 py-4 bg-surface2">
-        <div className="flex items-center gap-2 flex-wrap mb-1.5">
+    <div id={id} className="border border-border rounded-2xl mb-8 overflow-hidden">
+      <div className="px-6 py-5 bg-surface2">
+        <div className="flex items-center gap-3 flex-wrap mb-2">
           <Badge type={method} />
-          <code className="font-mono text-sm text-text">{path}</code>
+          <code className="font-mono text-base text-text">{path}</code>
         </div>
-        <p className="text-muted text-sm leading-relaxed">{desc}</p>
+        <p className="text-muted text-base leading-relaxed">{desc}</p>
       </div>
-      <div className="px-5 pb-4 pt-3">{children}</div>
+      <div className="px-6 pb-5 pt-4">{children}</div>
     </div>
   )
 }
 
 function Pre({ children }) {
   return (
-    <pre className="bg-surface2 border border-border rounded-lg p-4 text-xs font-mono text-text leading-relaxed overflow-x-auto whitespace-pre-wrap">
+    <pre className="bg-surface2 border border-border rounded-xl p-5 text-sm font-mono text-text leading-relaxed overflow-x-auto whitespace-pre-wrap">
       {children}
     </pre>
   )
@@ -40,23 +40,23 @@ function Callout({ type = 'info', children }) {
     warn: 'bg-goldbg border-gold/30 text-gold',
     tip:  'bg-greenbg border-green/30 text-green',
   }
-  return <div className={`border rounded-xl p-4 my-4 text-sm leading-relaxed ${s[type]}`}>{children}</div>
+  return <div className={`border rounded-xl p-5 my-5 text-base leading-relaxed ${s[type]}`}>{children}</div>
 }
 
 const H2 = ({ id, children }) => (
-  <h2 id={id} className="text-xl font-bold text-text mt-14 mb-4 pb-3 border-b border-border">{children}</h2>
+  <h2 id={id} className="text-2xl font-bold text-text mt-16 mb-5 pb-3 border-b border-border">{children}</h2>
 )
-const H3 = ({ children }) => <h3 className="text-base font-semibold text-text mt-6 mb-2">{children}</h3>
-const P  = ({ children }) => <p className="text-muted text-sm leading-relaxed mb-3">{children}</p>
+const H3 = ({ children }) => <h3 className="text-lg font-semibold text-text mt-8 mb-3">{children}</h3>
+const P  = ({ children }) => <p className="text-muted text-base leading-relaxed mb-4">{children}</p>
 
 function DataTable({ headers, rows }) {
   return (
-    <div className="overflow-x-auto my-4 rounded-xl border border-border">
-      <table className="w-full text-sm border-collapse">
+    <div className="overflow-x-auto my-5 rounded-xl border border-border">
+      <table className="w-full border-collapse">
         <thead>
           <tr className="bg-surface2">
             {headers.map(h => (
-              <th key={h} className="text-left px-4 py-2.5 text-[11px] font-semibold text-muted uppercase tracking-wider border-b border-border">{h}</th>
+              <th key={h} className="text-left px-5 py-3 text-xs font-bold text-muted uppercase tracking-wider border-b border-border">{h}</th>
             ))}
           </tr>
         </thead>
@@ -64,7 +64,7 @@ function DataTable({ headers, rows }) {
           {rows.map((row, i) => (
             <tr key={i} className="hover:bg-surface2 transition-colors">
               {row.map((cell, j) => (
-                <td key={j} className={`px-4 py-3 text-xs ${j === 0 ? 'font-semibold text-text whitespace-nowrap' : 'text-muted'}`}>{cell}</td>
+                <td key={j} className={`px-5 py-3.5 text-sm ${j === 0 ? 'font-semibold text-text whitespace-nowrap' : 'text-muted'}`}>{cell}</td>
               ))}
             </tr>
           ))}
@@ -126,16 +126,16 @@ export default function Docs() {
     <div className="min-h-screen bg-bg flex flex-col">
 
       {/* Mobile header */}
-      <div className="md:hidden bg-surface border-b border-border px-4 h-12 flex items-center justify-between sticky top-0 z-40">
-        <div className="flex items-center gap-2">
-          <img src={chakramLogo} alt="" className="h-6 w-auto" />
-          <span className="font-bold text-text text-sm tracking-wider">DOCS</span>
+      <div className="md:hidden bg-surface/90 backdrop-blur-md border-b border-border px-4 h-14 flex items-center justify-between sticky top-0 z-40">
+        <div className="flex items-center gap-2.5">
+          <img src={chakramLogo} alt="" className="h-7 w-auto" />
+          <span className="font-bold text-text text-base tracking-wider">DOCS</span>
         </div>
         <div className="flex items-center gap-2">
-          <button onClick={toggle} className="w-8 h-8 flex items-center justify-center text-muted hover:text-text rounded-lg border border-border transition-colors text-sm">
+          <button onClick={toggle} className="w-9 h-9 flex items-center justify-center text-muted hover:text-text rounded-xl border border-border transition-colors text-sm">
             {dark ? '☀' : '🌙'}
           </button>
-          <button onClick={() => setOpen(v => !v)} className="text-xs border border-border px-3 py-1.5 rounded-lg text-muted hover:text-text transition-colors">
+          <button onClick={() => setOpen(v => !v)} className="text-sm border border-border px-3.5 py-2 rounded-xl text-muted hover:text-text transition-colors font-medium">
             Menu
           </button>
         </div>
@@ -145,28 +145,28 @@ export default function Docs() {
 
         {/* Sidebar */}
         <nav className={`
-          bg-surface border-r border-border w-52 shrink-0 overflow-y-auto pb-8
+          bg-surface border-r border-border w-64 shrink-0 overflow-y-auto pb-8
           fixed md:sticky top-0 md:top-0 h-screen z-30 transition-transform duration-200
           ${open ? 'translate-x-0' : '-translate-x-full md:translate-x-0'}
         `}>
           <div className="px-5 py-5 border-b border-border flex items-center justify-between">
-            <Link to="/" className="flex items-center gap-2">
-              <img src={chakramLogo} alt="" className="h-7 w-auto" />
-              <span className="font-bold text-text text-sm tracking-wide">Docs</span>
+            <Link to="/" className="flex items-center gap-2.5">
+              <img src={chakramLogo} alt="" className="h-8 w-auto" />
+              <span className="font-bold text-text text-base tracking-wide">Docs</span>
             </Link>
-            <button onClick={toggle} className="hidden md:flex w-7 h-7 items-center justify-center text-muted hover:text-text rounded-lg hover:bg-surface2 transition-colors text-xs">
+            <button onClick={toggle} className="hidden md:flex w-8 h-8 items-center justify-center text-muted hover:text-text rounded-lg hover:bg-surface2 transition-colors text-sm">
               {dark ? '☀' : '🌙'}
             </button>
           </div>
-          <div className="py-3">
+          <div className="py-4">
             {SECTIONS.map(s => (
               <div key={s.title}>
-                <p className="text-[9px] font-bold text-muted uppercase tracking-[0.15em] px-5 pt-4 pb-1">{s.title}</p>
+                <p className="text-xs font-bold text-muted uppercase tracking-[0.12em] px-5 pt-5 pb-1.5">{s.title}</p>
                 {s.links.map(l => (
                   <a key={l.href} href={l.href} onClick={() => setOpen(false)}
-                    className={`block text-[11px] py-1.5 border-l-2 transition-colors
-                      ${l.sub ? 'pl-8' : 'pl-5'}
-                      ${active === l.href ? 'text-gold border-gold bg-goldbg/50' : 'text-muted border-transparent hover:text-text hover:border-border'}`}>
+                    className={`block text-sm py-2 border-l-2 transition-colors
+                      ${l.sub ? 'pl-9' : 'pl-5'}
+                      ${active === l.href ? 'text-gold border-gold bg-goldbg/50 font-medium' : 'text-muted border-transparent hover:text-text hover:border-border'}`}>
                     {l.label}
                   </a>
                 ))}
@@ -178,10 +178,10 @@ export default function Docs() {
         {open && <div className="fixed inset-0 bg-black/40 z-20 md:hidden" onClick={() => setOpen(false)} />}
 
         {/* Content */}
-        <main className="flex-1 px-6 md:px-12 py-10 max-w-3xl overflow-x-hidden">
+        <main className="flex-1 px-6 md:px-14 py-12 max-w-4xl overflow-x-hidden">
 
           <section id="overview">
-            <h1 className="text-2xl font-bold text-text mb-2 tracking-tight">Chakram Protocol</h1>
+            <h1 className="text-3xl font-bold text-text mb-3 tracking-tight">Chakram Protocol</h1>
             <P>Chakram (CHK) is a Kerala-inspired UTXO cryptocurrency using <strong className="text-text">RandomX proof-of-work</strong>, <strong className="text-text">Ed25519 signatures</strong>, and a lightweight JSON HTTP API.</P>
             <DataTable headers={['Property', 'Value']} rows={[
               ['Coin', 'Chakram'],
@@ -228,7 +228,7 @@ export default function Docs() {
 
           <section id="api">
             <H2 id="api">HTTP API Reference</H2>
-            <P>JSON REST over HTTP. Every response is <code className="bg-surface2 border border-border px-1.5 py-0.5 rounded text-xs font-mono">application/json</code>. Errors return <code className="bg-surface2 border border-border px-1.5 py-0.5 rounded text-xs font-mono">{`{"error":"..."}`}</code>.</P>
+            <P>JSON REST over HTTP. Every response is <code className="bg-surface2 border border-border px-1.5 py-0.5 rounded text-sm font-mono">application/json</code>. Errors return <code className="bg-surface2 border border-border px-1.5 py-0.5 rounded text-sm font-mono">{`{"error":"..."}`}</code>.</P>
             <Callout type="info">
               Base URL: <code className="font-mono text-xs">http://&lt;node&gt;:8339</code> (mainnet) · <code className="font-mono text-xs">http://&lt;node&gt;:18339</code> (testnet) · CORS: unrestricted
             </Callout>

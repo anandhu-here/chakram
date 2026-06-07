@@ -6,14 +6,14 @@ const GCS = 'https://storage.googleapis.com/chakram-dist/latest'
 
 function Step({ num, title, children }) {
   return (
-    <div className="flex gap-4">
+    <div className="flex gap-5">
       <div className="flex flex-col items-center">
-        <div className="w-8 h-8 rounded-full bg-goldbg border border-gold/40 text-gold font-bold text-sm flex items-center justify-center shrink-0">{num}</div>
+        <div className="w-10 h-10 rounded-full bg-goldbg border-2 border-gold/50 text-gold font-black text-base flex items-center justify-center shrink-0 shadow-sm">{num}</div>
         <div className="w-px flex-1 bg-border mt-2" />
       </div>
-      <div className="pb-8 flex-1 min-w-0">
-        <h3 className="font-semibold text-text mb-2">{title}</h3>
-        <div className="text-muted text-sm leading-relaxed">{children}</div>
+      <div className="pb-10 flex-1 min-w-0">
+        <h3 className="font-bold text-text text-lg mb-2">{title}</h3>
+        <div className="text-muted text-base leading-relaxed">{children}</div>
       </div>
     </div>
   )
@@ -21,7 +21,7 @@ function Step({ num, title, children }) {
 
 function Code({ children }) {
   return (
-    <pre className="bg-surface2 border border-border rounded-lg p-4 mt-3 text-xs font-mono text-text overflow-x-auto leading-relaxed whitespace-pre-wrap">
+    <pre className="bg-surface2 border border-border rounded-xl p-5 mt-4 text-sm font-mono text-text overflow-x-auto leading-relaxed whitespace-pre-wrap">
       {children}
     </pre>
   )
@@ -34,7 +34,7 @@ function Note({ variant = 'info', children }) {
     gold:  'bg-goldbg  border-gold/30  text-gold',
   }
   return (
-    <div className={`mt-3 p-3 rounded-lg border text-sm leading-relaxed ${styles[variant]}`}>
+    <div className={`mt-4 p-4 rounded-xl border text-base leading-relaxed ${styles[variant]}`}>
       {children}
     </div>
   )
@@ -42,7 +42,7 @@ function Note({ variant = 'info', children }) {
 
 function DlBtn({ href, children }) {
   return (
-    <a href={href} className="inline-flex items-center gap-2 border border-border bg-surface2 hover:border-gold hover:text-gold text-text text-sm px-4 py-2 rounded-lg transition-colors mt-2 mr-2">
+    <a href={href} className="inline-flex items-center gap-2 border border-border bg-surface2 hover:border-gold hover:text-gold text-text text-sm font-medium px-5 py-2.5 rounded-xl transition-colors mt-3 mr-3">
       {children}
     </a>
   )
@@ -62,41 +62,44 @@ export default function Download() {
       <Navbar />
 
       {/* Hero */}
-      <div className=" mx-auto px-4 sm:px-6 pt-16 pb-10 text-center">
-        <h1 className="text-4xl sm:text-5xl font-bold text-text mb-4 leading-tight">
+      <div className="px-4 sm:px-8 pt-20 pb-14 text-center">
+        <div className="inline-flex items-center gap-2 bg-goldbg border border-gold/30 text-gold text-sm font-semibold px-4 py-1.5 rounded-full mb-6">
+          ⛏ RandomX · CPU Mining
+        </div>
+        <h1 className="text-5xl sm:text-6xl font-black text-text mb-5 leading-tight tracking-tight">
           Run a <span className="text-gold">Chakram</span> Node
         </h1>
-        <p className="text-muted text-lg max-w-lg mx-auto mb-8">
+        <p className="text-muted text-xl max-w-xl mx-auto mb-10 leading-relaxed">
           Download the app and you're mining in under 5 minutes. No command line needed.
         </p>
         <div className="flex flex-wrap gap-3 justify-center">
           <a href={`${GCS}/Chakram-mac-arm.zip`}
-            className="inline-flex items-center gap-2 bg-gold hover:bg-golddim text-white font-semibold px-5 py-3 rounded-xl transition-colors shadow-sm">
+            className="inline-flex items-center gap-2 bg-gold hover:bg-golddim text-white font-bold px-6 py-3.5 rounded-2xl transition-colors shadow-md active:scale-[0.98] text-base">
             ⬇ Mac — Apple Silicon
           </a>
           <a href={`${GCS}/Chakram-mac-intel.zip`}
-            className="inline-flex items-center gap-2 bg-gold hover:bg-golddim text-white font-semibold px-5 py-3 rounded-xl transition-colors shadow-sm">
+            className="inline-flex items-center gap-2 bg-gold hover:bg-golddim text-white font-bold px-6 py-3.5 rounded-2xl transition-colors shadow-md active:scale-[0.98] text-base">
             ⬇ Mac — Intel
           </a>
           <a href={`${GCS}/Chakram.exe`}
-            className="inline-flex items-center gap-2 bg-gold hover:bg-golddim text-white font-semibold px-5 py-3 rounded-xl transition-colors shadow-sm">
+            className="inline-flex items-center gap-2 bg-gold hover:bg-golddim text-white font-bold px-6 py-3.5 rounded-2xl transition-colors shadow-md active:scale-[0.98] text-base">
             ⬇ Windows
           </a>
           <Link to="/docs"
-            className="inline-flex items-center gap-2 border border-border bg-surface hover:border-gold hover:text-gold text-text font-semibold px-5 py-3 rounded-xl transition-colors">
-            Read the Docs
+            className="inline-flex items-center gap-2 border-2 border-border bg-surface hover:border-gold hover:text-gold text-text font-bold px-6 py-3.5 rounded-2xl transition-colors text-base">
+            Read the Docs ↗
           </Link>
         </div>
       </div>
 
       {/* Platform tabs */}
-      <div className=" mx-auto px-4 sm:px-6 mb-8">
-        <div className="flex bg-surface2 border border-border rounded-xl p-1 gap-1">
+      <div className="px-4 sm:px-8 mb-10">
+        <div className="flex bg-surface2 border border-border rounded-2xl p-1.5 gap-1.5">
           {TABS.map(t => (
             <button
               key={t.id}
               onClick={() => setTab(t.id)}
-              className={`flex-1 py-2 text-sm font-medium rounded-lg transition-all ${
+              className={`flex-1 py-2.5 text-base font-semibold rounded-xl transition-all ${
                 tab === t.id
                   ? 'bg-surface shadow-sm text-text border border-border'
                   : 'text-muted hover:text-text'
@@ -109,7 +112,7 @@ export default function Download() {
       </div>
 
       {/* Content */}
-      <div className=" mx-auto px-4 sm:px-6 pb-16">
+      <div className="px-4 sm:px-8 pb-20 max-w-3xl">
 
         {tab === 'mac' && (
           <div>

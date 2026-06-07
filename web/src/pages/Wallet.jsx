@@ -246,9 +246,9 @@ function HomeTab({ address, balance, network, utxos, onSend, onReceive, onScan, 
           ), label: 'Scan QR', color: 'bg-orange/10 text-orange', action: onScan },
         ].map(({ icon, label, color, action }) => (
           <button key={label} onClick={action}
-            className="bg-surface border border-border rounded-2xl py-4 flex flex-col items-center gap-2 shadow-sm active:scale-95 transition-transform">
-            <div className={`w-10 h-10 rounded-full flex items-center justify-center ${color}`}>{icon}</div>
-            <span className="text-xs font-semibold text-text">{label}</span>
+            className="bg-surface border border-border rounded-2xl py-5 flex flex-col items-center gap-2.5 shadow-sm active:scale-95 transition-all hover:border-gold/40 hover:shadow-md">
+            <div className={`w-12 h-12 rounded-2xl flex items-center justify-center ${color}`}>{icon}</div>
+            <span className="text-sm font-semibold text-text">{label}</span>
           </button>
         ))}
       </div>
@@ -833,15 +833,24 @@ function WalletApp({ state, onLock, onRemove, showToast }) {
   return (
     <div className="flex flex-col h-full">
       {/* Header */}
-      <div className="bg-surface border-b border-border px-4 h-13 flex items-center justify-between shrink-0">
-        <img src={chakramLogo} alt="" className="h-7 w-auto" />
-        <div className="flex items-center gap-2">
-          <button onClick={refresh} className="w-8 h-8 flex items-center justify-center rounded-xl text-muted hover:text-text hover:bg-surface2 transition-colors text-sm">↻</button>
-          <button onClick={toggle} className="w-8 h-8 flex items-center justify-center rounded-xl text-muted hover:text-text hover:bg-surface2 transition-colors text-sm">
-            {dark ? '☀' : '🌙'}
+      <div className="bg-surface border-b border-border px-4 h-14 flex items-center justify-between shrink-0">
+        <img src={chakramLogo} alt="" className="h-8 w-auto" />
+        <div className="flex items-center gap-1">
+          <button onClick={refresh} title="Refresh" className="w-9 h-9 flex items-center justify-center rounded-xl text-muted hover:text-text hover:bg-surface2 transition-colors">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="w-4 h-4"><path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8"/><path d="M21 3v5h-5"/><path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16"/><path d="M8 16H3v5"/></svg>
           </button>
-          <button onClick={() => setSettings(true)} className="w-8 h-8 flex items-center justify-center rounded-xl text-muted hover:text-text hover:bg-surface2 transition-colors text-sm">⚙</button>
-          <button onClick={onLock} className="text-xs text-muted hover:text-text border border-border hover:border-gold px-3 py-1.5 rounded-xl transition-colors">Lock</button>
+          <button onClick={toggle} title="Toggle theme" className="w-9 h-9 flex items-center justify-center rounded-xl text-muted hover:text-text hover:bg-surface2 transition-colors">
+            {dark
+              ? <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="w-4 h-4"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></svg>
+              : <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="w-4 h-4"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
+            }
+          </button>
+          <button onClick={() => setSettings(true)} title="Settings" className="w-9 h-9 flex items-center justify-center rounded-xl text-muted hover:text-text hover:bg-surface2 transition-colors">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="w-4 h-4"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+          </button>
+          <button onClick={onLock} className="text-xs text-muted hover:text-red border border-border hover:border-red/40 px-3 py-1.5 rounded-xl transition-colors font-semibold ml-1">
+            Lock
+          </button>
         </div>
       </div>
 
@@ -871,16 +880,17 @@ function WalletApp({ state, onLock, onRemove, showToast }) {
       )}
 
       {/* Bottom tab bar */}
-      <div className="bg-surface border-t border-border shrink-0" style={{ paddingBottom: 'env(safe-area-inset-bottom)' }}>
+      <div className="bg-surface/95 backdrop-blur-sm border-t border-border shrink-0" style={{ paddingBottom: 'env(safe-area-inset-bottom)' }}>
         <div className="flex">
           {TABS.map(t => (
             <button key={t.id} onClick={() => { setSendTo(null); setTab(t.id) }}
-              className={`flex-1 flex flex-col items-center justify-center py-2.5 gap-0.5 transition-colors ${
-                tab === t.id ? 'text-gold' : 'text-muted hover:text-text'
+              className={`flex-1 flex flex-col items-center justify-center py-3 gap-1 transition-all active:scale-95 ${
+                tab === t.id ? 'text-gold' : 'text-muted'
               }`}>
-              {t.icon}
-              <span className="text-[10px] font-semibold">{t.label}</span>
-              {tab === t.id && <div className="w-1 h-1 rounded-full bg-gold mt-0.5" />}
+              <div className={`flex items-center justify-center w-7 h-7 rounded-xl transition-all ${tab === t.id ? 'bg-goldbg scale-110' : ''}`}>
+                {t.icon}
+              </div>
+              <span className={`text-xs font-semibold transition-all ${tab === t.id ? 'text-gold' : 'text-muted'}`}>{t.label}</span>
             </button>
           ))}
         </div>
@@ -914,24 +924,29 @@ function WalletApp({ state, onLock, onRemove, showToast }) {
 function WelcomeScreen({ onNew, onRestore }) {
   const { dark, toggle } = useTheme()
   return (
-    <div className="flex-1 flex flex-col items-center justify-center p-6 bg-bg">
-      <button onClick={toggle} className="absolute top-4 right-4 w-9 h-9 flex items-center justify-center rounded-xl text-muted hover:text-text hover:bg-surface border border-border transition-colors text-sm">
-        {dark ? '☀' : '🌙'}
-      </button>
-      <div className="w-full max-w-[320px]">
-        <div className="flex flex-col items-center mb-10">
-          <img src={chakramLogo} alt="Chakram" className="h-16 w-auto mb-3" />
-          <p className="text-muted text-sm tracking-wide">ചക്രം · Kerala's Digital Currency</p>
-        </div>
+    <div className="flex-1 flex flex-col bg-bg">
+      {/* Hero gradient panel */}
+      <div className="flex flex-col items-center justify-center py-16 px-6 flex-1"
+        style={{ background: 'linear-gradient(160deg, #f0c04015 0%, #c47f1710 60%, transparent 100%)' }}>
+        <button onClick={toggle} className="absolute top-4 right-4 w-9 h-9 flex items-center justify-center rounded-xl text-muted hover:text-text hover:bg-surface border border-border transition-colors text-sm">
+          {dark ? '☀' : '🌙'}
+        </button>
+        <img src={chakramLogo} alt="Chakram" className="h-20 w-auto mb-5 drop-shadow-lg" />
+        <h1 className="text-3xl font-black text-text tracking-tight mb-1">Chakram Wallet</h1>
+        <p className="text-muted text-base">ചക്രം · Kerala's Digital Currency</p>
+      </div>
+
+      {/* CTA section */}
+      <div className="px-6 pb-10 pt-6 space-y-3">
         <button onClick={onNew}
-          className="w-full py-4 rounded-2xl bg-gold hover:bg-golddim text-white font-bold text-base mb-3 shadow-md active:scale-[0.98] transition-all">
+          className="w-full py-4 rounded-2xl bg-gold hover:bg-golddim text-white font-bold text-lg shadow-lg active:scale-[0.98] transition-all">
           Create New Wallet
         </button>
         <button onClick={onRestore}
-          className="w-full py-4 rounded-2xl bg-surface border border-border text-text font-semibold text-base active:scale-[0.98] transition-all hover:border-gold">
+          className="w-full py-4 rounded-2xl bg-surface border-2 border-border text-text font-semibold text-base active:scale-[0.98] transition-all hover:border-gold">
           Restore from Phrase
         </button>
-        <p className="text-center text-muted text-xs mt-6">Open-source · Ed25519 · UTXO model</p>
+        <p className="text-center text-muted text-xs pt-2">Open-source · Ed25519 · UTXO model</p>
       </div>
     </div>
   )
@@ -1100,21 +1115,24 @@ function UnlockScreen({ onUnlock }) {
   const [pw, setPw]   = useState('')
   const [err, setErr] = useState('')
   return (
-    <div className="flex-1 flex flex-col items-center justify-center p-6 bg-bg">
-      <button onClick={toggle} className="absolute top-4 right-4 w-9 h-9 flex items-center justify-center rounded-xl text-muted hover:text-text hover:bg-surface border border-border transition-colors text-sm">
-        {dark ? '☀' : '🌙'}
-      </button>
-      <img src={chakramLogo} alt="Chakram" className="h-16 w-auto mb-3" />
-      <p className="text-muted text-sm mb-10">Welcome back</p>
-      <div className="w-full max-w-[320px]">
+    <div className="flex-1 flex flex-col bg-bg">
+      <div className="flex-1 flex flex-col items-center justify-center px-6"
+        style={{ background: 'linear-gradient(160deg, #f0c04015 0%, #c47f1710 60%, transparent 100%)' }}>
+        <button onClick={toggle} className="absolute top-4 right-4 w-9 h-9 flex items-center justify-center rounded-xl text-muted hover:text-text hover:bg-surface border border-border transition-colors text-sm">
+          {dark ? '☀' : '🌙'}
+        </button>
+        <img src={chakramLogo} alt="Chakram" className="h-20 w-auto mb-4 drop-shadow-lg" />
+        <p className="text-muted text-base mb-10 font-medium">Welcome back</p>
+      </div>
+      <div className="px-6 pb-10 pt-6 space-y-3">
         <input type="password" value={pw} onChange={e => { setPw(e.target.value); setErr('') }}
           onKeyDown={e => e.key === 'Enter' && onUnlock(pw, setErr)}
           placeholder="Enter your wallet password" autoFocus
-          className="w-full bg-surface border border-border text-text placeholder-muted text-sm px-4 py-3.5 rounded-2xl outline-none focus:border-gold transition-all mb-2 shadow-sm text-center"
+          className="w-full bg-surface border-2 border-border text-text placeholder-muted text-base px-5 py-4 rounded-2xl outline-none focus:border-gold transition-all shadow-sm text-center"
         />
-        {err && <p className="text-red text-xs mb-2 text-center">{err}</p>}
+        {err && <p className="text-red text-sm mb-1 text-center font-medium">{err}</p>}
         <button onClick={() => onUnlock(pw, setErr)}
-          className="w-full py-4 rounded-2xl bg-gold hover:bg-golddim text-white font-bold text-base shadow-md active:scale-[0.98] transition-all mt-1">
+          className="w-full py-4 rounded-2xl bg-gold hover:bg-golddim text-white font-bold text-lg shadow-lg active:scale-[0.98] transition-all">
           Unlock
         </button>
       </div>

@@ -25,12 +25,17 @@ const fmtSupply = v => {
 }
 
 // ── Stat card ──────────────────────────────────────────────────────────────────
-function Stat({ label, value, sub }) {
+function Stat({ label, value, sub, icon, accent }) {
   return (
-    <div className="bg-surface rounded-xl border border-border p-5 shadow-sm">
-      <p className="text-xs font-semibold text-muted uppercase tracking-widest mb-2">{label}</p>
-      <p className="text-2xl font-bold text-text tabular-nums leading-none">{value ?? '—'}</p>
-      {sub && <p className="text-xs text-muted mt-1">{sub}</p>}
+    <div className={`rounded-2xl border p-5 shadow-sm flex flex-col gap-1 ${accent ? 'bg-goldbg border-gold/30' : 'bg-surface border-border'}`}>
+      <div className="flex items-center justify-between mb-1">
+        <p className="text-xs font-bold text-muted uppercase tracking-widest">{label}</p>
+        {icon && <span className="text-lg opacity-60">{icon}</span>}
+      </div>
+      <p className={`text-3xl font-black tabular-nums leading-none tracking-tight ${accent ? 'text-gold' : 'text-text'}`}>
+        {value ?? <span className="text-border">—</span>}
+      </p>
+      {sub && <p className="text-xs text-muted mt-0.5">{sub}</p>}
     </div>
   )
 }
@@ -251,21 +256,21 @@ export default function Explorer() {
       />
 
       {searchErr && (
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 pt-3">
-          <p className="text-red text-xs">{searchErr}</p>
+        <div className="px-4 sm:px-6 pt-3">
+          <p className="text-red text-sm">{searchErr}</p>
         </div>
       )}
 
       {/* Stats */}
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 py-6 grid grid-cols-2 lg:grid-cols-4 gap-4">
-        <Stat label="Latest Block" value={info?.height?.toLocaleString()} />
-        <Stat label="Blocks / min" value={bpm} />
-        <Stat label="CHK Mined"    value={info ? fmtSupply(info.total_supply_mined) : null} sub="of 44.8M max" />
-        <Stat label="Active Peers" value={info?.peers} />
+      <div className="px-4 sm:px-6 py-6 grid grid-cols-2 lg:grid-cols-4 gap-4">
+        <Stat label="Latest Block" value={info?.height?.toLocaleString()} icon="⛏" accent />
+        <Stat label="Blocks / min" value={bpm} icon="⚡" />
+        <Stat label="CHK Mined"    value={info ? fmtSupply(info.total_supply_mined) : null} sub="of 44.8M max" icon="🪙" />
+        <Stat label="Active Peers" value={info?.peers} icon="🔗" />
       </div>
 
       {/* Living chain */}
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 pb-16">
+      <div className="px-4 sm:px-6 pb-16">
         <LiveChain
           blocks={blocks}
           onOpenModal={h => setModal({ type: 'block', key: h })}
