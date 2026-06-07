@@ -237,7 +237,7 @@ export default function Docs() {
               <Pre>{`{
   "name":               "Chakram",
   "ticker":             "CHK",
-  "version":            "v1.0.37",
+  "version":            "v1.0.39",
   "protocol_version":   1,
   "network":            "mainnet",
   "height":             14823,
@@ -457,7 +457,7 @@ sig      := ed25519.Sign(privKey, message[:])`}</Pre>
               Chakram Protocol — Kerala's Digital Currency —{' '}
               <Link to="/" className="text-gold hover:underline">Explorer</Link> ·{' '}
               <Link to="/wallet" className="text-gold hover:underline">Wallet</Link> ·{' '}
-              <Link to="/faucet" className="text-gold hover:underline">Faucet</Link>
+              <Link to="/download" className="text-gold hover:underline">Download</Link>
             </div>
           </section>
         </main>

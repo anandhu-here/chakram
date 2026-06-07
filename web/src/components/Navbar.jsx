@@ -5,7 +5,6 @@ import chakramLogo from '../assets/chakram.png'
 const NAV = [
   { to: '/',         label: 'Explorer'  },
   { to: '/wallet',   label: 'Wallet'    },
-  { to: '/faucet',   label: 'Faucet'    },
   { to: '/download', label: 'Download'  },
   { to: '/docs',     label: 'Docs'      },
 ]

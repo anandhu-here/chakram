@@ -3,7 +3,6 @@ import { BrowserRouter, Routes, Route, useNavigate, useLocation } from 'react-ro
 import { ThemeProvider } from './context/ThemeContext.jsx'
 import Explorer  from './pages/Explorer.jsx'
 import Wallet    from './pages/Wallet.jsx'
-import Faucet    from './pages/Faucet.jsx'
 import Download  from './pages/Download.jsx'
 import Docs      from './pages/Docs.jsx'
 
@@ -11,7 +10,6 @@ import Docs      from './pages/Docs.jsx'
 // wallet.chakram.one/ → /wallet, faucet.chakram.one/ → /faucet, etc.
 const SUBDOMAIN_ROUTES = {
   wallet:   '/wallet',
-  faucet:   '/faucet',
   docs:     '/docs',
   download: '/download',
 }
@@ -38,7 +36,6 @@ export default function App() {
         <Routes>
           <Route path="/"         element={<Explorer />} />
           <Route path="/wallet"   element={<Wallet />} />
-          <Route path="/faucet"   element={<Faucet />} />
           <Route path="/download" element={<Download />} />
           <Route path="/docs"     element={<Docs />} />
         </Routes>

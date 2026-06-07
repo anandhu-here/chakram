@@ -20,7 +20,7 @@ Chakram is a fast, CPU-mineable cryptocurrency inspired by the ancient Travancor
 
 ## Installation
 
-Download the latest binary for your platform from [Releases](https://github.com/anandhusathe/chakram/releases), or get the GUI desktop app from [chakram.one/download](https://chakram.one/download).
+Download the latest binary for your platform from [Releases](https://github.com/anandhu-here/chakram/releases), or get the GUI desktop app from [chakram.one/download](https://chakram.one/download).
 
 ### macOS
 
@@ -119,7 +119,7 @@ Live explorer: **https://chakram.one**
 Requires Go 1.21+.
 
 ```bash
-git clone https://github.com/anandhusathe/chakram
+git clone https://github.com/anandhu-here/chakram
 cd chakram
 
 # Build for your platform (CGo enabled — requires a C compiler for RandomX)

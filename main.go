@@ -273,7 +273,7 @@ func runSend(args []string) {
 	fmt.Printf("  Fee:    %.6f CHK\n", float64(MinTxFee)/float64(CashPerCHK))
 	fmt.Printf("  TxID:   %s\n", txid)
 	fmt.Println()
-	fmt.Println("Transaction will confirm in the next block (~60 seconds)")
+	fmt.Println("Transaction will confirm in the next block (~30 seconds)")
 	fmt.Printf("Check: http://localhost:%d/tx/%s\n", rpcPort, txid)
 }
 

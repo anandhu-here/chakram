@@ -145,7 +145,7 @@ func NewNode(cfg NodeConfig) (*Node, error) {
 
 func (n *Node) Start() error {
 	fmt.Println("╔═══════════════════════════════════╗")
-	fmt.Println("║         CHAKRAM NODE v1.0         ║")
+	fmt.Printf("║      CHAKRAM NODE %-16s║\n", SoftwareVersion)
 	fmt.Println("║   ചക്രം — Kerala's Digital Coin   ║")
 	fmt.Println("╚═══════════════════════════════════╝")
 

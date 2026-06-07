@@ -306,9 +306,11 @@ func (bc *Blockchain) AddBlock(b *Block) error {
 		return bc.applyBlock(b)
 
 	case b.Header.Height >= height:
-		// Candidate chain: same height or taller. Compare cumulative chainwork
-		// so two miners finding blocks at the same height resolve deterministically
-		// (most total proof-of-work wins — the Bitcoin rule).
+		// Candidate chain: same height or taller. Compare cumulative chainwork.
+		// Strictly greater work always wins (Bitcoin rule).
+		// Equal work: prefer the block whose hash is lexicographically lower —
+		// both nodes see the same two hashes and make the identical decision,
+		// so the tie resolves deterministically without ping-pong reorgs.
 		currentTip, err := bc.Storage.GetBlockByHash(tip)
 		if err != nil {
 			return fmt.Errorf("fetch current tip for chainwork comparison: %w", err)
@@ -321,7 +323,11 @@ func (bc *Blockchain) AddBlock(b *Block) error {
 		if err != nil {
 			return fmt.Errorf("chainwork for current tip: %w", err)
 		}
-		if newWork.Cmp(curWork) >= 0 {
+		cmp := newWork.Cmp(curWork)
+		if cmp > 0 {
+			return bc.reorganize(b)
+		}
+		if cmp == 0 && bytes.Compare(b.Hash[:], currentTip.Hash[:]) < 0 {
 			return bc.reorganize(b)
 		}
 		return nil
