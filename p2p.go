@@ -645,18 +645,20 @@ func (s *Server) handleBlock(peer *Peer, msg Message) error {
 	}
 	if s.SyncManager != nil {
 		s.SyncManager.OnBlockReceived(&b, peer)
-		return nil
+	} else {
+		if err := s.Blockchain.AddBlock(&b); err != nil {
+			return err
+		}
 	}
-	if err := s.Blockchain.AddBlock(&b); err != nil {
-		return err
+	// Relay to all other peers regardless of which path handled the block.
+	if s.Blockchain.HasBlock(b.Hash) {
+		inv, err := NewMessage(s.magic, MsgInv, InvPayload{
+			Items: []InvItem{{Type: 1, Hash: b.Hash}},
+		})
+		if err == nil {
+			s.Broadcast(inv, peer)
+		}
 	}
-	inv, err := NewMessage(s.magic, MsgInv, InvPayload{
-		Items: []InvItem{{Type: 1, Hash: b.Hash}},
-	})
-	if err != nil {
-		return err
-	}
-	s.Broadcast(inv, peer)
 	return nil
 }
 

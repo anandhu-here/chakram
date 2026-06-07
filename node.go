@@ -11,6 +11,16 @@ import (
 	"time"
 )
 
+// isatty returns true when stdout is an interactive terminal.
+// Used to suppress sensitive output (mnemonic) when running as a systemd service.
+func isatty() bool {
+	fi, err := os.Stdout.Stat()
+	if err != nil {
+		return false
+	}
+	return (fi.Mode() & os.ModeCharDevice) != 0
+}
+
 // ── Config ────────────────────────────────────────────────────────────────────
 
 type NodeConfig struct {
@@ -108,8 +118,12 @@ func NewNode(cfg NodeConfig) (*Node, error) {
 			return nil, fmt.Errorf("save wallet: %w", err)
 		}
 		fmt.Printf("New wallet created: %s\n", wallet.Address)
-		fmt.Printf("Mnemonic: %s\n", wallet.Mnemonic)
-		fmt.Println("IMPORTANT: Back up your mnemonic phrase — it cannot be recovered!")
+		if isatty() {
+			fmt.Printf("Mnemonic: %s\n", wallet.Mnemonic)
+			fmt.Println("IMPORTANT: Back up your mnemonic phrase — it cannot be recovered!")
+		} else {
+			fmt.Println("Mnemonic suppressed (not a terminal) — recover via wallet file.")
+		}
 	}
 
 	srv := NewServer(bc, mp, cfg.Port, cfg.Testnet)
