@@ -39,19 +39,21 @@ type SyncManager struct {
 	bestPeer      *Peer
 	pendingBlocks map[string]time.Time // blocks requested, waiting for response
 	pendingMu     sync.Mutex
-	lastReorg     time.Time
-	reorgMu       sync.Mutex
-	quit          chan struct{}
+	lastReorg        time.Time
+	reorgMu          sync.Mutex
+	lastWarmedEpoch  uint64
+	quit             chan struct{}
 }
 
 // NewSyncManager creates a SyncManager wired to bc and server.
 func NewSyncManager(bc *Blockchain, server *Server) *SyncManager {
 	return &SyncManager{
-		blockchain:    bc,
-		server:        server,
-		orphans:       make(map[string]*OrphanBlock),
-		pendingBlocks: make(map[string]time.Time),
-		quit:          make(chan struct{}),
+		blockchain:      bc,
+		server:          server,
+		orphans:         make(map[string]*OrphanBlock),
+		pendingBlocks:   make(map[string]time.Time),
+		lastWarmedEpoch: ^uint64(0), // sentinel: never warmed
+		quit:            make(chan struct{}),
 	}
 }
 
@@ -261,11 +263,17 @@ func (sm *SyncManager) warmVerifyEngine() {
 		return
 	}
 	height := sm.blockchain.GetHeight()
+	epoch := height / RandomXEpochLen
+	if epoch == sm.lastWarmedEpoch {
+		return // already warmed for this epoch — skip
+	}
+	sm.lastWarmedEpoch = epoch
 	key := sm.blockchain.epochKey(height)
 	go func() {
-		fmt.Printf("[SYNC] Warming RandomX verify engine for epoch %d…\n", height/64)
+		fmt.Printf("[SYNC] Warming RandomX verify engine for epoch %d…\n", epoch)
 		if err := engine.Init(key); err != nil {
 			fmt.Printf("[SYNC] RandomX verify engine warm-up failed: %v\n", err)
+			sm.lastWarmedEpoch = ^uint64(0) // reset so next tick retries
 			return
 		}
 		fmt.Printf("[SYNC] RandomX verify engine ready\n")
