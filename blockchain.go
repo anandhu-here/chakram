@@ -280,6 +280,20 @@ func (bc *Blockchain) AddBlock(b *Block) error {
 
 		if !skipPoW {
 			key := bc.epochKey(b.Header.Height)
+			// Pre-initialise the engine OUTSIDE chainMu so the 2 GB Argon2d
+			// dataset init (minutes) never freezes the entire chain.
+			// Engine.Init is idempotent — a no-op when the epoch key is unchanged.
+			bc.chainMu.Unlock()
+			initErr := bc.VerifyEngine.Init(key)
+			bc.chainMu.Lock()
+			if initErr != nil {
+				return fmt.Errorf("randomx init: %w", initErr)
+			}
+			// Re-check dedup: a concurrent AddBlock may have stored this block
+			// while we were outside chainMu initialising the engine.
+			if bc.Storage.HasBlock(b.Hash) {
+				return nil
+			}
 			if err := VerifyBlock(b, bc.VerifyEngine, key); err != nil {
 				if errors.Is(err, ErrInvalidPoW) {
 					return fmt.Errorf("%w (height %d hash %x)", ErrInvalidPoW, b.Header.Height, b.Hash)
