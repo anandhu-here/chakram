@@ -41,7 +41,7 @@ RPC_BASE  = "http://localhost:8339"
 RPC_PORT  = 8339
 PID_FILE  = os.path.expanduser("~/.chakram/mainnet/gui.pid")
 POLL_SECS        = 5
-VERSION          = "v1.0.53"
+VERSION          = "v1.0.55"
 CoinbaseMaturity = 10  # blocks until mining reward is spendable — must match config.go
 
 def _get_logo_path():
@@ -688,9 +688,21 @@ class ChakramApp(ctk.CTk):
                          args=(self._node_proc,), daemon=True).start()
 
     def _drain_stdout(self, proc):
+        log_path = os.path.join(os.path.expanduser("~/.chakram/mainnet"), "node.log")
+        log_f = None
+        try:
+            log_f = open(log_path, "a")
+        except Exception:
+            pass
         try:
             for raw in proc.stdout:
                 line = raw.decode('utf-8', errors='replace').strip()
+                if log_f:
+                    try:
+                        log_f.write(line + "\n")
+                        log_f.flush()
+                    except Exception:
+                        pass
                 m = re.search(r'[Mm]ined block (\d+)', line)
                 if m:
                     self._last_mined_block = int(m.group(1))
@@ -699,6 +711,12 @@ class ChakramApp(ctk.CTk):
                     self._hashrate = f"{float(m.group(1)):.0f} H/s"
         except Exception:
             pass
+        finally:
+            if log_f:
+                try:
+                    log_f.close()
+                except Exception:
+                    pass
 
     def _read_crash_reason(self):
         """Read the last FATAL line from node.log and return a user-friendly tuple

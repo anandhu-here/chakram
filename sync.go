@@ -124,9 +124,19 @@ func (sm *SyncManager) doSync() {
 	}
 
 	if best == nil {
-		// No peer is ahead of us — we are at the tip.
+		// No peer ahead of us — but check if any are still in version handshake
+		// (Height=0). If so, defer this decision: those peers may be ahead once
+		// the handshake completes. Declaring SyncComplete prematurely disables
+		// the IBD PoW skip and forces a cold 2-GB RandomX dataset init on the
+		// next block while chainMu is held, freezing the node for minutes.
+		for _, p := range peers {
+			if p.Height == 0 {
+				return // peer heights not yet known — check again next tick
+			}
+		}
 		sm.SetState(SyncComplete)
 		sm.blockchain.SetSyncing(false, 0)
+		sm.warmVerifyEngine()
 		return
 	}
 
@@ -237,7 +247,29 @@ func (sm *SyncManager) OnBlockReceived(b *Block, from *Peer) {
 	if sm.bestPeer != nil && sm.blockchain.GetHeight() >= sm.bestPeer.Height {
 		sm.SetState(SyncComplete)
 		sm.blockchain.SetSyncing(false, 0)
+		sm.warmVerifyEngine()
 	}
+}
+
+// warmVerifyEngine proactively initialises the RandomX verify engine for the
+// current epoch in a background goroutine immediately after IBD completes.
+// Without this, the first real block after IBD triggers a cold 2-GB Argon2d
+// init INSIDE AddBlock while chainMu is held, freezing the node for 2-5 min.
+func (sm *SyncManager) warmVerifyEngine() {
+	engine := sm.blockchain.VerifyEngine
+	if engine == nil {
+		return
+	}
+	height := sm.blockchain.GetHeight()
+	key := sm.blockchain.epochKey(height)
+	go func() {
+		fmt.Printf("[SYNC] Warming RandomX verify engine for epoch %d…\n", height/64)
+		if err := engine.Init(key); err != nil {
+			fmt.Printf("[SYNC] RandomX verify engine warm-up failed: %v\n", err)
+			return
+		}
+		fmt.Printf("[SYNC] RandomX verify engine ready\n")
+	}()
 }
 
 // isOrphanError returns true when AddBlock fails because the block's parent
