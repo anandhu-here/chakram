@@ -257,7 +257,8 @@ export default function Docs() {
             <H2 id="api">HTTP API Reference</H2>
             <P>JSON REST over HTTP. Every response is <code className="bg-surface2 border border-border px-1.5 py-0.5 rounded text-sm font-mono">application/json</code>. Errors return <code className="bg-surface2 border border-border px-1.5 py-0.5 rounded text-sm font-mono">{`{"error":"..."}`}</code>.</P>
             <Callout type="info">
-              Base URL: <code className="font-mono text-xs">http://&lt;node&gt;:8339</code> (mainnet) · <code className="font-mono text-xs">http://&lt;node&gt;:18339</code> (testnet) · CORS: unrestricted
+              Base URL: <code className="font-mono text-xs">http://127.0.0.1:8339</code> (mainnet) · <code className="font-mono text-xs">http://127.0.0.1:18339</code> (testnet) · CORS: unrestricted.<br/>
+              By default the RPC server binds to <strong>localhost only</strong>. Start with <code className="font-mono text-xs">--rpc-public</code> to expose it on the network.
             </Callout>
 
             <Endpoint id="api-info" method="get" path="/info" desc="Current node status: height, peers, sync state, mining, wallet address, total supply mined.">
@@ -400,17 +401,19 @@ input[i].PublicKey  → base64(pubKey)         // set automatically`}</Pre>
             <Pre>{`# Download the binary for your platform from the Download page, then:
 chmod +x chakram
 
-./chakram node                     # mainnet full node
+./chakram node                     # mainnet full node (RPC on localhost only)
 ./chakram node --mine              # mainnet with mining enabled
+./chakram node --rpc-public        # expose RPC on 0.0.0.0 (explorer / monitoring)
 ./chakram node --testnet           # connect to testnet
 ./chakram node --testnet --mine    # testnet with mining
-./chakram node --seed-mode         # infrastructure seed node`}</Pre>
+./chakram node --seed-mode         # infrastructure seed node (public RPC + 125 peers)`}</Pre>
             <DataTable headers={['Flag', 'Default', 'Description']} rows={[
               ['--mine',        'off',      'Enable RandomX block mining. Rewards go to the node wallet.'],
               ['--mineraddress','(wallet)',  'Send mining rewards to a different CK1 address.'],
               ['--password',    'chakram',  'Wallet encryption password. Set a strong one in production.'],
               ['--testnet',     'off',      'Connect to testnet instead of mainnet.'],
-              ['--seed-mode',   'off',      'Infrastructure flag: raises the inbound peer limit from 12 to 125. For seed VMs only.'],
+              ['--seed-mode',   'off',      'Infrastructure flag: raises the inbound peer limit from 12 to 125. Also exposes RPC publicly. For seed VMs only.'],
+              ['--rpc-public',  'off',      'Bind RPC to 0.0.0.0 instead of 127.0.0.1. Use for explorer or monitoring nodes. Implied by --seed-mode.'],
               ['--threads',     '1',        'Number of RandomX mining threads.'],
             ]} />
             <DataTable headers={['Port', 'Protocol', 'Purpose']} rows={[

@@ -97,19 +97,24 @@ func remoteIP(req *http.Request) string {
 type RPCServer struct {
 	node    *Node
 	port    int
+	public  bool // true → bind 0.0.0.0; false → bind 127.0.0.1 (default)
 	server  *http.Server
 	limiter *rateLimiter
 }
 
-func NewRPCServer(node *Node, port int) *RPCServer {
-	return &RPCServer{node: node, port: port, limiter: newRateLimiter()}
+func NewRPCServer(node *Node, port int, public bool) *RPCServer {
+	return &RPCServer{node: node, port: port, public: public, limiter: newRateLimiter()}
 }
 
 func (r *RPCServer) Start() error {
+	host := "127.0.0.1"
+	if r.public {
+		host = "0.0.0.0"
+	}
 	mux := http.NewServeMux()
 	mux.HandleFunc("/", r.route)
 	r.server = &http.Server{
-		Addr:         fmt.Sprintf("0.0.0.0:%d", r.port),
+		Addr:         fmt.Sprintf("%s:%d", host, r.port),
 		Handler:      mux,
 		ReadTimeout:  10 * time.Second,
 		WriteTimeout: 30 * time.Second,

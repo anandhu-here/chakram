@@ -9,6 +9,8 @@ import (
 	"io"
 	"math/rand"
 	"net"
+	"os"
+	"path/filepath"
 	"sync"
 	"time"
 )
@@ -207,17 +209,20 @@ type Server struct {
 	SyncManager  *SyncManager
 	AddrBook     *AddrBook
 	peers        map[string]*Peer
-	banned       map[string]time.Time // IP address → ban expiry
-	mu           sync.RWMutex
-	port         int
-	magic        [4]byte
-	quit         chan struct{}
-	listener     net.Listener
-	listenAddr   string // canonical listen address set in Start()
-	nonce        uint64 // random nonce to detect self-connections
-	maxInbound   int    // max inbound peer connections (higher for seed nodes)
-	pendingInv   map[string]time.Time // hashes we have sent GetData for, awaiting block
-	pendingInvMu sync.Mutex
+	banned         map[string]time.Time   // IP address → ban expiry
+	bannedFile     string                 // path to banned.json for persistence across restarts
+	mu             sync.RWMutex
+	port           int
+	magic          [4]byte
+	quit           chan struct{}
+	listener       net.Listener
+	listenAddr     string // canonical listen address set in Start()
+	nonce          uint64 // random nonce to detect self-connections
+	maxInbound     int    // max inbound peer connections (higher for seed nodes)
+	pendingInv     map[string]time.Time   // hashes we have sent GetData for, awaiting block
+	pendingInvMu   sync.Mutex
+	connAttempts   map[string][]time.Time // inbound connection timestamps per IP for rate limiting
+	connAttemptsMu sync.Mutex
 }
 
 // SetSyncManager wires a SyncManager into the server after construction.
@@ -238,17 +243,19 @@ func NewServer(bc *Blockchain, mp *Mempool, port int, testnet bool, addrBook *Ad
 		fmt.Println("Seed mode: inbound peer limit raised to 125")
 	}
 	return &Server{
-		Blockchain: bc,
-		Mempool:    mp,
-		AddrBook:   addrBook,
-		peers:      make(map[string]*Peer),
-		banned:     make(map[string]time.Time),
-		port:       port,
-		magic:      magic,
-		quit:       make(chan struct{}),
-		nonce:      rand.Uint64(),
-		maxInbound: maxInbound,
-		pendingInv: make(map[string]time.Time),
+		Blockchain:   bc,
+		Mempool:      mp,
+		AddrBook:     addrBook,
+		peers:        make(map[string]*Peer),
+		banned:       make(map[string]time.Time),
+		bannedFile:   filepath.Join(addrBook.DataDir(), "banned.json"),
+		port:         port,
+		magic:        magic,
+		quit:         make(chan struct{}),
+		nonce:        rand.Uint64(),
+		maxInbound:   maxInbound,
+		pendingInv:   make(map[string]time.Time),
+		connAttempts: make(map[string][]time.Time),
 	}
 }
 
@@ -283,6 +290,7 @@ func (s *Server) banPeer(p *Peer) {
 	s.banned[host] = time.Now().Add(banDuration)
 	s.mu.Unlock()
 	fmt.Printf("Peer %s banned for %s\n", p.Address, banDuration)
+	s.saveBans()
 	s.RemovePeer(p)
 }
 
@@ -295,6 +303,57 @@ func (s *Server) penalizePeer(p *Peer) bool {
 		return true
 	}
 	return false
+}
+
+// isConnRateLimited returns true if the IP has made more than 5 inbound
+// connection attempts in the last 60 seconds. Self-cleaning: stale entries are
+// pruned on every call so the map never grows unboundedly.
+func (s *Server) isConnRateLimited(ip string) bool {
+	s.connAttemptsMu.Lock()
+	defer s.connAttemptsMu.Unlock()
+	now := time.Now()
+	cutoff := now.Add(-60 * time.Second)
+	prev := s.connAttempts[ip]
+	filtered := prev[:0]
+	for _, t := range prev {
+		if t.After(cutoff) {
+			filtered = append(filtered, t)
+		}
+	}
+	filtered = append(filtered, now)
+	s.connAttempts[ip] = filtered
+	return len(filtered) > 5
+}
+
+// saveBans persists the current ban list to bannedFile so bans survive restarts.
+func (s *Server) saveBans() {
+	s.mu.RLock()
+	data, err := json.Marshal(s.banned)
+	s.mu.RUnlock()
+	if err != nil {
+		return
+	}
+	os.WriteFile(s.bannedFile, data, 0600) //nolint:errcheck — best-effort persist
+}
+
+// loadBans reads bannedFile and restores non-expired bans into s.banned.
+func (s *Server) loadBans() {
+	data, err := os.ReadFile(s.bannedFile)
+	if err != nil {
+		return // file doesn't exist yet — fresh start
+	}
+	var m map[string]time.Time
+	if err := json.Unmarshal(data, &m); err != nil {
+		return
+	}
+	now := time.Now()
+	s.mu.Lock()
+	for ip, expiry := range m {
+		if expiry.After(now) {
+			s.banned[ip] = expiry
+		}
+	}
+	s.mu.Unlock()
 }
 
 // isOwnAddress returns true if addr is one of our own listening addresses.
@@ -331,6 +390,8 @@ func (s *Server) isOwnAddress(addr string) bool {
 
 // Start opens a TCP listener and spawns the accept and ping loops.
 func (s *Server) Start() error {
+	s.loadBans()
+
 	ln, err := net.Listen("tcp", fmt.Sprintf("0.0.0.0:%d", s.port))
 	if err != nil {
 		return fmt.Errorf("listen :%d: %w", s.port, err)
@@ -411,7 +472,15 @@ func (s *Server) ConnectToPeer(address string) error {
 // handleConnection manages a full inbound connection lifecycle.
 func (s *Server) handleConnection(conn net.Conn) {
 	addr := conn.RemoteAddr().String()
+	host, _, err := net.SplitHostPort(addr)
+	if err != nil {
+		host = addr
+	}
 	if s.isBanned(addr) {
+		conn.Close()
+		return
+	}
+	if s.isConnRateLimited(host) {
 		conn.Close()
 		return
 	}

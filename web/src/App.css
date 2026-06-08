@@ -27,41 +27,41 @@
 
 /* ── Theme tokens — change with light/dark ──────────────────────────────────── */
 :root {
-  --bg:        #f8f7f5;
-  --surface:   #ffffff;
-  --surface2:  #f3f1ec;
-  --surface3:  #ebe8e1;
-  --border:    #e0dcd4;
-  --text:      #1c1917;
-  --muted:     #78716c;
-  --gold:      #c47f17;
-  --golddim:   #a36912;
-  --goldbg:    #fef3c7;
-  --green:     #15803d;
-  --greenbg:   #dcfce7;
-  --red:       #b91c1c;
-  --redbg:     #fee2e2;
-  --orange:    #c2410c;
-  --blue:      #1d4ed8;
+  --bg:        #F5EFE6;
+  --surface:   #FFFFFF;
+  --surface2:  #EDE5D8;
+  --surface3:  #E2D6C6;
+  --border:    #C9B99E;
+  --text:      #2C1A0E;
+  --muted:     #7A5C42;
+  --gold:      #8B4A20;
+  --golddim:   #6B3210;
+  --goldbg:    rgba(139,74,32,0.10);
+  --green:     #2D7A50;
+  --greenbg:   rgba(45,122,80,0.10);
+  --red:       #A83228;
+  --redbg:     rgba(168,50,40,0.10);
+  --orange:    #B85C20;
+  --blue:      #2455A4;
 }
 
 .dark {
-  --bg:        #0b0b0f;
-  --surface:   #131318;
-  --surface2:  #1c1c24;
-  --surface3:  #23232e;
-  --border:    #2c2c3c;
-  --text:      #eaeaf0;
-  --muted:     #6c6c84;
-  --gold:      #f0c040;
-  --golddim:   #c9a030;
-  --goldbg:    rgba(240,192,64,0.1);
-  --green:     #34d399;
-  --greenbg:   rgba(52,211,153,0.1);
-  --red:       #f87171;
-  --redbg:     rgba(248,113,113,0.1);
-  --orange:    #fb923c;
-  --blue:      #818cf8;
+  --bg:        #080604;
+  --surface:   #0F0C08;
+  --surface2:  #1A1510;
+  --surface3:  #150F09;
+  --border:    #2E2418;
+  --text:      #F5ECD8;
+  --muted:     #A0876A;
+  --gold:      #C8793A;
+  --golddim:   #8B4A20;
+  --goldbg:    rgba(200,121,58,0.13);
+  --green:     #6BBF8A;
+  --greenbg:   rgba(107,191,138,0.12);
+  --red:       #E07060;
+  --redbg:     rgba(224,112,96,0.12);
+  --orange:    #E8A050;
+  --blue:      #7090D8;
 }
 
 @theme inline {

@@ -93,6 +93,11 @@ func (ab *AddrBook) GetAll() []string {
 	return addrs
 }
 
+// DataDir returns the directory where the address book file lives.
+func (ab *AddrBook) DataDir() string {
+	return filepath.Dir(ab.path)
+}
+
 // Size returns the number of known addresses.
 func (ab *AddrBook) Size() int {
 	ab.mu.Lock()

@@ -215,17 +215,22 @@ function HomeTab({ address, balance, network, utxos, onSend, onReceive, onScan, 
   return (
     <div className="flex-1 overflow-y-auto pb-4">
       {/* Balance card */}
-      <div className="mx-4 mt-4 rounded-3xl p-6 text-black shadow-lg"
-        style={{ background: 'linear-gradient(135deg, #f0c040 0%, #c47f17 100%)' }}>
-        <p className="text-sm font-medium opacity-70 mb-1">Total Balance</p>
+      <div className="mx-4 mt-4 rounded-3xl p-6 text-white shadow-xl relative overflow-hidden"
+        style={{ background: 'linear-gradient(135deg, #6B3210 0%, #C8793A 100%)' }}>
+        {/* Chakram coin watermark */}
+        <img src={chakramLogo} alt="" aria-hidden
+          className="absolute -right-5 -top-5 w-36 h-36 opacity-[0.12] pointer-events-none select-none"
+          style={{ filter: 'brightness(0) invert(1)' }}
+        />
+        <p className="text-xs font-bold tracking-widest uppercase opacity-70 mb-1">Wallet Balance</p>
         <p className="text-4xl font-black tracking-tight leading-none">
           {balance !== null ? fmt(balance) : '—'}
         </p>
-        <p className="text-lg font-semibold opacity-70 mt-0.5">CHK</p>
-        <div className="flex items-center justify-between mt-4">
-          <p className="text-xs opacity-60 font-mono">{address?.slice(0, 16)}…</p>
+        <p className="text-lg font-semibold opacity-60 mt-0.5">CHK</p>
+        <div className="flex items-center justify-between mt-5">
+          <p className="text-xs opacity-60 font-mono bg-black/20 px-3 py-1 rounded-full">{address?.slice(0, 16)}…</p>
           {network && (
-            <span className="text-[10px] font-bold uppercase bg-black/15 px-2 py-0.5 rounded-full">
+            <span className="text-[10px] font-bold uppercase bg-black/20 px-2 py-1 rounded-full">
               {network}
             </span>
           )}
@@ -927,7 +932,7 @@ function WelcomeScreen({ onNew, onRestore }) {
     <div className="flex-1 flex flex-col bg-bg">
       {/* Hero gradient panel */}
       <div className="flex flex-col items-center justify-center py-16 px-6 flex-1"
-        style={{ background: 'linear-gradient(160deg, #f0c04015 0%, #c47f1710 60%, transparent 100%)' }}>
+        style={{ background: 'linear-gradient(160deg, #C8793A18 0%, #6B321010 60%, transparent 100%)' }}>
         <button onClick={toggle} className="absolute top-4 right-4 w-9 h-9 flex items-center justify-center rounded-xl text-muted hover:text-text hover:bg-surface border border-border transition-colors text-sm">
           {dark ? '☀' : '🌙'}
         </button>
@@ -1117,7 +1122,7 @@ function UnlockScreen({ onUnlock }) {
   return (
     <div className="flex-1 flex flex-col bg-bg">
       <div className="flex-1 flex flex-col items-center justify-center px-6"
-        style={{ background: 'linear-gradient(160deg, #f0c04015 0%, #c47f1710 60%, transparent 100%)' }}>
+        style={{ background: 'linear-gradient(160deg, #C8793A18 0%, #6B321010 60%, transparent 100%)' }}>
         <button onClick={toggle} className="absolute top-4 right-4 w-9 h-9 flex items-center justify-center rounded-xl text-muted hover:text-text hover:bg-surface border border-border transition-colors text-sm">
           {dark ? '☀' : '🌙'}
         </button>

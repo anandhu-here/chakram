@@ -4,7 +4,8 @@ const ThemeContext = createContext()
 
 export function ThemeProvider({ children }) {
   const [dark, setDark] = useState(() => {
-    return localStorage.getItem('chakram-theme') === 'dark'
+    const stored = localStorage.getItem('chakram-theme')
+    return stored ? stored === 'dark' : true
   })
 
   useEffect(() => {

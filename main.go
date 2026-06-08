@@ -71,6 +71,7 @@ func runNode(args []string) {
 	cfg := DefaultConfig(flags["testnet"] == "true")
 	cfg.Mine = flags["mine"] == "true"
 	cfg.SeedMode = flags["seed-mode"] == "true"
+	cfg.RPCPublic = flags["rpc-public"] == "true"
 	if p := flags["password"]; p != "" {
 		cfg.Password = p
 	}
@@ -312,8 +313,10 @@ func runStatus(args []string) {
 
 func printUsage() {
 	fmt.Println("Usage:")
-	fmt.Println("  chakram node                                     — start full node")
+	fmt.Println("  chakram node                                     — start full node (RPC on localhost only)")
 	fmt.Println("  chakram node --mine                              — start node with mining")
+	fmt.Println("  chakram node --rpc-public                        — expose RPC on 0.0.0.0 (explorer/monitoring)")
+	fmt.Println("  chakram node --seed-mode                         — infrastructure seed node")
 	fmt.Println("  chakram node --testnet                           — start on testnet")
 	fmt.Println("  chakram wallet new                               — generate new wallet")
 	fmt.Println("  chakram wallet recover --mnemonic \"<12 words>\"  — restore wallet from mnemonic")

@@ -32,6 +32,7 @@ type NodeConfig struct {
 	Testnet        bool
 	Mine           bool
 	SeedMode       bool   // raises inbound peer limit for infrastructure seed nodes
+	RPCPublic      bool   // bind RPC to 0.0.0.0 instead of 127.0.0.1
 	MinerAddr      string
 	MiningThreads  int
 	LogLevel       string
@@ -201,7 +202,7 @@ func NewNode(cfg NodeConfig) (*Node, error) {
 		SyncManager: sm,
 		quit:        make(chan struct{}),
 	}
-	node.RPCServer = NewRPCServer(node, rpcPort)
+	node.RPCServer = NewRPCServer(node, rpcPort, cfg.RPCPublic || cfg.SeedMode)
 
 	if cfg.Mine {
 		node.Engine = NewRandomXEngine()
@@ -277,7 +278,11 @@ func (n *Node) Start() error {
 	if err := n.RPCServer.Start(); err != nil {
 		return fmt.Errorf("start rpc: %w", err)
 	}
-	fmt.Printf("RPC:     http://0.0.0.0:%d\n", n.RPCServer.port)
+	if n.RPCServer.public {
+		fmt.Printf("RPC:     http://0.0.0.0:%d  (public)\n", n.RPCServer.port)
+	} else {
+		fmt.Printf("RPC:     http://127.0.0.1:%d  (localhost only — use --rpc-public to expose)\n", n.RPCServer.port)
+	}
 
 	if n.Config.Mine {
 		go n.mineLoop()
