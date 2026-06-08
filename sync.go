@@ -301,7 +301,9 @@ func (sm *SyncManager) AddOrphan(b *Block) {
 	}
 
 	if _, exists := sm.orphans[hashHex]; !exists {
-		sm.orphans[hashHex] = &OrphanBlock{Block: b, ReceivedAt: time.Now()}
+		if len(sm.orphans) < 500 {
+			sm.orphans[hashHex] = &OrphanBlock{Block: b, ReceivedAt: time.Now()}
+		}
 	}
 }
 

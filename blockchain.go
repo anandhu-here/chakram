@@ -301,8 +301,8 @@ func (bc *Blockchain) AddBlock(b *Block) error {
 	}
 
 	// Bootstrap time floor: during the first DifficultyWindow blocks the protocol
-	// enforces a minimum gap of TargetBlockTime (60s) between blocks. After
-	// bootstrap a permanent PostBootstrapMinGap (30s) floor remains in force
+	// enforces a minimum gap of TargetBlockTime (30s) between blocks. After
+	// bootstrap a permanent PostBootstrapMinGap (45s) floor remains in force
 	// forever. This prevents any miner from flooding the network with fast blocks
 	// that would cause LWMA to overshoot difficulty regardless of window size.
 	if b.Header.Height <= DifficultyWindow {

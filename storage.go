@@ -8,6 +8,7 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
+	"time"
 
 	badger "github.com/dgraph-io/badger/v4"
 )
@@ -211,7 +212,23 @@ func NewStorage(path string) (*Storage, error) {
 	if err != nil {
 		return nil, fmt.Errorf("open badger at %s: %w", path, err)
 	}
-	return &Storage{DB: db}, nil
+	s := &Storage{DB: db}
+	go s.runGC()
+	return s, nil
+}
+
+// runGC periodically reclaims space from BadgerDB's append-only value log.
+// Without this, deleted keys (spent UTXOs, old blocks) occupy disk forever.
+func (s *Storage) runGC() {
+	ticker := time.NewTicker(1 * time.Hour)
+	defer ticker.Stop()
+	for range ticker.C {
+		for {
+			if err := s.DB.RunValueLogGC(0.5); err != nil {
+				break // ErrNoRewrite means nothing left to reclaim
+			}
+		}
+	}
 }
 
 // Close flushes pending writes and cleanly shuts down the BadgerDB instance.

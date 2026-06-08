@@ -589,6 +589,10 @@ func (s *Server) handleInv(peer *Peer, msg Message) error {
 					s.pendingInvMu.Unlock()
 					continue // already sent GetData for this hash, ignore duplicate
 				}
+				if len(s.pendingInv) >= 10_000 {
+					s.pendingInvMu.Unlock()
+					continue // cap reached — drop until GC catches up
+				}
 				s.pendingInv[hashStr] = time.Now()
 				s.pendingInvMu.Unlock()
 				req, err := NewMessage(s.magic, MsgGetData, GetDataPayload{Type: 1, Hash: item.Hash})
