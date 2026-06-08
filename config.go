@@ -20,7 +20,7 @@ const (
 	MinProtocolVersion uint32 = 1
 
 	// SoftwareVersion is the human-readable release string. Bumped by release.sh.
-	SoftwareVersion = "v1.0.59"
+	SoftwareVersion = "v1.0.60"
 )
 
 // ForkActivations maps each protocol version to the block height at which its
@@ -41,7 +41,9 @@ var ForkActivations = map[uint32]uint64{
 // by this binary. Any block at a checkpointed height must exactly match.
 // Reorganizations may never roll back past the highest checkpoint.
 // Add a new entry with each major release after the chain has stabilised.
-var Checkpoints = map[uint64]string{}
+var Checkpoints = map[uint64]string{
+	600: "081454bdec667c88b5b5b10ca539688efeb2c8b872cbe250e30be7b0813c752d",
+}
 
 // ── Supply & Economics ───────────────────────────────────────────────────────
 
