@@ -372,12 +372,12 @@ func (n *Node) mineLoop() {
 		// Use ConnectedPeers (handshake complete) not PeerCount (includes dead
 		// connections not yet evicted by the ping loop).
 		connPeers := n.Server.ConnectedPeers()
-		if len(connPeers) < 2 {
-			fmt.Printf("Mining paused — waiting for peers (have %d connected, need 2)\n", len(connPeers))
-			// Immediately attempt reconnect to seeds instead of waiting for the 30s ticker.
+		if len(connPeers) < 1 {
+			fmt.Printf("Mining paused — waiting for peers (have %d connected, need 1)\n", len(connPeers))
+			// Reconnect in background so the dial timeout doesn't freeze mineLoop.
 			for _, seed := range n.Config.Seeds {
 				if !n.Server.isOwnAddress(seed) && !n.Server.IsConnected(seed) {
-					n.Server.ConnectToPeer(seed) //nolint:errcheck
+					go n.Server.ConnectToPeer(seed) //nolint:errcheck
 				}
 			}
 			time.Sleep(5 * time.Second)
@@ -469,6 +469,9 @@ func (n *Node) mineLoop() {
 
 		epochKey := n.epochKey(height)
 		if err := MineBlock(b, n.Engine, epochKey, n.miningQuit); err != nil {
+			if err.Error() != "mining cancelled" {
+				fmt.Printf("[MINER] MineBlock error at h=%d: %v\n", height, err)
+			}
 			continue
 		}
 
@@ -479,6 +482,7 @@ func (n *Node) mineLoop() {
 		}
 
 		if err := n.Blockchain.AddBlock(b); err != nil {
+			fmt.Printf("[MINER] AddBlock rejected locally-mined block at h=%d: %v\n", height, err)
 			continue
 		}
 
