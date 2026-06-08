@@ -582,7 +582,7 @@ func (s *Server) handleInv(peer *Peer, msg Message) error {
 	for _, item := range inv.Items {
 		switch item.Type {
 		case 1: // block
-			if !s.Blockchain.HasBlock(item.Hash) {
+			if !s.Blockchain.IsBlockOnMainChain(item.Hash) {
 				hashStr := fmt.Sprintf("%x", item.Hash)
 				s.pendingInvMu.Lock()
 				if _, exists := s.pendingInv[hashStr]; exists {

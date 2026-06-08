@@ -60,6 +60,24 @@ func NewBlockchain(dataDir string, createVerifyEngine bool) (*Blockchain, error)
 	if err == nil {
 		bc.Tip = tip
 		bc.Height = height
+		// Recovery: if applyBlock ran UpdateHeightIndex but not SaveChainTip in
+		// a previous session, the height index is ahead of the stored chain tip.
+		// Scan forward and advance the tip to match.
+		for {
+			next, nextErr := storage.GetBlockByHeight(bc.Height + 1)
+			if nextErr != nil {
+				break
+			}
+			if !bytes.Equal(next.Header.PreviousHash, bc.Tip) {
+				break // inconsistent entry in height index — stop
+			}
+			if saveErr := storage.SaveChainTip(next.Hash, next.Header.Height); saveErr != nil {
+				break
+			}
+			bc.Tip = next.Hash
+			bc.Height = next.Header.Height
+			fmt.Printf("[RECOVERY] Chain tip restored to h=%d\n", bc.Height)
+		}
 		return bc, nil
 	}
 
@@ -106,6 +124,22 @@ func (bc *Blockchain) IsSyncing() bool {
 	bc.syncMu.RLock()
 	defer bc.syncMu.RUnlock()
 	return bc.isSyncing
+}
+
+// IsBlockOnMainChain returns true only when hash is both stored AND indexed at
+// the correct height on the canonical chain. A block whose raw data was saved
+// but whose applyBlock never completed (limbo block) returns false, allowing
+// handleInv to re-request it so AddBlock can retry the apply.
+func (bc *Blockchain) IsBlockOnMainChain(hash []byte) bool {
+	b, err := bc.Storage.GetBlockByHash(hash)
+	if err != nil {
+		return false
+	}
+	inChain, err := bc.Storage.GetBlockByHeight(b.Header.Height)
+	if err != nil {
+		return false
+	}
+	return bytes.Equal(inChain.Hash, hash)
 }
 
 // epochKey returns the RandomX seed for the epoch that contains height.
@@ -161,9 +195,32 @@ func (bc *Blockchain) AddBlock(b *Block) error {
 		return errors.New("cannot replace genesis block")
 	}
 
-	// Deduplicate — already have this exact block.
+	// Deduplicate — only skip if the block is already on the main chain.
+	// A block whose raw data was saved but whose applyBlock never completed
+	// (limbo from a previous crash) is NOT on the main chain; fall through so
+	// applyBlock can finish the work.
+	alreadyStored := false
 	if bc.Storage.HasBlock(b.Hash) {
-		return nil
+		if inChain, chkErr := bc.Storage.GetBlockByHeight(b.Header.Height); chkErr == nil && bytes.Equal(inChain.Hash, b.Hash) {
+			return nil // already fully committed to the main chain
+		}
+		alreadyStored = true
+	}
+
+	// Limbo-block fast path: data is in DB but applyBlock never ran.
+	// Skip all validation (already checked in the previous session) and attempt
+	// to apply directly. Only handles the direct-extension case for safety.
+	if alreadyStored {
+		for _, tx := range b.Transactions {
+			tx.TxID = tx.ComputeTxID()
+		}
+		bc.stateMu.RLock()
+		limbTip := bc.Tip
+		bc.stateMu.RUnlock()
+		if bytes.Equal(b.Header.PreviousHash, limbTip) {
+			return bc.applyBlock(b)
+		}
+		return nil // not a direct extension of our tip — skip for now
 	}
 
 	// Locate parent; an unknown parent means this is an orphan.
