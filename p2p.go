@@ -765,7 +765,12 @@ func (s *Server) AddPeer(p *Peer) {
 // deadlocks permanently.
 func (s *Server) RemovePeer(p *Peer) {
 	s.mu.Lock()
-	delete(s.peers, p.Address)
+	// Only delete if the map still points to THIS peer object.
+	// A reconnect may have already replaced the entry with a new peer;
+	// deleting by address key in that case would evict the healthy new connection.
+	if current, exists := s.peers[p.Address]; exists && current == p {
+		delete(s.peers, p.Address)
+	}
 	s.mu.Unlock()
 	p.Conn.Close()
 	if s.SyncManager != nil {

@@ -49,9 +49,10 @@ function DlBtn({ href, children }) {
 }
 
 const TABS = [
-  { id: 'mac',     label: '🍎 Mac'    },
-  { id: 'windows', label: '🪟 Windows' },
-  { id: 'linux',   label: '🐧 Linux'  },
+  { id: 'mac',     label: '🍎 Mac'     },
+  { id: 'windows', label: '🪟 Windows'  },
+  { id: 'linux',   label: '🐧 Linux'   },
+  { id: 'android', label: '🤖 Android' },
 ]
 
 export default function Download() {
@@ -84,6 +85,10 @@ export default function Download() {
           <a href={`${GCS}/Chakram.exe`}
             className="inline-flex items-center gap-2 bg-gold hover:bg-golddim text-white font-bold px-6 py-3.5 rounded-2xl transition-colors shadow-md active:scale-[0.98] text-base">
             ⬇ Windows
+          </a>
+          <a href={`${GCS}/chakram-wallet-unsigned.apk`}
+            className="inline-flex items-center gap-2 bg-gold hover:bg-golddim text-white font-bold px-6 py-3.5 rounded-2xl transition-colors shadow-md active:scale-[0.98] text-base">
+            ⬇ Android APK
           </a>
           <Link to="/docs"
             className="inline-flex items-center gap-2 border-2 border-border bg-surface hover:border-gold hover:text-gold text-text font-bold px-6 py-3.5 rounded-2xl transition-colors text-base">
@@ -197,6 +202,43 @@ export default function Download() {
               {
                 title: 'Start mining',
                 body: <>Connects to mainnet and syncs. Click <strong className="text-text">Start Mining</strong> to begin earning CHK.<Note variant="info">💡 No special hardware needed.</Note></>,
+              },
+            ].map((s, i) => <Step key={i} num={i + 1} title={s.title}>{s.body}</Step>)}
+          </div>
+        )}
+
+        {tab === 'android' && (
+          <div>
+            {[
+              {
+                title: 'Download the APK',
+                body: <>
+                  <DlBtn href={`${GCS}/chakram-wallet-unsigned.apk`}>⬇ chakram-wallet-unsigned.apk</DlBtn>
+                  <p className="mt-3">Saves to your Downloads folder. This is the Chakram mobile wallet — send, receive, and manage CHK from your phone.</p>
+                  <Note variant="warn">⚠️ This APK is unsigned. You must allow installation from unknown sources on your device.</Note>
+                </>,
+              },
+              {
+                title: 'Allow unknown sources',
+                body: <>
+                  Android blocks apps not from the Play Store by default. To install:
+                  <Code>{`Settings → Apps → Special app access\n→ Install unknown apps\n→ Your browser or Files app → Allow`}</Code>
+                  <p className="mt-2">On older Android: <strong className="text-text">Settings → Security → Unknown sources → Enable</strong>.</p>
+                </>,
+              },
+              {
+                title: 'Install the APK',
+                body: <>
+                  Open your <strong className="text-text">Downloads</strong> folder and tap <strong className="text-text">chakram-wallet-unsigned.apk</strong>. Tap <strong className="text-text">Install</strong> when prompted.
+                  <Note variant="info">ℹ️ Android may scan the file — this is normal. The app is open-source and safe.</Note>
+                </>,
+              },
+              {
+                title: 'Create or restore your wallet',
+                body: <>
+                  On first launch, create a new wallet or restore from your 12-word recovery phrase. Your wallet is encrypted on-device with your password.
+                  <Note variant="warn">⚠️ Write down your 12-word recovery phrase. It's the only way to recover your funds if you lose the device.</Note>
+                </>,
               },
             ].map((s, i) => <Step key={i} num={i + 1} title={s.title}>{s.body}</Step>)}
           </div>
