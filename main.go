@@ -70,6 +70,7 @@ func runNode(args []string) {
 
 	cfg := DefaultConfig(flags["testnet"] == "true")
 	cfg.Mine = flags["mine"] == "true"
+	cfg.SeedMode = flags["seed-mode"] == "true"
 	if p := flags["password"]; p != "" {
 		cfg.Password = p
 	}

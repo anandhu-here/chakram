@@ -5,7 +5,7 @@ After=network.target
 [Service]
 Type=simple
 User=ubuntu
-ExecStart=/home/ubuntu/chakram node
+ExecStart=/home/ubuntu/chakram node --seed-mode
 Restart=always
 RestartSec=10
 StandardOutput=journal

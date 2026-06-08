@@ -39,6 +39,7 @@ func NewAddrBook(dataDir string) *AddrBook {
 }
 
 // Add records addr as a known peer. Evicts the oldest entry when at capacity.
+// Callers should follow a batch of Add() calls with Save() to flush to disk.
 func (ab *AddrBook) Add(addr string) {
 	if addr == "" {
 		return
@@ -54,6 +55,12 @@ func (ab *AddrBook) Add(addr string) {
 		ab.evictOldestLocked()
 	}
 	ab.entries[addr] = &addrEntry{Address: addr, LastSeen: time.Now()}
+}
+
+// Save flushes the current address book to disk.
+func (ab *AddrBook) Save() {
+	ab.mu.Lock()
+	defer ab.mu.Unlock()
 	ab.saveLocked()
 }
 

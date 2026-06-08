@@ -5,6 +5,7 @@ package main
 import (
 	"context"
 	"fmt"
+	"net"
 	"os"
 	"path/filepath"
 	"sync"
@@ -30,13 +31,41 @@ type NodeConfig struct {
 	Port           int
 	Testnet        bool
 	Mine           bool
+	SeedMode       bool   // raises inbound peer limit for infrastructure seed nodes
 	MinerAddr      string
 	MiningThreads  int
 	LogLevel       string
 	Seeds          []string
 }
 
+// resolveDNSSeeds queries every hostname in DNSSeeds and returns all resolved
+// IPs as host:port strings. Unreachable hostnames are skipped silently so a
+// single failed operator never blocks startup.
+func resolveDNSSeeds(testnet bool) []string {
+	port := DefaultPortMainnet
+	if testnet {
+		port = DefaultPortTestnet
+	}
+	seen := make(map[string]bool)
+	var results []string
+	for _, host := range DNSSeeds {
+		addrs, err := net.LookupHost(host)
+		if err != nil || len(addrs) == 0 {
+			continue
+		}
+		for _, addr := range addrs {
+			entry := fmt.Sprintf("%s:%d", addr, port)
+			if !seen[entry] {
+				seen[entry] = true
+				results = append(results, entry)
+			}
+		}
+	}
+	return results
+}
+
 // DefaultConfig returns sensible defaults for mainnet or testnet.
+// DNS seeds are resolved at startup and merged with hardcoded fallbacks.
 func DefaultConfig(testnet bool) NodeConfig {
 	home, err := os.UserHomeDir()
 	if err != nil || home == "" {
@@ -45,12 +74,39 @@ func DefaultConfig(testnet bool) NodeConfig {
 	}
 	network := "mainnet"
 	port := DefaultPortMainnet
-	seeds := MainnetSeeds
+	fallback := MainnetSeeds
 	if testnet {
 		network = "testnet"
 		port = DefaultPortTestnet
-		seeds = TestnetSeeds
+		fallback = TestnetSeeds
 	}
+
+	// Resolve DNS seeds and merge with hardcoded fallbacks, deduplicating.
+	dnsSeeds := resolveDNSSeeds(testnet)
+	seen := make(map[string]bool)
+	var seeds []string
+	for _, s := range dnsSeeds {
+		if !seen[s] {
+			seen[s] = true
+			seeds = append(seeds, s)
+		}
+	}
+	for _, s := range fallback {
+		if !seen[s] {
+			seen[s] = true
+			seeds = append(seeds, s)
+		}
+	}
+	if len(seeds) == 0 {
+		seeds = fallback
+	}
+
+	if len(dnsSeeds) > 0 {
+		fmt.Printf("DNS seeds resolved: %d addresses from %d operators\n", len(dnsSeeds), len(DNSSeeds))
+	} else {
+		fmt.Printf("DNS seeds unavailable — using %d hardcoded fallbacks\n", len(fallback))
+	}
+
 	dataDir := filepath.Join(home, ".chakram", network)
 	return NodeConfig{
 		DataDir:    dataDir,
@@ -127,7 +183,7 @@ func NewNode(cfg NodeConfig) (*Node, error) {
 	}
 
 	addrBook := NewAddrBook(cfg.DataDir)
-	srv := NewServer(bc, mp, cfg.Port, cfg.Testnet, addrBook)
+	srv := NewServer(bc, mp, cfg.Port, cfg.Testnet, addrBook, cfg.SeedMode)
 	sm := NewSyncManager(bc, srv)
 	srv.SetSyncManager(sm)
 
@@ -202,13 +258,19 @@ func (n *Node) Start() error {
 
 	// Connect to previously known peers from the address book so the node
 	// can reach the network even if seeds are temporarily unreachable.
+	// Limit to 8 attempts on startup — the reconnect ticker handles the rest.
 	if known := n.Server.AddrBook.GetAll(); len(known) > 0 {
-		fmt.Printf("AddrBook: %d known peers — connecting...\n", len(known))
+		fmt.Printf("AddrBook: %d known peers\n", len(known))
+		attempted := 0
 		for _, addr := range known {
-			if n.Server.isOwnAddress(addr) || n.Server.IsConnected(addr) {
+			if attempted >= 8 {
+				break
+			}
+			if n.Server.isOwnAddress(addr) || n.Server.HasPeer(addr) {
 				continue
 			}
 			n.Server.ConnectToPeer(addr) //nolint:errcheck — best-effort
+			attempted++
 		}
 	}
 

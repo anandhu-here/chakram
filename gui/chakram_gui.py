@@ -58,6 +58,7 @@ PID_FILE         = os.path.expanduser("~/.chakram/mainnet/gui.pid")
 POLL_SECS        = 5
 VERSION          = "v1.0.58"
 CoinbaseMaturity = 10
+MINER_ADDR_FILE  = os.path.expanduser("~/.chakram/mainnet/miner_addr.txt")
 
 
 def _get_logo_path():
@@ -133,6 +134,21 @@ def rpc_get(path):
         return r.json()
     except Exception:
         return None
+
+def load_miner_addr() -> str:
+    try:
+        with open(MINER_ADDR_FILE) as f:
+            return f.read().strip()
+    except Exception:
+        return ""
+
+def save_miner_addr(addr: str):
+    try:
+        os.makedirs(os.path.dirname(MINER_ADDR_FILE), exist_ok=True)
+        with open(MINER_ADDR_FILE, "w") as f:
+            f.write(addr.strip())
+    except Exception:
+        pass
 
 
 # ── Tooltip ────────────────────────────────────────────────────────────────────
@@ -614,6 +630,9 @@ class ChakramApp(ctk.CTk):
         cmd = [self._binary, "node", "--password", self._password]
         if mine:
             cmd.append("--mine")
+            payout = load_miner_addr()
+            if payout:
+                cmd += ["--mineraddress", payout]
 
         log_path = os.path.join(os.path.expanduser("~/.chakram/mainnet"), "node.log")
         try:
@@ -1178,7 +1197,7 @@ class ChakramApp(ctk.CTk):
         info = rpc_get("/info")
         win = ctk.CTkToplevel(self)
         win.title("Settings")
-        win.geometry("480x340")
+        win.geometry("520x480")
         win.configure(fg_color=BG)
         win.grab_set()
         win.focus()
@@ -1210,6 +1229,43 @@ class ChakramApp(ctk.CTk):
             ctk.CTkLabel(r, text=value, font=F(13), text_color=TEXT,
                          anchor="w").pack(side="left")
 
+        # ── Mining payout address ─────────────────────────────────────────
+        ctk.CTkLabel(win, text="MINING PAYOUT ADDRESS",
+                     font=F(10, bold=True), text_color=TEXT2).pack(anchor="w", padx=28, pady=(16, 4))
+
+        payout_card = ctk.CTkFrame(win, fg_color=BG2, corner_radius=12)
+        payout_card.pack(fill="x", padx=28)
+
+        ctk.CTkLabel(payout_card,
+                     text="Mining rewards go here instead of the node wallet.\nLeave blank to use the node's own wallet.",
+                     font=F(12), text_color=TEXT2, justify="left").pack(anchor="w", padx=16, pady=(12, 8))
+
+        payout_entry = ctk.CTkEntry(payout_card, placeholder_text="CK1… (your Android wallet address)",
+                                     fg_color=BG3, border_color=BORDER, text_color=TEXT,
+                                     font=FM(12), height=38)
+        payout_entry.pack(fill="x", padx=16, pady=(0, 4))
+        current = load_miner_addr()
+        if current:
+            payout_entry.insert(0, current)
+
+        payout_status = ctk.CTkLabel(payout_card, text="", font=F(12), text_color=GREEN)
+        payout_status.pack(anchor="w", padx=16, pady=(0, 4))
+
+        def save_payout():
+            addr = payout_entry.get().strip()
+            if addr and not addr.startswith("CK1"):
+                payout_status.configure(text="⚠ Must start with CK1", text_color=RED)
+                return
+            save_miner_addr(addr)
+            if addr:
+                payout_status.configure(text=f"✓ Saved — rewards → {trunc(addr, 24)}", text_color=GREEN)
+            else:
+                payout_status.configure(text="✓ Cleared — using node wallet", text_color=TEXT2)
+
+        ctk.CTkButton(payout_card, text="Save Payout Address", height=34,
+                      fg_color=GOLD, hover_color=GOLD_HOVER, text_color="#000",
+                      font=F(13, bold=True), command=save_payout).pack(padx=16, pady=(4, 14))
+
         def open_data_dir():
             os.makedirs(data_dir, exist_ok=True)
             if sys.platform == "darwin":
@@ -1220,7 +1276,7 @@ class ChakramApp(ctk.CTk):
                 os.startfile(data_dir)
 
         btn_row = ctk.CTkFrame(win, fg_color="transparent")
-        btn_row.pack(pady=18)
+        btn_row.pack(pady=14)
         ctk.CTkButton(btn_row, text="Open Data Folder", width=170, height=36,
                       fg_color=BG3, hover_color=BORDER, text_color=TEXT2, font=F(13),
                       command=open_data_dir).pack(side="left", padx=(0, 10))

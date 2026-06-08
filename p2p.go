@@ -41,11 +41,12 @@ const maxPayloadBytes uint32 = 32 * 1024 * 1024 // 32 MB hard cap
 // ── Payload structs ───────────────────────────────────────────────────────────
 
 type VersionPayload struct {
-	Version   uint32 `json:"version"`
-	Height    uint64 `json:"height"`
-	UserAgent string `json:"user_agent"`
-	Timestamp int64  `json:"timestamp"`
-	Nonce     uint64 `json:"nonce"`
+	Version    uint32 `json:"version"`
+	Height     uint64 `json:"height"`
+	UserAgent  string `json:"user_agent"`
+	Timestamp  int64  `json:"timestamp"`
+	Nonce      uint64 `json:"nonce"`
+	ListenPort uint16 `json:"listen_port,omitempty"` // peer's actual listen port so inbound addresses are dialable
 }
 
 // InvItem announces a single block (Type=1) or transaction (Type=2) by hash.
@@ -214,6 +215,7 @@ type Server struct {
 	listener     net.Listener
 	listenAddr   string // canonical listen address set in Start()
 	nonce        uint64 // random nonce to detect self-connections
+	maxInbound   int    // max inbound peer connections (higher for seed nodes)
 	pendingInv   map[string]time.Time // hashes we have sent GetData for, awaiting block
 	pendingInvMu sync.Mutex
 }
@@ -224,10 +226,16 @@ func (s *Server) SetSyncManager(sm *SyncManager) {
 }
 
 // NewServer creates a Server. Use testnet=true to select testnet magic bytes.
-func NewServer(bc *Blockchain, mp *Mempool, port int, testnet bool, addrBook *AddrBook) *Server {
+// seedMode raises the inbound connection limit to 125 for infrastructure seeds.
+func NewServer(bc *Blockchain, mp *Mempool, port int, testnet bool, addrBook *AddrBook, seedMode bool) *Server {
 	magic := MagicMainnet
 	if testnet {
 		magic = MagicTestnet
+	}
+	maxInbound := MaxPeers
+	if seedMode {
+		maxInbound = 125
+		fmt.Println("Seed mode: inbound peer limit raised to 125")
 	}
 	return &Server{
 		Blockchain: bc,
@@ -239,6 +247,7 @@ func NewServer(bc *Blockchain, mp *Mempool, port int, testnet bool, addrBook *Ad
 		magic:      magic,
 		quit:       make(chan struct{}),
 		nonce:      rand.Uint64(),
+		maxInbound: maxInbound,
 		pendingInv: make(map[string]time.Time),
 	}
 }
@@ -406,6 +415,10 @@ func (s *Server) handleConnection(conn net.Conn) {
 		conn.Close()
 		return
 	}
+	if s.PeerCount() >= s.maxInbound {
+		conn.Close()
+		return
+	}
 	peer := NewPeer(addr, conn)
 	s.AddPeer(peer)
 	go peer.writeLoop()
@@ -443,11 +456,12 @@ func (s *Server) readLoop(peer *Peer) {
 // sendVersion sends our node's current version and chain height to peer.
 func (s *Server) sendVersion(peer *Peer) error {
 	vp := VersionPayload{
-		Version:   ProtocolVersion,
-		Height:    s.Blockchain.GetHeight(),
-		UserAgent: fmt.Sprintf("Chakram/%s (protocol %d)", SoftwareVersion, ProtocolVersion),
-		Timestamp: time.Now().Unix(),
-		Nonce:     s.nonce,
+		Version:    ProtocolVersion,
+		Height:     s.Blockchain.GetHeight(),
+		UserAgent:  fmt.Sprintf("Chakram/%s (protocol %d)", SoftwareVersion, ProtocolVersion),
+		Timestamp:  time.Now().Unix(),
+		Nonce:      s.nonce,
+		ListenPort: uint16(s.port),
 	}
 	msg, err := NewMessage(s.magic, MsgVersion, vp)
 	if err != nil {
@@ -500,6 +514,23 @@ func (s *Server) handleVersion(peer *Peer, msg Message) error {
 	peer.Height = vp.Height
 	peer.Version = vp.Version
 
+	// If the peer told us their listen port, rewrite peer.Address to use it.
+	// For inbound connections peer.Address is the ephemeral remote port, which
+	// is useless for reconnecting. The listen port is the dialable address.
+	if vp.ListenPort > 0 {
+		if host, _, err := net.SplitHostPort(peer.Address); err == nil {
+			canonical := fmt.Sprintf("%s:%d", host, vp.ListenPort)
+			// Re-register under the canonical address if it changed.
+			if canonical != peer.Address {
+				s.mu.Lock()
+				delete(s.peers, peer.Address)
+				peer.Address = canonical
+				s.peers[canonical] = peer
+				s.mu.Unlock()
+			}
+		}
+	}
+
 	if vp.Version < MinProtocolVersion {
 		return fmt.Errorf("peer %s: protocol version %d below minimum %d — upgrade required",
 			peer.Address, vp.Version, MinProtocolVersion)
@@ -526,6 +557,7 @@ func (s *Server) handleVerAck(peer *Peer, msg Message) error {
 	// Record this peer in the address book so we remember it across restarts.
 	if s.AddrBook != nil {
 		s.AddrBook.Add(peer.Address)
+		s.AddrBook.Save()
 	}
 
 	// Ask every new peer for their peer list so we discover the full network,
@@ -738,7 +770,7 @@ func (s *Server) handlePeers(peer *Peer, msg Message) error {
 		}
 		// Always persist to address book regardless of current peer count.
 		if s.AddrBook != nil {
-			s.AddrBook.Add(addr)
+			s.AddrBook.Add(addr) // batched — Save() called once after the loop
 		}
 		// Only attempt connection if we have room for more peers.
 		if s.PeerCount() >= MaxPeers {
@@ -748,8 +780,12 @@ func (s *Server) handlePeers(peer *Peer, msg Message) error {
 		_, exists := s.peers[addr]
 		s.mu.RUnlock()
 		if !exists {
-			s.ConnectToPeer(addr) //nolint:errcheck — best-effort
+			go s.ConnectToPeer(addr) //nolint:errcheck — best-effort, non-blocking
 		}
+	}
+	// Flush all new addresses to disk in one write instead of one per address.
+	if s.AddrBook != nil {
+		s.AddrBook.Save()
 	}
 	return nil
 }
@@ -817,6 +853,15 @@ func (s *Server) IsConnected(address string) bool {
 	defer s.mu.RUnlock()
 	p, exists := s.peers[address]
 	return exists && p.Connected
+}
+
+// HasPeer reports whether a peer with the given address has been dialed
+// (regardless of whether the handshake has completed yet).
+func (s *Server) HasPeer(address string) bool {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	_, exists := s.peers[address]
+	return exists
 }
 
 // ConnectedPeers returns a snapshot of all peers that have completed the handshake.

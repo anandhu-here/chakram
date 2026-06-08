@@ -20,7 +20,7 @@ const (
 	MinProtocolVersion uint32 = 1
 
 	// SoftwareVersion is the human-readable release string. Bumped by release.sh.
-	SoftwareVersion = "v1.0.62"
+	SoftwareVersion = "v1.0.63"
 )
 
 // ForkActivations maps each protocol version to the block height at which its
@@ -156,6 +156,16 @@ const (
 
 // ── Seed Nodes ────────────────────────────────────────────────────────────────
 
+// DNSSeeds is the list of DNS seed hostnames resolved at startup.
+// Each entry is operated independently — community members can run their own
+// crawler (similar to bitcoin-seeder) and submit a PR to add their hostname.
+// New seed VMs can be added by the operator without a code release by updating
+// the A records behind their hostname.
+var DNSSeeds = []string{
+	"seeds.chakram.one", // operated by Chakram core team
+}
+
+// Hardcoded fallback seeds — used when DNS is unreachable.
 var TestnetSeeds = []string{
 	"35.207.229.32:18338",
 	"34.1.166.49:18338",

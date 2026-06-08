@@ -76,9 +76,10 @@ function DataTable({ headers, rows }) {
 
 const SECTIONS = [
   { title: 'Introduction', links: [
-    { href: '#overview', label: 'Overview' },
-    { href: '#network',  label: 'Network' },
-    { href: '#units',    label: 'Units & Supply' },
+    { href: '#overview',    label: 'Overview' },
+    { href: '#network',     label: 'Network' },
+    { href: '#checkpoints', label: 'Checkpoints' },
+    { href: '#units',       label: 'Units & Supply' },
   ]},
   { title: 'HTTP API', links: [
     { href: '#api',               label: 'Reference' },
@@ -98,9 +99,10 @@ const SECTIONS = [
     { href: '#utxo-model',   label: 'UTXO Model' },
   ]},
   { title: 'Node', links: [
-    { href: '#running', label: 'Running' },
-    { href: '#mining',  label: 'Mining' },
-    { href: '#p2p',     label: 'P2P Protocol' },
+    { href: '#running',        label: 'Running' },
+    { href: '#peer-discovery', label: 'Peer Discovery' },
+    { href: '#mining',         label: 'Mining' },
+    { href: '#p2p',            label: 'P2P Protocol' },
   ]},
   { title: 'Developer', links: [
     { href: '#integration', label: 'Integration' },
@@ -180,52 +182,77 @@ export default function Docs() {
         {/* Content */}
         <main className="flex-1 px-6 md:px-14 py-12 max-w-4xl overflow-x-hidden">
 
+          {/* ── Overview ── */}
           <section id="overview">
             <h1 className="text-3xl font-bold text-text mb-3 tracking-tight">Chakram Protocol</h1>
             <P>Chakram (CHK) is a Kerala-inspired UTXO cryptocurrency using <strong className="text-text">RandomX proof-of-work</strong>, <strong className="text-text">Ed25519 signatures</strong>, and a lightweight JSON HTTP API.</P>
             <DataTable headers={['Property', 'Value']} rows={[
-              ['Coin', 'Chakram'],
-              ['Ticker', 'CHK'],
-              ['Address prefix', 'CK1'],
-              ['Signatures', 'Ed25519'],
-              ['Proof of work', 'RandomX'],
-              ['Model', 'UTXO'],
-              ['Block time', '30 seconds (target)'],
-              ['Max block size', '1 MB'],
+              ['Coin',          'Chakram'],
+              ['Ticker',        'CHK'],
+              ['Address prefix','CK1'],
+              ['Signatures',    'Ed25519'],
+              ['Proof of work', 'RandomX (ASIC-resistant CPU mining)'],
+              ['Model',         'UTXO'],
+              ['Block time',    '30 seconds (target)'],
+              ['Max block size','1 MB'],
+              ['Protocol',      'v1 (JSON over TCP)'],
             ]} />
           </section>
 
+          {/* ── Network ── */}
           <section id="network">
             <H2 id="network">Network Parameters</H2>
             <DataTable headers={['Parameter', 'Mainnet', 'Testnet']} rows={[
-              ['P2P port',    '8338',                    '18338'],
-              ['RPC port',    '8339',                    '18339'],
-              ['Magic bytes', '43 48 41 4B (CHAK)',      '43 48 41 54 (CHAT)'],
-              ['Seed nodes',  '35.207.229.32:8338\n34.1.166.49:8338\n35.207.217.64:8338', '35.207.229.32:18338\n34.1.166.49:18338'],
+              ['P2P port',    '8338',               '18338'],
+              ['RPC port',    '8339',               '18339'],
+              ['Magic bytes', '43 48 41 4B (CHAK)', '43 48 41 54 (CHAT)'],
+              ['DNS seeds',   'seeds.chakram.one',  '—'],
+              ['Fallback seeds',
+                '35.207.229.32:8338\n34.1.166.49:8338\n35.207.217.64:8338',
+                '35.207.229.32:18338\n34.1.166.49:18338'],
+              ['Max peers (regular node)', '12', '12'],
+              ['Max peers (seed mode)',    '125', '125'],
             ]} />
+            <Callout type="info">
+              On startup, nodes resolve <code className="font-mono text-xs">seeds.chakram.one</code> to discover seed IPs. If DNS is unreachable, the hardcoded fallback IPs are used automatically. Discovered peers are saved to <code className="font-mono text-xs">~/.chakram/mainnet/peers.json</code> so the node can reconnect without DNS on the next start.
+            </Callout>
             <H3>Difficulty Adjustment</H3>
             <DataTable headers={['Parameter', 'Value']} rows={[
-              ['Target block time',    '30 seconds'],
-              ['Adjustment',           'Per block, LWMA-3 (after bootstrap)'],
-              ['Look-back window',     '60 blocks'],
-              ['Minimum difficulty',   '4'],
+              ['Target block time',   '30 seconds'],
+              ['Algorithm',           'LWMA-3 sliding window (post-bootstrap)'],
+              ['Look-back window',    '60 blocks'],
+              ['Minimum difficulty',  '4'],
+              ['Bootstrap phase',     'First 60 blocks use a 30s time floor (TEB) instead of LWMA'],
             ]} />
           </section>
 
+          {/* ── Checkpoints ── */}
+          <section id="checkpoints">
+            <H2 id="checkpoints">Checkpoints</H2>
+            <P>Checkpoints are block hashes hardcoded into the binary. Any block at a checkpointed height must exactly match — a peer serving a different hash is rejected and disconnected. Reorganisations can never roll back past the highest checkpoint.</P>
+            <DataTable headers={['Height', 'Hash', 'Notes']} rows={[
+              ['600', '081454bdec667c88b5b5b10ca539688efeb2c8b872cbe250e30be7b0813c752d', 'First checkpoint — genesis era'],
+            ]} />
+            <P>New checkpoints are added with each major release after the chain has stabilised. You can independently verify any checkpoint by querying <code className="bg-surface2 border border-border px-1.5 py-0.5 rounded text-xs font-mono">/block/600</code> on any fully synced node and comparing the returned hash.</P>
+            <Callout type="tip">Checkpoints protect the network against long-range history rewrite attacks. Bitcoin uses the same mechanism — checkpoints are manually reviewed and committed to the codebase by maintainers.</Callout>
+          </section>
+
+          {/* ── Units ── */}
           <section id="units">
             <H2 id="units">Units & Supply</H2>
-            <P>All API values are in <strong className="text-text">Cash</strong> — the smallest unit. Divide by 1,000,000 to get CHK.</P>
+            <P>All API values are in <strong className="text-text">Cash</strong> — the smallest indivisible unit. Divide by 1,000,000 to get CHK.</P>
             <DataTable headers={['Parameter', 'Value']} rows={[
-              ['1 CHK',               '1,000,000 Cash'],
-              ['Minimum fee',         '1,000 Cash (0.001 CHK)'],
-              ['Initial block reward','50 CHK'],
-              ['Halving interval',    '2,102,400 blocks (~2 years)'],
-              ['Coinbase maturity',   '10 blocks'],
-              ['Max supply',          '44,800,000 CHK'],
+              ['1 CHK',                '1,000,000 Cash'],
+              ['Minimum fee',          '1,000 Cash (0.001 CHK)'],
+              ['Initial block reward', '50 CHK'],
+              ['Halving interval',     '2,102,400 blocks (~2 years at 30s blocks)'],
+              ['Coinbase maturity',    '10 blocks (~5 minutes)'],
+              ['Max supply',           '44,800,000 CHK'],
             ]} />
-            <Callout type="info">All amounts in the API are integers in <strong>Cash</strong>. Never use floating-point for currency — work in Cash integers.</Callout>
+            <Callout type="info">All amounts in the API are integers in <strong>Cash</strong>. Never use floating-point arithmetic for currency — always work in Cash integers and convert only for display.</Callout>
           </section>
 
+          {/* ── API ── */}
           <section id="api">
             <H2 id="api">HTTP API Reference</H2>
             <P>JSON REST over HTTP. Every response is <code className="bg-surface2 border border-border px-1.5 py-0.5 rounded text-sm font-mono">application/json</code>. Errors return <code className="bg-surface2 border border-border px-1.5 py-0.5 rounded text-sm font-mono">{`{"error":"..."}`}</code>.</P>
@@ -237,11 +264,11 @@ export default function Docs() {
               <Pre>{`{
   "name":               "Chakram",
   "ticker":             "CHK",
-  "version":            "v1.0.39",
+  "version":            "v1.0.62",
   "protocol_version":   1,
   "network":            "mainnet",
   "height":             14823,
-  "peers":              3,
+  "peers":              5,
   "sync_status":        "Synced — height 14823",
   "mining":             false,
   "wallet":             "CK1AbcDef...",
@@ -283,11 +310,11 @@ export default function Docs() {
 
             <Endpoint id="api-utxos" method="get" path="/utxos/{address}" desc="All unspent outputs for an address. Use these as inputs when building transactions.">
               <Pre>{`[{ "txid": "a1b2c3...", "output_index": 0, "value": 10000000, "value_chk": 10.0, "block_height": 14700, "is_coinbase": false, "mature": true }]`}</Pre>
-              <Callout type="warn">Only use UTXOs where <code className="font-mono text-xs">mature === true</code> as inputs. Spending an immature coinbase causes the transaction to be rejected.</Callout>
+              <Callout type="warn">Only use UTXOs where <code className="font-mono text-xs">mature === true</code> as inputs. Spending an immature coinbase (less than 10 confirmations) causes the transaction to be rejected.</Callout>
             </Endpoint>
 
-            <Endpoint id="api-peers" method="get" path="/peers" desc="Currently connected peers.">
-              <Pre>{`[{ "address": "35.207.229.32:18338", "height": 14823, "connected": true }]`}</Pre>
+            <Endpoint id="api-peers" method="get" path="/peers" desc="Currently connected peers and their sync height.">
+              <Pre>{`[{ "address": "35.207.229.32:8338", "height": 14823, "connected": true }]`}</Pre>
             </Endpoint>
 
             <Endpoint id="api-submit" method="post" path="/tx/submit" desc="Broadcast a signed transaction. Node validates, adds to mempool, and relays to all peers.">
@@ -303,13 +330,14 @@ export default function Docs() {
             </Endpoint>
           </section>
 
+          {/* ── Keys ── */}
           <section id="keys">
             <H2 id="keys">Keys & Addresses</H2>
             <H3>Key Generation</H3>
             <Pre>{`entropy = random_bytes(16)
 seed    = SHA256(entropy)           // 32 bytes — Ed25519 private key
 pubKey  = ed25519.PublicKey(seed)   // 32 bytes`}</Pre>
-            <Callout type="warn">The seed is equivalent to a private key. Never expose it. Store only the encrypted form.</Callout>
+            <Callout type="warn">The seed is equivalent to a private key. Never expose it. Store only the encrypted wallet file.</Callout>
             <H3>BIP39 Mnemonic</H3>
             <Pre>{`entropy (16 bytes) → SHA256 → take top 4 bits as checksum
 pack into 132 bits → 12 × 11-bit BIP39 indices → 12 words`}</Pre>
@@ -319,14 +347,15 @@ checksum = SHA256(SHA256(pkh))[0:4]
 address  = "CK1" + Base58Encode(pkh ++ checksum)`}</Pre>
           </section>
 
+          {/* ── Transactions ── */}
           <section id="transactions">
             <H2 id="transactions">Transactions</H2>
             <DataTable headers={['Field', 'Type', 'Notes']} rows={[
-              ['TxID',        'base64 32B', 'Computed, not chosen'],
-              ['IsCoinbase',  'bool',       'Always false for user txs'],
-              ['Inputs',      'array',      'UTXOs being spent'],
-              ['Outputs',     'array',      'New UTXOs created'],
-              ['Timestamp',   'int64',      'Unix seconds at signing'],
+              ['TxID',       'base64 32B', 'Computed, not chosen'],
+              ['IsCoinbase', 'bool',       'Always false for user txs'],
+              ['Inputs',     'array',      'UTXOs being spent'],
+              ['Outputs',    'array',      'New UTXOs created'],
+              ['Timestamp',  'int64',      'Unix seconds at signing'],
             ]} />
             <H3>Transaction ID</H3>
             <Pre>{`// Canonical serialisation (little-endian):
@@ -339,6 +368,7 @@ TxID = SHA256(SHA256(canonical_bytes))`}</Pre>
             <Callout type="tip">Compute TxID <strong>before</strong> signing. TxID does not commit to Signature or PublicKey — it is stable after signatures are added.</Callout>
           </section>
 
+          {/* ── Signing ── */}
           <section id="signing">
             <H2 id="signing">Signing</H2>
             <Pre>{`// For each input i (txid_bytes = hex-decoded from /utxos response):
@@ -349,67 +379,130 @@ signature = ed25519.Sign(privKey, message)
 // When submitting via /tx/submit, Go's JSON encoder base64-encodes []byte fields:
 input[i].Signature  → base64(signature)      // set automatically
 input[i].PublicKey  → base64(pubKey)         // set automatically`}</Pre>
-            <P>Fee is implicit: <code className="bg-surface2 border border-border px-1 py-0.5 rounded text-xs font-mono">fee = Σ inputs − Σ outputs</code>. Minimum: 1,000 Cash. Add a change output if needed.</P>
+            <P>Fee is implicit: <code className="bg-surface2 border border-border px-1 py-0.5 rounded text-xs font-mono">fee = Σ inputs − Σ outputs</code>. Minimum: 1,000 Cash. Add a change output back to your own address if needed.</P>
           </section>
 
+          {/* ── UTXO Model ── */}
           <section id="utxo-model">
             <H2 id="utxo-model">UTXO Model</H2>
             <Pre>{`1. GET /utxos/CK1... → spendable outputs
 2. Select UTXOs where total >= amount + fee
-3. Build: inputs, outputs, timestamp
+3. Build: inputs, outputs (recipient + change), timestamp
 4. TxID = SHA256(SHA256(canonical_bytes))
 5. Sign each input
 6. POST /tx/submit`}</Pre>
-            <Callout type="info">Only use UTXOs where <code className="font-mono text-xs">mature === true</code>. Coinbase outputs need 10 confirmations (~5 min) before spending.</Callout>
+            <Callout type="info">Only use UTXOs where <code className="font-mono text-xs">mature === true</code>. Coinbase outputs require 10 confirmations (~5 min) before they can be spent.</Callout>
           </section>
 
+          {/* ── Running ── */}
           <section id="running">
             <H2 id="running">Running a Node</H2>
-            <Pre>{`./chakram node                     # mainnet
-./chakram node --testnet           # testnet
-./chakram node --mine              # mainnet with mining
-./chakram node --testnet --mine    # testnet with mining`}</Pre>
+            <Pre>{`# Download the binary for your platform from the Download page, then:
+chmod +x chakram
+
+./chakram node                     # mainnet full node
+./chakram node --mine              # mainnet with mining enabled
+./chakram node --testnet           # connect to testnet
+./chakram node --testnet --mine    # testnet with mining
+./chakram node --seed-mode         # infrastructure seed node`}</Pre>
+            <DataTable headers={['Flag', 'Default', 'Description']} rows={[
+              ['--mine',        'off',      'Enable RandomX block mining. Rewards go to the node wallet.'],
+              ['--mineraddress','(wallet)',  'Send mining rewards to a different CK1 address.'],
+              ['--password',    'chakram',  'Wallet encryption password. Set a strong one in production.'],
+              ['--testnet',     'off',      'Connect to testnet instead of mainnet.'],
+              ['--seed-mode',   'off',      'Infrastructure flag: raises the inbound peer limit from 12 to 125. For seed VMs only.'],
+              ['--threads',     '1',        'Number of RandomX mining threads.'],
+            ]} />
             <DataTable headers={['Port', 'Protocol', 'Purpose']} rows={[
-              ['8338 / 18338', 'TCP', 'P2P peer connections'],
-              ['8339 / 18339', 'TCP', 'HTTP RPC, explorer, wallet'],
+              ['8338 / 18338', 'TCP', 'P2P — peer connections, block and tx propagation'],
+              ['8339 / 18339', 'HTTP', 'RPC — block explorer, wallet API, node status'],
+            ]} />
+            <H3>Data Directory</H3>
+            <P>All node data is stored under <code className="bg-surface2 border border-border px-1.5 py-0.5 rounded text-xs font-mono">~/.chakram/mainnet/</code> (or <code className="bg-surface2 border border-border px-1.5 py-0.5 rounded text-xs font-mono">~/.chakram/testnet/</code>). This includes the chain database, wallet file, and address book.</P>
+            <DataTable headers={['File', 'Description']} rows={[
+              ['~/.chakram/mainnet/wallet.json',  'Encrypted wallet — Ed25519 key + mnemonic'],
+              ['~/.chakram/mainnet/peers.json',   'Persistent address book — known peer IPs saved across restarts'],
+              ['~/.chakram/mainnet/badger/',      'BadgerDB chain and UTXO database'],
             ]} />
           </section>
 
+          {/* ── Peer Discovery ── */}
+          <section id="peer-discovery">
+            <H2 id="peer-discovery">Peer Discovery</H2>
+            <P>Chakram uses a multi-layer peer discovery system so nodes can always find the network, even if individual seeds are offline.</P>
+            <H3>Discovery order</H3>
+            <DataTable headers={['Step', 'Method', 'Details']} rows={[
+              ['1', 'DNS seeds', 'Resolve seeds.chakram.one → get all seed IPs automatically'],
+              ['2', 'Hardcoded fallback', 'If DNS fails, use the 3 IPs compiled into the binary'],
+              ['3', 'Address book', 'peers.json contains peers discovered in previous sessions — used on restart'],
+              ['4', 'Peer exchange', 'After connecting, nodes exchange peer lists (MsgGetPeers / MsgPeers)'],
+            ]} />
+            <H3>Address book</H3>
+            <P>Every time a peer completes the handshake, its address is saved to <code className="bg-surface2 border border-border px-1.5 py-0.5 rounded text-xs font-mono">peers.json</code>. On the next start the node tries up to 8 of these known addresses before the 5-second reconnect ticker takes over. The address book holds up to 1,000 entries; oldest are evicted when full.</P>
+            <H3>Running a community seed</H3>
+            <P>Anyone can run a community seed node. Start with <code className="bg-surface2 border border-border px-1.5 py-0.5 rounded text-xs font-mono">--seed-mode</code>, set up DNS A records pointing to your server, and submit a pull request to add your hostname to the <code className="bg-surface2 border border-border px-1.5 py-0.5 rounded text-xs font-mono">DNSSeeds</code> list in <code className="bg-surface2 border border-border px-1.5 py-0.5 rounded text-xs font-mono">config.go</code>. Once merged and released, all new nodes will resolve your hostname alongside the core team seeds. Each operator controls their own DNS independently.</P>
+            <Callout type="tip">This is the same model Bitcoin uses — multiple independent DNS seed operators, each running their own crawler. No single party controls discovery.</Callout>
+          </section>
+
+          {/* ── Mining ── */}
           <section id="mining">
             <H2 id="mining">Mining</H2>
-            <P>Chakram uses <strong className="text-text">RandomX</strong> — ASIC-resistant CPU mining. Built into the node binary.</P>
+            <P>Chakram uses <strong className="text-text">RandomX</strong> — an ASIC-resistant algorithm designed for CPU mining. The full node binary includes everything needed; no separate miner is required.</P>
             <Pre>{`./chakram node --mine
-./chakram node --testnet --mine`}</Pre>
+./chakram node --mine --mineraddress CK1YourAddress
+./chakram node --mine --threads 4`}</Pre>
             <DataTable headers={['Parameter', 'Value']} rows={[
-              ['Algorithm',        'RandomX'],
-              ['Epoch length',     '64 blocks (~32 min)'],
+              ['Algorithm',        'RandomX (full mode — 2 GB dataset, ~10× faster than light mode)'],
+              ['Epoch length',     '64 blocks (~32 min) — RandomX dataset rebuilt each epoch'],
               ['Block reward',     '50 CHK (era 1)'],
               ['Halving interval', '2,102,400 blocks (~2 years)'],
-              ['Maturity',         '10 blocks'],
+              ['Coinbase maturity','10 blocks — reward is unspendable until 10 confirmations'],
+              ['Thread default',   '1 — increase with --threads for higher hashrate'],
             ]} />
+            <Callout type="info">Mining pauses automatically when the node has fewer than 2 connected peers or is still syncing. This prevents extending a stale fork instead of the canonical chain.</Callout>
           </section>
 
+          {/* ── P2P Protocol ── */}
           <section id="p2p">
             <H2 id="p2p">P2P Protocol</H2>
-            <Pre>{`[4B]  Magic (0x4348414B mainnet / 0x43484154 testnet)
-[1B]  Message type
-[4B]  Payload length (uint32 big-endian)
-[NB]  Payload (JSON)`}</Pre>
+            <P>All messages share a fixed 9-byte header followed by a JSON payload.</P>
+            <Pre>{`[4B]  Magic  — 0x4348414B mainnet / 0x43484154 testnet
+[1B]  Type   — message type (see table below)
+[4B]  Length — payload size in bytes (uint32 big-endian, max 32 MB)
+[NB]  Payload — JSON`}</Pre>
             <DataTable headers={['Type', 'Name', 'Description']} rows={[
-              ['0x01','Version',   'Handshake — announces height, protocol version, user agent'],
-              ['0x02','VerAck',    'Handshake acknowledgement'],
-              ['0x03','GetBlocks', 'Request block inventory from height N'],
-              ['0x04','Inv',       'Announce new block or tx by hash'],
-              ['0x05','GetData',   'Request a specific block or tx'],
-              ['0x06','Block',     'Full block delivery'],
-              ['0x07','Tx',        'Relay a transaction'],
-              ['0x08','Ping',      'Keepalive ping'],
-              ['0x09','Pong',      'Keepalive response'],
-              ['0x0A','GetPeers',  'Request peer list'],
-              ['0x0B','Peers',     'Peer list response'],
+              ['0x01','Version',  'Handshake — announces height, protocol version, user agent, and listen port'],
+              ['0x02','VerAck',   'Handshake acknowledgement — marks the peer as fully connected'],
+              ['0x03','GetBlocks','Request block inventory from a given height (max 500 per request)'],
+              ['0x04','Inv',      'Announce a new block or transaction by hash'],
+              ['0x05','GetData',  'Request the full data for a specific block or transaction'],
+              ['0x06','Block',    'Full block delivery'],
+              ['0x07','Tx',       'Relay a transaction'],
+              ['0x08','Ping',     'Keepalive — sent every 30s; peers not seen in 90s are disconnected'],
+              ['0x09','Pong',     'Keepalive response'],
+              ['0x0A','GetPeers', "Request the peer's known address list"],
+              ['0x0B','Peers',    'Peer address list response (up to 50 addresses)'],
             ]} />
+            <H3>Handshake</H3>
+            <P>Both sides send <code className="bg-surface2 border border-border px-1 py-0.5 rounded text-xs font-mono">Version</code> immediately on connect. The <code className="bg-surface2 border border-border px-1 py-0.5 rounded text-xs font-mono">listen_port</code> field in Version is critical — inbound connections arrive on an ephemeral port, so the peer must advertise its actual listen port so the address saved to the address book is dialable on reconnect.</P>
+            <Pre>{`// Version payload
+{
+  "version":      1,
+  "height":       14823,
+  "user_agent":   "Chakram/v1.0.62 (protocol 1)",
+  "timestamp":    1779936400,
+  "nonce":        12345678,        // random; self-connection detection
+  "listen_port":  8338             // actual TCP listen port
+}`}</Pre>
+            <H3>Connection limits</H3>
+            <DataTable headers={['Mode', 'Max peers', 'Flag']} rows={[
+              ['Regular node', '12', '(default)'],
+              ['Seed node',    '125', '--seed-mode'],
+            ]} />
+            <P>Peers that send structurally invalid messages accumulate violations. At 5 violations the peer IP is banned for 24 hours. Bans are enforced at the TCP accept stage — banned IPs are dropped before any data is read.</P>
           </section>
 
+          {/* ── Integration ── */}
           <section id="integration">
             <H2 id="integration">Integration Guide</H2>
             <H3>JavaScript</H3>
@@ -437,21 +530,22 @@ message  := sha256.Sum256(preimage)
 sig      := ed25519.Sign(privKey, message[:])`}</Pre>
           </section>
 
+          {/* ── Errors ── */}
           <section id="errors">
             <H2 id="errors">Error Reference</H2>
             <DataTable headers={['HTTP', 'Error pattern', 'Cause']} rows={[
-              ['400', 'invalid height',                                      'Non-integer height in /block/:height'],
-              ['400', 'invalid hash',                                        'Non-hex hash in /block/hash/:hash'],
-              ['400', 'invalid txid',                                        'Non-hex txid in /tx/:txid'],
-              ['400', 'invalid address',                                     'Not a valid CK1 address'],
-              ['400', 'transaction invalid: ...',                            'Structural validation failed (missing fields, zero value, etc.)'],
-              ['400', 'mempool rejected: mempool: input N: utxo not found',  'UTXO spent or non-existent'],
+              ['400', 'invalid height',                                       'Non-integer height in /block/:height'],
+              ['400', 'invalid hash',                                         'Non-hex hash in /block/hash/:hash'],
+              ['400', 'invalid txid',                                         'Non-hex txid in /tx/:txid'],
+              ['400', 'invalid address',                                      'Not a valid CK1 address'],
+              ['400', 'transaction invalid: ...',                             'Structural validation failed (missing fields, zero value, etc.)'],
+              ['400', 'mempool rejected: mempool: input N: utxo not found',   'UTXO spent or non-existent'],
               ['400', 'mempool rejected: mempool: input N: invalid Ed25519 signature', 'Signature does not verify'],
               ['400', 'mempool rejected: mempool: input N: coinbase output not yet mature', 'Coinbase UTXO before 10 confirmations'],
-              ['400', 'mempool rejected: mempool: full',                     'Mempool at 10,000 tx limit'],
-              ['404', 'block not found',                                     'No block at height/hash'],
-              ['404', 'transaction not found',                               'TxID not in chain index'],
-              ['405', 'method not allowed',                                  'Wrong HTTP method'],
+              ['400', 'mempool rejected: mempool: full',                      'Mempool at 10,000 tx limit'],
+              ['404', 'block not found',                                      'No block at height/hash'],
+              ['404', 'transaction not found',                                'TxID not in chain index'],
+              ['405', 'method not allowed',                                   'Wrong HTTP method'],
             ]} />
             <div className="mt-12 pt-6 border-t border-border text-xs text-muted">
               Chakram Protocol — Kerala's Digital Currency —{' '}
@@ -460,6 +554,7 @@ sig      := ed25519.Sign(privKey, message[:])`}</Pre>
               <Link to="/download" className="text-gold hover:underline">Download</Link>
             </div>
           </section>
+
         </main>
       </div>
     </div>
