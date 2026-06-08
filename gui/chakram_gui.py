@@ -56,7 +56,7 @@ RPC_BASE         = "http://localhost:8339"
 RPC_PORT         = 8339
 PID_FILE         = os.path.expanduser("~/.chakram/mainnet/gui.pid")
 POLL_SECS        = 5
-VERSION          = "v1.0.58"
+VERSION          = "v1.0.69"
 CoinbaseMaturity = 10
 MINER_ADDR_FILE  = os.path.expanduser("~/.chakram/mainnet/miner_addr.txt")
 
@@ -553,6 +553,20 @@ class ChakramApp(ctk.CTk):
 
         pwd_e.bind("<Return>", lambda _: unlock())
 
+    def _show_password_screen_with_error(self, msg):
+        self._show_password_screen()
+        # Walk the overlay tree to find the error label and set the message.
+        # Simpler than passing state through: _show_password_screen just built it.
+        def _set_err(widget):
+            for child in widget.winfo_children():
+                if isinstance(child, ctk.CTkLabel) and child.cget("text_color") == RED:
+                    child.configure(text=msg)
+                    return True
+                if _set_err(child):
+                    return True
+            return False
+        self.after(50, lambda: _set_err(self._overlay))
+
     # ═══════════════════════════════════════════════════════════════════════════
     # Node management
     # ═══════════════════════════════════════════════════════════════════════════
@@ -706,6 +720,8 @@ class ChakramApp(ctk.CTk):
                     return ("Database locked",
                             "Another Chakram process may still be running.\n"
                             "Close all Chakram windows and retry.", False)
+                if "decrypt failed" in low or "wrong password" in low:
+                    return ("wrong_password", "", False)
                 if "fatal" in low:
                     detail = line.replace("FATAL:", "").strip()[:120]
                     return ("Node crashed on startup", detail, False)
@@ -714,6 +730,10 @@ class ChakramApp(ctk.CTk):
         return None
 
     def _show_node_timeout(self, crash=None):
+        if crash and crash[0] == "wrong_password":
+            self._show_password_screen_with_error("Incorrect password — please try again.")
+            return
+
         self._clear_overlay()
         f = ctk.CTkFrame(self._overlay, fg_color="transparent")
         f.place(relx=0.5, rely=0.5, anchor="center")
