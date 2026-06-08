@@ -204,6 +204,7 @@ type Server struct {
 	Blockchain   *Blockchain
 	Mempool      *Mempool
 	SyncManager  *SyncManager
+	AddrBook     *AddrBook
 	peers        map[string]*Peer
 	banned       map[string]time.Time // IP address → ban expiry
 	mu           sync.RWMutex
@@ -223,7 +224,7 @@ func (s *Server) SetSyncManager(sm *SyncManager) {
 }
 
 // NewServer creates a Server. Use testnet=true to select testnet magic bytes.
-func NewServer(bc *Blockchain, mp *Mempool, port int, testnet bool) *Server {
+func NewServer(bc *Blockchain, mp *Mempool, port int, testnet bool, addrBook *AddrBook) *Server {
 	magic := MagicMainnet
 	if testnet {
 		magic = MagicTestnet
@@ -231,6 +232,7 @@ func NewServer(bc *Blockchain, mp *Mempool, port int, testnet bool) *Server {
 	return &Server{
 		Blockchain: bc,
 		Mempool:    mp,
+		AddrBook:   addrBook,
 		peers:      make(map[string]*Peer),
 		banned:     make(map[string]time.Time),
 		port:       port,
@@ -521,6 +523,11 @@ func (s *Server) handleVersion(peer *Peer, msg Message) error {
 func (s *Server) handleVerAck(peer *Peer, msg Message) error {
 	peer.Connected = true
 
+	// Record this peer in the address book so we remember it across restarts.
+	if s.AddrBook != nil {
+		s.AddrBook.Add(peer.Address)
+	}
+
 	// Ask every new peer for their peer list so we discover the full network,
 	// not just the seeds we hardcoded.
 	if gp, err := NewMessage(s.magic, MsgGetPeers, struct{}{}); err == nil {
@@ -696,13 +703,23 @@ func (s *Server) handlePing(peer *Peer) error {
 }
 
 func (s *Server) handleGetPeers(peer *Peer) error {
-	s.mu.RLock()
-	addrs := make([]string, 0, len(s.peers))
-	for addr := range s.peers {
-		addrs = append(addrs, addr)
+	// Return all known addresses from the address book (not just currently
+	// connected peers) so the requesting node gets the broadest possible view.
+	var addrs []string
+	if s.AddrBook != nil {
+		addrs = s.AddrBook.GetAll()
+	} else {
+		s.mu.RLock()
+		addrs = make([]string, 0, len(s.peers))
+		for addr := range s.peers {
+			addrs = append(addrs, addr)
+		}
+		s.mu.RUnlock()
 	}
-	s.mu.RUnlock()
-
+	// Cap response at 50 addresses to keep message size reasonable.
+	if len(addrs) > 50 {
+		addrs = addrs[:50]
+	}
 	resp, err := NewMessage(s.magic, MsgPeers, PeersPayload{Addresses: addrs})
 	if err != nil {
 		return err
@@ -716,10 +733,15 @@ func (s *Server) handlePeers(peer *Peer, msg Message) error {
 		return fmt.Errorf("decode peers: %w", err)
 	}
 	for _, addr := range pp.Addresses {
-		if s.PeerCount() >= MaxPeers {
-			break
-		}
 		if s.isOwnAddress(addr) || s.isBanned(addr) {
+			continue
+		}
+		// Always persist to address book regardless of current peer count.
+		if s.AddrBook != nil {
+			s.AddrBook.Add(addr)
+		}
+		// Only attempt connection if we have room for more peers.
+		if s.PeerCount() >= MaxPeers {
 			continue
 		}
 		s.mu.RLock()

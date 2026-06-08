@@ -126,7 +126,8 @@ func NewNode(cfg NodeConfig) (*Node, error) {
 		}
 	}
 
-	srv := NewServer(bc, mp, cfg.Port, cfg.Testnet)
+	addrBook := NewAddrBook(cfg.DataDir)
+	srv := NewServer(bc, mp, cfg.Port, cfg.Testnet, addrBook)
 	sm := NewSyncManager(bc, srv)
 	srv.SetSyncManager(sm)
 
@@ -196,6 +197,18 @@ func (n *Node) Start() error {
 			fmt.Printf("  seed %s: unreachable (%v)\n", seed, err)
 		} else {
 			fmt.Printf("  seed %s: connected\n", seed)
+		}
+	}
+
+	// Connect to previously known peers from the address book so the node
+	// can reach the network even if seeds are temporarily unreachable.
+	if known := n.Server.AddrBook.GetAll(); len(known) > 0 {
+		fmt.Printf("AddrBook: %d known peers — connecting...\n", len(known))
+		for _, addr := range known {
+			if n.Server.isOwnAddress(addr) || n.Server.IsConnected(addr) {
+				continue
+			}
+			n.Server.ConnectToPeer(addr) //nolint:errcheck — best-effort
 		}
 	}
 

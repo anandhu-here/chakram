@@ -15,16 +15,19 @@ import sys
 import os
 import signal
 import re
+import platform
+
 try:
     from PIL import Image as _PILImage
     _PIL_AVAILABLE = True
 except ImportError:
     _PIL_AVAILABLE = False
 
-# ── Theme ──────────────────────────────────────────────────────────────────────
+# ── Appearance ─────────────────────────────────────────────────────────────────
 ctk.set_appearance_mode("dark")
 ctk.set_default_color_theme("dark-blue")
 
+# ── Palette ────────────────────────────────────────────────────────────────────
 GOLD       = "#f0c040"
 GOLD_HOVER = "#c9a030"
 BG         = "#0a0a0f"
@@ -37,16 +40,27 @@ GREEN      = "#40c080"
 RED        = "#c04040"
 ORANGE     = "#ff8c00"
 
-RPC_BASE  = "http://localhost:8339"
-RPC_PORT  = 8339
-PID_FILE  = os.path.expanduser("~/.chakram/mainnet/gui.pid")
+# ── Typography ─────────────────────────────────────────────────────────────────
+_OS   = platform.system()
+_FF   = "Helvetica Neue" if _OS == "Darwin" else ("Segoe UI" if _OS == "Windows" else "Ubuntu")
+_MONO = "Menlo"          if _OS == "Darwin" else ("Consolas" if _OS == "Windows" else "DejaVu Sans Mono")
+
+def F(size=13, bold=False):
+    return (_FF, size, "bold") if bold else (_FF, size)
+
+def FM(size=12):
+    return (_MONO, size)
+
+# ── Constants ──────────────────────────────────────────────────────────────────
+RPC_BASE         = "http://localhost:8339"
+RPC_PORT         = 8339
+PID_FILE         = os.path.expanduser("~/.chakram/mainnet/gui.pid")
 POLL_SECS        = 5
 VERSION          = "v1.0.58"
-CoinbaseMaturity = 10  # blocks until mining reward is spendable — must match config.go
+CoinbaseMaturity = 10
+
 
 def _get_logo_path():
-    # When bundled with PyInstaller, sys._MEIPASS is the temp extract dir.
-    # The logo is added there via --add-data "chakram.png:.".
     if hasattr(sys, '_MEIPASS'):
         for candidate in [
             os.path.join(sys._MEIPASS, 'chakram.png'),
@@ -54,13 +68,12 @@ def _get_logo_path():
         ]:
             if os.path.exists(candidate):
                 return candidate
-    # Running from source: gui/ is next to assets/
     return os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', 'assets', 'chakram.png')
 
-_LOGO_PATH = _get_logo_path()
+_LOGO_PATH  = _get_logo_path()
 _logo_cache: dict = {}
 
-def _logo(size: tuple) -> "ctk.CTkImage | None":
+def _logo(size: tuple):
     if not _PIL_AVAILABLE:
         return None
     if not os.path.exists(_LOGO_PATH):
@@ -100,10 +113,8 @@ def get_binary_path():
 def wallet_exists():
     return os.path.isfile(os.path.expanduser("~/.chakram/mainnet/wallet.json"))
 
-
 def node_is_running():
     return rpc_get("/info") is not None
-
 
 def time_ago(ts):
     d = int(time.time()) - ts
@@ -112,10 +123,8 @@ def time_ago(ts):
     if d < 3600: return f"{d//60}m ago"
     return f"{d//3600}h ago"
 
-
 def trunc(s, n=16):
     return s[:n] + "…" if s and len(s) > n else (s or "")
-
 
 def rpc_get(path):
     try:
@@ -159,7 +168,7 @@ class Tooltip:
             self._tip.attributes("-topmost", True)
             self._tip.wm_geometry(f"+{x}+{y}")
             ctk.CTkLabel(self._tip, text=self._text, fg_color=BG3, corner_radius=4,
-                         font=("Courier New", 10), text_color=TEXT2).pack(padx=8, pady=4)
+                         font=F(11), text_color=TEXT2).pack(padx=8, pady=4)
             self._tip.bind("<Enter>", self._hide)
         except Exception:
             pass
@@ -180,8 +189,8 @@ class ChakramApp(ctk.CTk):
     def __init__(self):
         super().__init__()
 
-        self.title("⬡ Chakram — Kerala's Digital Coin")
-        self.geometry("960x720")
+        self.title("Chakram Wallet")
+        self.geometry("1080x700")
         self.resizable(False, False)
         self.configure(fg_color=BG)
         self.protocol("WM_DELETE_WINDOW", self._on_close)
@@ -193,6 +202,7 @@ class ChakramApp(ctk.CTk):
         self._binary           = None
         self._poll_stop        = threading.Event()
         self._last_blocks_hash = None
+        self._last_utxos_sig   = None
         self._hashrate         = ""
 
         atexit.register(self._stop_node)
@@ -223,15 +233,12 @@ class ChakramApp(ctk.CTk):
         self._clear_overlay()
         f = ctk.CTkFrame(self._overlay, fg_color="transparent")
         f.place(relx=0.5, rely=0.5, anchor="center")
-        _li = _logo((120, 120))
+        _li = _logo((100, 100))
         if _li:
-            ctk.CTkLabel(f, image=_li, text="").pack(pady=(0, 6))
+            ctk.CTkLabel(f, image=_li, text="").pack(pady=(0, 16))
         else:
-            ctk.CTkLabel(f, text="⬡ CHAKRAM",
-                         font=("Courier New", 36, "bold"), text_color=GOLD).pack(pady=(0, 6))
-        ctk.CTkLabel(f, text="ചക്രം — Kerala's Digital Coin",
-                     font=("Courier New", 13), text_color=TEXT2).pack(pady=(0, 32))
-        ctk.CTkLabel(f, text=msg, font=("Courier New", 13), text_color=TEXT2).pack()
+            ctk.CTkLabel(f, text="CHAKRAM", font=F(36, bold=True), text_color=GOLD).pack(pady=(0, 16))
+        ctk.CTkLabel(f, text=msg, font=F(14), text_color=TEXT2).pack()
 
     # ═══════════════════════════════════════════════════════════════════════════
     # Startup
@@ -255,105 +262,85 @@ class ChakramApp(ctk.CTk):
         self._clear_overlay()
         f = ctk.CTkFrame(self._overlay, fg_color="transparent")
         f.place(relx=0.5, rely=0.5, anchor="center")
-        _li = _logo((100, 100))
+        _li = _logo((80, 80))
         if _li:
-            ctk.CTkLabel(f, image=_li, text="").pack(pady=(0, 6))
-        else:
-            ctk.CTkLabel(f, text="⬡ CHAKRAM",
-                         font=("Courier New", 32, "bold"), text_color=GOLD).pack(pady=(0, 6))
-        ctk.CTkLabel(f, text="Binary not found",
-                     font=("Courier New", 16, "bold"), text_color=RED).pack(pady=(12, 8))
+            ctk.CTkLabel(f, image=_li, text="").pack(pady=(0, 16))
+        ctk.CTkLabel(f, text="Binary not found", font=F(20, bold=True), text_color=RED).pack(pady=(0, 8))
         ctk.CTkLabel(f,
-                     text="Place chakram-mac (or chakram) in the same folder\n"
-                          "as this script, or in ~/Downloads.",
-                     font=("Courier New", 12), text_color=TEXT2, justify="center").pack()
-        ctk.CTkLabel(f, text="Download at:",
-                     font=("Courier New", 12), text_color=TEXT2).pack(pady=(16, 2))
+                     text="Place chakram-mac (or chakram) in the same folder as this app,\nor in ~/Downloads.",
+                     font=F(14), text_color=TEXT2, justify="center").pack()
         ctk.CTkLabel(f, text="github.com/anandhu-here/chakram/releases",
-                     font=("Courier New", 12), text_color=GOLD).pack()
+                     font=F(13), text_color=GOLD).pack(pady=(16, 0))
         ctk.CTkButton(f, text="Quit", fg_color=BG3, hover_color=BORDER,
-                      text_color=TEXT2, width=100, command=self.destroy).pack(pady=24)
-
-    # ── Welcome (first time) ───────────────────────────────────────────────────
+                      text_color=TEXT2, width=100, height=36, font=F(13),
+                      command=self.destroy).pack(pady=24)
 
     def _show_welcome_screen(self):
         self._clear_overlay()
         f = ctk.CTkFrame(self._overlay, fg_color="transparent")
         f.place(relx=0.5, rely=0.5, anchor="center")
 
-        _li = _logo((120, 120))
+        _li = _logo((100, 100))
         if _li:
-            ctk.CTkLabel(f, image=_li, text="").pack(pady=(0, 4))
-        else:
-            ctk.CTkLabel(f, text="⬡ CHAKRAM",
-                         font=("Courier New", 36, "bold"), text_color=GOLD).pack(pady=(0, 4))
+            ctk.CTkLabel(f, image=_li, text="").pack(pady=(0, 12))
+        ctk.CTkLabel(f, text="Chakram Wallet", font=F(28, bold=True), text_color=TEXT).pack()
         ctk.CTkLabel(f, text="ചക്രം — Kerala's Digital Coin",
-                     font=("Courier New", 13), text_color=TEXT2).pack(pady=(0, 4))
-        ctk.CTkLabel(f, text="Welcome! Let's set up your wallet.",
-                     font=("Courier New", 14), text_color=TEXT).pack(pady=(0, 20))
+                     font=F(14), text_color=TEXT2).pack(pady=(4, 24))
 
-        card = ctk.CTkFrame(f, fg_color=BG2, corner_radius=10)
-        card.pack(padx=20)
+        card = ctk.CTkFrame(f, fg_color=BG2, corner_radius=16)
+        card.pack(padx=0, ipadx=10)
 
-        ctk.CTkLabel(card, text="Choose a password:",
-                     font=("Courier New", 12), text_color=TEXT2
-                     ).pack(anchor="w", padx=28, pady=(20, 4))
-        pwd_e = ctk.CTkEntry(card, show="*", width=320, fg_color=BG3,
-                              border_color=BORDER, text_color=TEXT,
-                              font=("Courier New", 13))
-        pwd_e.pack(padx=28, pady=(0, 12))
+        ctk.CTkLabel(card, text="Choose a password",
+                     font=F(13), text_color=TEXT2).pack(anchor="w", padx=32, pady=(24, 6))
+        pwd_e = ctk.CTkEntry(card, show="*", width=340, height=42, fg_color=BG3,
+                              border_color=BORDER, text_color=TEXT, font=F(14))
+        pwd_e.pack(padx=32, pady=(0, 12))
 
-        ctk.CTkLabel(card, text="Confirm password:",
-                     font=("Courier New", 12), text_color=TEXT2
-                     ).pack(anchor="w", padx=28, pady=(0, 4))
-        conf_e = ctk.CTkEntry(card, show="*", width=320, fg_color=BG3,
-                               border_color=BORDER, text_color=TEXT,
-                               font=("Courier New", 13))
-        conf_e.pack(padx=28, pady=(0, 12))
+        ctk.CTkLabel(card, text="Confirm password",
+                     font=F(13), text_color=TEXT2).pack(anchor="w", padx=32, pady=(0, 6))
+        conf_e = ctk.CTkEntry(card, show="*", width=340, height=42, fg_color=BG3,
+                               border_color=BORDER, text_color=TEXT, font=F(14))
+        conf_e.pack(padx=32, pady=(0, 12))
 
-        err_lbl = ctk.CTkLabel(card, text="", font=("Courier New", 11), text_color=RED)
+        err_lbl = ctk.CTkLabel(card, text="", font=F(12), text_color=RED)
         err_lbl.pack()
 
         ctk.CTkButton(card, text="Create My Wallet",
-                      fg_color=GOLD, hover_color=GOLD_HOVER,
-                      text_color="#000", font=("Courier New", 13, "bold"),
-                      width=220, height=38,
-                      command=lambda: self._do_create_wallet(
-                          pwd_e.get(), conf_e.get(), err_lbl)
-                      ).pack(pady=(8, 20))
+                      fg_color=GOLD, hover_color=GOLD_HOVER, text_color="#000",
+                      font=F(14, bold=True), width=240, height=44, corner_radius=10,
+                      command=lambda: self._do_create_wallet(pwd_e.get(), conf_e.get(), err_lbl)
+                      ).pack(pady=(8, 24))
 
-        ctk.CTkLabel(f, text="Your password encrypts your wallet locally.",
-                     font=("Courier New", 10), text_color=TEXT2).pack(pady=(10, 0))
-
-        ctk.CTkFrame(f, fg_color=BORDER, height=1, corner_radius=0
-                     ).pack(fill="x", padx=40, pady=(14, 0))
+        ctk.CTkLabel(f, text="Your password encrypts your wallet on this device.",
+                     font=F(12), text_color=TEXT2).pack(pady=(12, 0))
         ctk.CTkButton(f, text="Restore existing wallet →",
                       fg_color="transparent", hover_color=BG3,
-                      text_color=TEXT2, font=("Courier New", 11),
-                      command=self._show_restore_screen).pack(pady=(6, 0))
+                      text_color=TEXT2, font=F(13),
+                      command=self._show_restore_screen).pack(pady=(8, 0))
+
+        pwd_e.focus()
+        conf_e.bind("<Return>", lambda _: self._do_create_wallet(pwd_e.get(), conf_e.get(), err_lbl))
 
     def _show_restore_screen(self):
         self._clear_overlay()
         f = ctk.CTkFrame(self._overlay, fg_color="transparent")
         f.place(relx=0.5, rely=0.5, anchor="center")
 
-        ctk.CTkLabel(f, text="Restore Wallet",
-                     font=("Courier New", 26, "bold"), text_color=GOLD).pack(pady=(0, 4))
+        ctk.CTkLabel(f, text="Restore Wallet", font=F(26, bold=True), text_color=TEXT).pack(pady=(0, 4))
         ctk.CTkLabel(f, text="Enter your 12-word recovery phrase",
-                     font=("Courier New", 12), text_color=TEXT2).pack(pady=(0, 14))
+                     font=F(14), text_color=TEXT2).pack(pady=(0, 16))
 
-        grid = ctk.CTkFrame(f, fg_color=BG2, corner_radius=10)
-        grid.pack(padx=4, pady=(0, 12))
+        grid = ctk.CTkFrame(f, fg_color=BG2, corner_radius=14)
+        grid.pack(padx=4, pady=(0, 14), ipadx=8, ipady=8)
 
         word_entries = []
         for i in range(12):
             row, col = divmod(i, 4)
             cell = ctk.CTkFrame(grid, fg_color="transparent")
             cell.grid(row=row, column=col, padx=8, pady=6)
-            ctk.CTkLabel(cell, text=f"{i+1:2}.", font=("Courier New", 10),
-                         text_color=TEXT2, width=22).pack(side="left")
-            e = ctk.CTkEntry(cell, width=96, fg_color=BG3, border_color=BORDER,
-                              text_color=TEXT, font=("Courier New", 12))
+            ctk.CTkLabel(cell, text=f"{i+1:2}.", font=F(12), text_color=TEXT2, width=26).pack(side="left")
+            e = ctk.CTkEntry(cell, width=110, height=36, fg_color=BG3, border_color=BORDER,
+                              text_color=TEXT, font=F(13))
             e.pack(side="left")
             word_entries.append(e)
 
@@ -362,29 +349,24 @@ class ChakramApp(ctk.CTk):
             e.bind("<Return>", lambda _, n=next_e: n.focus())
 
         pwd_frame = ctk.CTkFrame(f, fg_color="transparent")
-        pwd_frame.pack(pady=(0, 4))
-        ctk.CTkLabel(pwd_frame, text="New password for this machine:",
-                     font=("Courier New", 11), text_color=TEXT2).pack(side="left", padx=(0, 10))
-        pwd_e = ctk.CTkEntry(pwd_frame, show="*", width=180, fg_color=BG3,
-                              border_color=BORDER, text_color=TEXT,
-                              font=("Courier New", 12))
+        pwd_frame.pack(pady=(0, 6))
+        ctk.CTkLabel(pwd_frame, text="New password:", font=F(13), text_color=TEXT2).pack(side="left", padx=(0, 10))
+        pwd_e = ctk.CTkEntry(pwd_frame, show="*", width=200, height=38, fg_color=BG3,
+                              border_color=BORDER, text_color=TEXT, font=F(13))
         pwd_e.pack(side="left")
 
-        err_lbl = ctk.CTkLabel(f, text="", font=("Courier New", 11), text_color=RED)
+        err_lbl = ctk.CTkLabel(f, text="", font=F(12), text_color=RED)
         err_lbl.pack()
 
         btn_row = ctk.CTkFrame(f, fg_color="transparent")
-        btn_row.pack(pady=(6, 0))
-        ctk.CTkButton(btn_row, text="← Back",
-                      fg_color=BG3, hover_color=BORDER, text_color=TEXT2,
-                      font=("Courier New", 12), width=100, height=36,
+        btn_row.pack(pady=(8, 0))
+        ctk.CTkButton(btn_row, text="← Back", fg_color=BG3, hover_color=BORDER,
+                      text_color=TEXT2, font=F(13), width=110, height=40,
                       command=self._show_welcome_screen).pack(side="left", padx=(0, 12))
         ctk.CTkButton(btn_row, text="Restore Wallet",
-                      fg_color=GOLD, hover_color=GOLD_HOVER,
-                      text_color="#000", font=("Courier New", 13, "bold"),
-                      width=160, height=36,
-                      command=lambda: self._do_restore_wallet(
-                          word_entries, pwd_e.get(), err_lbl)
+                      fg_color=GOLD, hover_color=GOLD_HOVER, text_color="#000",
+                      font=F(14, bold=True), width=180, height=40,
+                      command=lambda: self._do_restore_wallet(word_entries, pwd_e.get(), err_lbl)
                       ).pack(side="left")
 
         word_entries[0].focus()
@@ -395,11 +377,9 @@ class ChakramApp(ctk.CTk):
         if missing:
             err_lbl.configure(text=f"Missing words: {', '.join(missing)}", text_color=RED)
             return
-        invalid = [str(i + 1) for i, w in enumerate(words)
-                   if not re.match(r'^[a-z]+$', w)]
+        invalid = [str(i + 1) for i, w in enumerate(words) if not re.match(r'^[a-z]+$', w)]
         if invalid:
-            err_lbl.configure(text=f"Invalid words (numbers?): {', '.join(invalid)}",
-                               text_color=RED)
+            err_lbl.configure(text=f"Invalid words: {', '.join(invalid)}", text_color=RED)
             return
         if len(pwd) < 6:
             err_lbl.configure(text="Password must be at least 6 characters", text_color=RED)
@@ -411,19 +391,16 @@ class ChakramApp(ctk.CTk):
         def run():
             try:
                 res = subprocess.run(
-                    [self._binary, "wallet", "recover",
-                     "--mnemonic", mnemonic, "--password", pwd],
+                    [self._binary, "wallet", "recover", "--mnemonic", mnemonic, "--password", pwd],
                     capture_output=True, text=True, timeout=30
                 )
                 output = res.stdout + res.stderr
                 if res.returncode != 0 and not wallet_exists():
-                    self.after(0, lambda: err_lbl.configure(
-                        text=f"Failed: {output[:100]}", text_color=RED))
+                    self.after(0, lambda: err_lbl.configure(text=f"Failed: {output[:100]}", text_color=RED))
                     return
                 self.after(0, lambda: self._proceed(pwd))
             except Exception as e:
-                self.after(0, lambda: err_lbl.configure(
-                    text=f"Error: {e}", text_color=RED))
+                self.after(0, lambda: err_lbl.configure(text=f"Error: {e}", text_color=RED))
 
         threading.Thread(target=run, daemon=True).start()
 
@@ -449,13 +426,11 @@ class ChakramApp(ctk.CTk):
                 )
                 output = res.stdout + res.stderr
                 if res.returncode != 0 and not wallet_exists():
-                    self.after(0, lambda: err_lbl.configure(
-                        text=f"Failed: {output[:80]}", text_color=RED))
+                    self.after(0, lambda: err_lbl.configure(text=f"Failed: {output[:80]}", text_color=RED))
                     return
                 self.after(0, lambda: self._after_wallet_created(pwd, output))
             except Exception as e:
-                self.after(0, lambda: err_lbl.configure(
-                    text=f"Error: {e}", text_color=RED))
+                self.after(0, lambda: err_lbl.configure(text=f"Error: {e}", text_color=RED))
 
         threading.Thread(target=run, daemon=True).start()
 
@@ -480,38 +455,34 @@ class ChakramApp(ctk.CTk):
                 return [w.lower() for w in words]
         return None
 
-    # ── Mnemonic screen ────────────────────────────────────────────────────────
-
     def _show_mnemonic_screen(self, words, pwd):
         self._clear_overlay()
         f = ctk.CTkFrame(self._overlay, fg_color="transparent")
         f.place(relx=0.5, rely=0.5, anchor="center")
 
-        ctk.CTkLabel(f, text="⚠  Write These 12 Words Down NOW",
-                     font=("Courier New", 17, "bold"), text_color=ORANGE).pack(pady=(0, 4))
-        ctk.CTkLabel(f,
-                     text="This is the ONLY way to recover your wallet if you forget your password.",
-                     font=("Courier New", 11), text_color=TEXT2).pack(pady=(0, 14))
+        ctk.CTkLabel(f, text="⚠  Write These 12 Words Down",
+                     font=F(20, bold=True), text_color=ORANGE).pack(pady=(0, 4))
+        ctk.CTkLabel(f, text="This is the ONLY way to recover your wallet if you forget your password.",
+                     font=F(13), text_color=TEXT2).pack(pady=(0, 16))
 
-        grid = ctk.CTkFrame(f, fg_color=BG2, corner_radius=10)
-        grid.pack(fill="x", pady=(0, 14), padx=4)
+        grid = ctk.CTkFrame(f, fg_color=BG2, corner_radius=14)
+        grid.pack(fill="x", pady=(0, 16), ipadx=8, ipady=8)
 
         for i, word in enumerate(words):
             row, col = divmod(i, 4)
             grid.columnconfigure(col, weight=1)
-            cell = ctk.CTkFrame(grid, fg_color=BG3, corner_radius=6)
-            cell.grid(row=row, column=col, padx=8, pady=7, sticky="ew")
-            ctk.CTkLabel(cell, text=f"{i+1}.", font=("Courier New", 10),
-                         text_color=TEXT2).pack(side="left", padx=(8, 4), pady=7)
-            ctk.CTkLabel(cell, text=word, font=("Courier New", 14, "bold"),
-                         text_color=GOLD).pack(side="left", padx=(0, 8), pady=7)
+            cell = ctk.CTkFrame(grid, fg_color=BG3, corner_radius=8)
+            cell.grid(row=row, column=col, padx=8, pady=6, sticky="ew")
+            ctk.CTkLabel(cell, text=f"{i+1}.", font=F(11), text_color=TEXT2
+                         ).pack(side="left", padx=(10, 4), pady=8)
+            ctk.CTkLabel(cell, text=word, font=F(15, bold=True), text_color=GOLD
+                         ).pack(side="left", padx=(0, 10), pady=8)
 
         checked = ctk.BooleanVar(value=False)
-        cont_btn = ctk.CTkButton(
-            f, text="Continue →", state="disabled",
-            fg_color=BG3, hover_color=BG3, text_color=TEXT2,
-            font=("Courier New", 13, "bold"), width=160, height=36,
-            command=lambda: self._proceed(pwd))
+        cont_btn = ctk.CTkButton(f, text="Continue →", state="disabled",
+                                  fg_color=BG3, hover_color=BG3, text_color=TEXT2,
+                                  font=F(14, bold=True), width=180, height=42,
+                                  command=lambda: self._proceed(pwd))
 
         def on_toggle():
             if checked.get():
@@ -523,40 +494,33 @@ class ChakramApp(ctk.CTk):
 
         ctk.CTkCheckBox(f, text="I have written down all 12 words safely",
                          variable=checked, command=on_toggle,
-                         font=("Courier New", 12), text_color=TEXT,
+                         font=F(13), text_color=TEXT,
                          fg_color=GOLD, hover_color=GOLD_HOVER,
-                         checkmark_color="#000").pack(pady=(0, 10))
-        cont_btn.pack(pady=(0, 8))
-
-    # ── Password screen (returning user) ──────────────────────────────────────
+                         checkmark_color="#000").pack(pady=(0, 12))
+        cont_btn.pack()
 
     def _show_password_screen(self):
         self._clear_overlay()
         f = ctk.CTkFrame(self._overlay, fg_color="transparent")
         f.place(relx=0.5, rely=0.5, anchor="center")
 
-        _li = _logo((120, 120))
+        _li = _logo((100, 100))
         if _li:
-            ctk.CTkLabel(f, image=_li, text="").pack(pady=(0, 4))
-        else:
-            ctk.CTkLabel(f, text="⬡ CHAKRAM",
-                         font=("Courier New", 36, "bold"), text_color=GOLD).pack(pady=(0, 4))
-        ctk.CTkLabel(f, text="Welcome back",
-                     font=("Courier New", 13), text_color=TEXT2).pack(pady=(0, 24))
+            ctk.CTkLabel(f, image=_li, text="").pack(pady=(0, 16))
+        ctk.CTkLabel(f, text="Welcome back", font=F(22, bold=True), text_color=TEXT).pack()
+        ctk.CTkLabel(f, text="Enter your password to unlock",
+                     font=F(14), text_color=TEXT2).pack(pady=(4, 24))
 
-        card = ctk.CTkFrame(f, fg_color=BG2, corner_radius=10)
-        card.pack(padx=20)
+        card = ctk.CTkFrame(f, fg_color=BG2, corner_radius=16)
+        card.pack(padx=0)
 
-        ctk.CTkLabel(card, text="Enter your wallet password:",
-                     font=("Courier New", 12), text_color=TEXT2
-                     ).pack(padx=32, pady=(22, 8))
-        pwd_e = ctk.CTkEntry(card, show="*", width=300, fg_color=BG3,
-                              border_color=BORDER, text_color=TEXT,
-                              font=("Courier New", 13))
-        pwd_e.pack(padx=32, pady=(0, 8))
+        pwd_e = ctk.CTkEntry(card, show="*", width=320, height=46, fg_color=BG3,
+                              border_color=BORDER, text_color=TEXT, font=F(15),
+                              placeholder_text="Password")
+        pwd_e.pack(padx=32, pady=(28, 10))
         pwd_e.focus()
 
-        err_lbl = ctk.CTkLabel(card, text="", font=("Courier New", 11), text_color=RED)
+        err_lbl = ctk.CTkLabel(card, text="", font=F(12), text_color=RED)
         err_lbl.pack()
 
         def unlock():
@@ -566,11 +530,10 @@ class ChakramApp(ctk.CTk):
                 return
             self._proceed(p)
 
-        ctk.CTkButton(card, text="Unlock",
-                      fg_color=GOLD, hover_color=GOLD_HOVER,
-                      text_color="#000", font=("Courier New", 13, "bold"),
-                      width=160, height=36, command=unlock
-                      ).pack(pady=(8, 22))
+        ctk.CTkButton(card, text="Unlock Wallet",
+                      fg_color=GOLD, hover_color=GOLD_HOVER, text_color="#000",
+                      font=F(14, bold=True), width=200, height=44, corner_radius=10,
+                      command=unlock).pack(pady=(10, 28))
 
         pwd_e.bind("<Return>", lambda _: unlock())
 
@@ -601,7 +564,6 @@ class ChakramApp(ctk.CTk):
             if node_is_running():
                 self.after(0, self._on_node_ready)
                 return
-            # If the process already died, no point waiting the full 30 s.
             if self._node_proc and self._node_proc.poll() is not None:
                 break
             time.sleep(1)
@@ -610,7 +572,6 @@ class ChakramApp(ctk.CTk):
         self.after(0, self._show_node_timeout, crash_reason)
 
     def _launch_node(self, mine=False):
-        # Kill our tracked process if it's still alive.
         if self._node_proc and self._node_proc.poll() is None:
             if sys.platform != "win32":
                 try:
@@ -629,24 +590,15 @@ class ChakramApp(ctk.CTk):
                     pass
             self._node_proc = None
 
-        # If the node is still responding (GUI connected to an externally-started
-        # node — self._node_proc is None), kill the orphan before launching.
-        # Without this the new node can't bind to ports or open the database.
         if node_is_running():
             self._kill_orphan_node()
-            # On Windows fall back to killing by port when no PID file exists.
             if node_is_running() and sys.platform == "win32":
                 self._kill_node_by_port_win()
-            # Wait until RPC goes dark (up to 4 s).
             for _ in range(8):
                 time.sleep(0.5)
                 if not node_is_running():
                     break
 
-        # On Windows, TerminateProcess() is an immediate hard kill — no SIGTERM,
-        # no BadgerDB flush.  The OS may not release the LOCK file handle for
-        # hundreds of milliseconds after proc.wait() returns.  Sleep first, then
-        # retry deletion so the new node can open the database cleanly.
         if sys.platform == "win32":
             time.sleep(0.6)
             lock = os.path.join(os.path.expanduser("~/.chakram/mainnet"), "LOCK")
@@ -655,7 +607,7 @@ class ChakramApp(ctk.CTk):
                     os.remove(lock)
                     break
                 except FileNotFoundError:
-                    break  # already gone — fine
+                    break
                 except OSError:
                     time.sleep(0.25)
 
@@ -663,7 +615,6 @@ class ChakramApp(ctk.CTk):
         if mine:
             cmd.append("--mine")
 
-        # Log stderr to a file so crashes are diagnosable (was DEVNULL before).
         log_path = os.path.join(os.path.expanduser("~/.chakram/mainnet"), "node.log")
         try:
             os.makedirs(os.path.dirname(log_path), exist_ok=True)
@@ -684,8 +635,7 @@ class ChakramApp(ctk.CTk):
         if mine:
             self._last_mined_block = None
 
-        threading.Thread(target=self._drain_stdout,
-                         args=(self._node_proc,), daemon=True).start()
+        threading.Thread(target=self._drain_stdout, args=(self._node_proc,), daemon=True).start()
 
     def _drain_stdout(self, proc):
         log_path = os.path.join(os.path.expanduser("~/.chakram/mainnet"), "node.log")
@@ -719,13 +669,10 @@ class ChakramApp(ctk.CTk):
                     pass
 
     def _read_crash_reason(self):
-        """Read the last FATAL line from node.log and return a user-friendly tuple
-        (headline, detail, suggest_reset) or None if no crash found."""
         log_path = os.path.join(os.path.expanduser("~/.chakram/mainnet"), "node.log")
         try:
             with open(log_path, "r", errors="replace") as f:
                 lines = f.readlines()
-            # Scan from the end for the most recent FATAL line.
             for line in reversed(lines):
                 low = line.lower()
                 if "fatal" not in low and "error" not in low:
@@ -735,15 +682,12 @@ class ChakramApp(ctk.CTk):
                 if "vlog" in low or "truncate" in low or "create a new file" in low or "open existing" in low:
                     return ("Corrupted chain data",
                             "The database was damaged (likely a previous crash or disk-full event).\n"
-                            "Use Reset Node Data to wipe and resync from the network.",
-                            True)
+                            "Use Reset Node Data to wipe and resync from the network.", True)
                 if "lock" in low and "badger" in low:
                     return ("Database locked",
                             "Another Chakram process may still be running.\n"
-                            "Close all Chakram windows and retry.",
-                            False)
+                            "Close all Chakram windows and retry.", False)
                 if "fatal" in low:
-                    # Generic FATAL — show the raw line trimmed.
                     detail = line.replace("FATAL:", "").strip()[:120]
                     return ("Node crashed on startup", detail, False)
         except Exception:
@@ -757,31 +701,27 @@ class ChakramApp(ctk.CTk):
 
         if crash:
             headline, detail, suggest_reset = crash
-            ctk.CTkLabel(f, text=headline,
-                         font=("Courier New", 16, "bold"), text_color=RED).pack(pady=(0, 8))
-            ctk.CTkLabel(f, text=detail, font=("Courier New", 11), text_color=TEXT2,
-                         wraplength=420, justify="center").pack(padx=20)
+            ctk.CTkLabel(f, text=headline, font=F(18, bold=True), text_color=RED).pack(pady=(0, 8))
+            ctk.CTkLabel(f, text=detail, font=F(13), text_color=TEXT2,
+                         wraplength=440, justify="center").pack(padx=20)
             btn_row = ctk.CTkFrame(f, fg_color="transparent")
             btn_row.pack(pady=20)
-            ctk.CTkButton(btn_row, text="Retry",
-                          fg_color=BG3, hover_color=BORDER, text_color=TEXT2,
-                          width=100, height=34,
+            ctk.CTkButton(btn_row, text="Retry", fg_color=BG3, hover_color=BORDER,
+                          text_color=TEXT2, width=110, height=38, font=F(13),
                           command=lambda: threading.Thread(
                               target=self._connect_or_start, daemon=True).start()
                           ).pack(side="left", padx=(0, 10))
             if suggest_reset:
-                ctk.CTkButton(btn_row, text="Reset Node Data", width=150, height=34,
+                ctk.CTkButton(btn_row, text="Reset Node Data", width=160, height=38,
                               fg_color=RED, hover_color="#a03030", text_color=TEXT,
-                              font=("Courier New", 12, "bold"),
+                              font=F(13, bold=True),
                               command=lambda: self._confirm_reset(f)).pack(side="left")
         else:
-            ctk.CTkLabel(f, text="Node failed to start",
-                         font=("Courier New", 16, "bold"), text_color=RED).pack(pady=(0, 8))
+            ctk.CTkLabel(f, text="Node failed to start", font=F(18, bold=True), text_color=RED).pack(pady=(0, 8))
             ctk.CTkLabel(f, text="Chakram node did not respond within 30 seconds.",
-                         font=("Courier New", 12), text_color=TEXT2).pack()
-            ctk.CTkButton(f, text="Retry",
-                          fg_color=GOLD, hover_color=GOLD_HOVER, text_color="#000",
-                          width=120, height=36,
+                         font=F(14), text_color=TEXT2).pack()
+            ctk.CTkButton(f, text="Retry", fg_color=GOLD, hover_color=GOLD_HOVER,
+                          text_color="#000", width=130, height=40, font=F(14, bold=True),
                           command=lambda: threading.Thread(
                               target=self._connect_or_start, daemon=True).start()
                           ).pack(pady=20)
@@ -795,226 +735,207 @@ class ChakramApp(ctk.CTk):
     # ═══════════════════════════════════════════════════════════════════════════
 
     def _build_main_ui(self):
-        # ── Status bar (bottom) ───────────────────────────────────────────
-        sb = ctk.CTkFrame(self, fg_color=BG3, corner_radius=0, height=26)
+        # Status bar first so pack(side=bottom) reserves space before expand
+        sb = ctk.CTkFrame(self, fg_color=BG2, corner_radius=0, height=28)
         sb.pack(side="bottom", fill="x")
         sb.pack_propagate(False)
-        self._statusbar = ctk.CTkLabel(
-            sb, text=f"Chakram  |  Height: —  |  Peers: —  |  {VERSION}",
-            font=("Courier New", 10), text_color=TEXT2)
-        self._statusbar.pack(side="left", padx=12, pady=4)
+        self._statusbar = ctk.CTkLabel(sb, text=f"Chakram  ·  {VERSION}",
+                                        font=F(11), text_color=TEXT2)
+        self._statusbar.pack(side="left", padx=16, pady=6)
         explorer_lbl = ctk.CTkLabel(sb, text="Block Explorer →",
-                                     font=("Courier New", 10), text_color=TEXT2,
-                                     cursor="hand2")
-        explorer_lbl.pack(side="right", padx=12)
+                                     font=F(11), text_color=TEXT2, cursor="hand2")
+        explorer_lbl.pack(side="right", padx=16)
         explorer_lbl.bind("<Button-1>", lambda _: webbrowser.open(f"{RPC_BASE}/explorer"))
         Tooltip(explorer_lbl, "Open block explorer in browser")
 
-        # ── Node status card (compact single row) ─────────────────────────
-        top = ctk.CTkFrame(self, fg_color=BG2, corner_radius=10)
-        top.pack(fill="x", padx=16, pady=(12, 4))
+        # ── Header bar ────────────────────────────────────────────────────
+        hdr = ctk.CTkFrame(self, fg_color=BG2, corner_radius=0, height=58)
+        hdr.pack(side="top", fill="x")
+        hdr.pack_propagate(False)
 
-        top_row = ctk.CTkFrame(top, fg_color="transparent")
-        top_row.pack(fill="x", padx=16, pady=(8, 0))
-
-        _li = _logo((36, 36))
+        hdr_left = ctk.CTkFrame(hdr, fg_color="transparent")
+        hdr_left.pack(side="left", padx=20, fill="y")
+        _li = _logo((34, 34))
         if _li:
-            ctk.CTkLabel(top_row, image=_li, text="").pack(side="left", padx=(0, 6))
-        else:
-            ctk.CTkLabel(top_row, text="⬡ CHAKRAM",
-                         font=("Courier New", 22, "bold"), text_color=GOLD).pack(side="left")
-        ctk.CTkLabel(top_row, text="ചക്രം — Kerala's Digital Coin",
-                     font=("Courier New", 11), text_color=TEXT2).pack(side="left", padx=(4, 0))
+            ctk.CTkLabel(hdr_left, image=_li, text="").pack(side="left", padx=(0, 10), pady=12)
+        ctk.CTkLabel(hdr_left, text="Chakram Wallet",
+                     font=F(17, bold=True), text_color=TEXT).pack(side="left", pady=12)
 
-        settings_btn = ctk.CTkButton(top_row, text="⚙", width=28, height=24,
+        hdr_right = ctk.CTkFrame(hdr, fg_color="transparent")
+        hdr_right.pack(side="right", padx=20, fill="y")
+
+        settings_btn = ctk.CTkButton(hdr_right, text="⚙", width=36, height=36,
                                       fg_color=BG3, hover_color=BORDER,
-                                      text_color=TEXT2, font=("Courier New", 13),
+                                      text_color=TEXT2, font=F(15),
                                       command=self._show_settings)
-        settings_btn.pack(side="right")
+        settings_btn.pack(side="right", padx=(10, 0), pady=11)
         Tooltip(settings_btn, "Node settings & info")
 
-        self._status_dot = ctk.CTkLabel(top_row, text="●",
-                                         font=("Courier New", 14), text_color=RED)
-        self._status_dot.pack(side="right", padx=(0, 4))
-        self._status_label = ctk.CTkLabel(top_row, text="Connecting…",
-                                           font=("Courier New", 10), text_color=TEXT2)
-        self._status_label.pack(side="right", padx=(0, 8))
+        # Separator dots
+        def _sep():
+            ctk.CTkLabel(hdr_right, text="·", font=F(13), text_color=BORDER).pack(side="right", padx=2)
 
-        stats_row = ctk.CTkFrame(top, fg_color="transparent")
-        stats_row.pack(fill="x", padx=16, pady=(6, 8))
-        self._stat_height = self._stat_box(stats_row, "Height",  "—")
-        self._stat_peers  = self._stat_box(stats_row, "Peers",   "—")
-        self._stat_net    = self._stat_box(stats_row, "Network", "—")
-        Tooltip(self._stat_height, "Current best block height on this node")
-        Tooltip(self._stat_peers,  "Connected peers right now")
-        Tooltip(self._stat_net,    "Active network: testnet or mainnet")
+        self._stat_net = ctk.CTkLabel(hdr_right, text="—", font=F(13), text_color=TEXT2)
+        self._stat_net.pack(side="right", padx=(6, 0), pady=11)
+        Tooltip(self._stat_net, "Active network")
+        _sep()
 
-        # Sync progress bar — packed into stats_row, hidden when synced
-        self._sync_row = ctk.CTkFrame(top, fg_color="transparent")
-        self._sync_label = ctk.CTkLabel(self._sync_row, text="",
-                                         font=("Courier New", 10), text_color=ORANGE,
-                                         width=200, anchor="w")
-        self._sync_label.pack(side="left")
-        self._sync_bar = ctk.CTkProgressBar(self._sync_row, height=6,
+        self._stat_peers = ctk.CTkLabel(hdr_right, text="Peers —", font=F(13), text_color=TEXT2)
+        self._stat_peers.pack(side="right", padx=(6, 0), pady=11)
+        Tooltip(self._stat_peers, "Connected peers")
+        _sep()
+
+        self._stat_height = ctk.CTkLabel(hdr_right, text="Ht —", font=F(13), text_color=TEXT2)
+        self._stat_height.pack(side="right", padx=(6, 0), pady=11)
+        Tooltip(self._stat_height, "Current chain height")
+        _sep()
+
+        status_grp = ctk.CTkFrame(hdr_right, fg_color="transparent")
+        status_grp.pack(side="right", padx=(6, 0), pady=11)
+        self._status_dot = ctk.CTkLabel(status_grp, text="●", font=F(14), text_color=RED)
+        self._status_dot.pack(side="left")
+        self._status_label = ctk.CTkLabel(status_grp, text="Connecting…", font=F(13), text_color=TEXT2)
+        self._status_label.pack(side="left", padx=(5, 0))
+
+        # ── Sync progress bar (hidden until syncing) ──────────────────────
+        self._sync_row = ctk.CTkFrame(self, fg_color=BG2, height=28)
+        self._sync_label = ctk.CTkLabel(self._sync_row, text="", font=F(11),
+                                         text_color=ORANGE, width=200, anchor="w")
+        self._sync_label.pack(side="left", padx=(20, 8), pady=6)
+        self._sync_bar = ctk.CTkProgressBar(self._sync_row, height=5,
                                              fg_color=BG3, progress_color=ORANGE)
-        self._sync_bar.pack(side="left", fill="x", expand=True, padx=(6, 0))
+        self._sync_bar.pack(side="left", fill="x", expand=True, padx=(0, 20), pady=11)
         self._sync_bar.set(0)
 
-        # ── Balance + address card ─────────────────────────────────────────
-        bal_card = ctk.CTkFrame(self, fg_color=BG2, corner_radius=10)
-        bal_card.pack(fill="x", padx=16, pady=4)
+        # ── Middle section: Balance card + Send card ──────────────────────
+        mid = ctk.CTkFrame(self, fg_color="transparent")
+        mid.pack(fill="x", padx=16, pady=(12, 8))
+        mid.columnconfigure(0, weight=58)
+        mid.columnconfigure(1, weight=42)
+
+        # Balance card
+        bal_card = ctk.CTkFrame(mid, fg_color=BG2, corner_radius=14)
+        bal_card.grid(row=0, column=0, sticky="nsew", padx=(0, 6))
 
         bal_inner = ctk.CTkFrame(bal_card, fg_color="transparent")
-        bal_inner.pack(fill="x", padx=20, pady=(10, 10))
+        bal_inner.pack(fill="both", padx=22, pady=16)
 
-        bal_left = ctk.CTkFrame(bal_inner, fg_color="transparent")
-        bal_left.pack(side="left", fill="x", expand=True)
+        ctk.CTkLabel(bal_inner, text="WALLET BALANCE",
+                     font=F(10, bold=True), text_color=TEXT2).pack(anchor="w")
+        self._balance_label = ctk.CTkLabel(bal_inner, text="— CHK",
+                                            font=F(32, bold=True), text_color=GOLD)
+        self._balance_label.pack(anchor="w", pady=(2, 0))
+        Tooltip(self._balance_label, "Spendable CHK (confirmed, mature UTXOs)")
 
-        ctk.CTkLabel(bal_left, text="BALANCE",
-                     font=("Courier New", 9), text_color=TEXT2).pack(anchor="w")
-        self._balance_label = ctk.CTkLabel(bal_left, text="— CHK",
-                                            font=("Courier New", 32, "bold"),
-                                            text_color=GOLD)
-        self._balance_label.pack(anchor="w")
-        Tooltip(self._balance_label, "Your spendable CHK balance (confirmed UTXOs)")
-        self._pending_label = ctk.CTkLabel(bal_left, text="",
-                                            font=("Courier New", 10),
-                                            text_color=ORANGE)
-        self._pending_label.pack(anchor="w")
+        self._pending_label = ctk.CTkLabel(bal_inner, text="", font=F(12), text_color=ORANGE)
+        self._pending_label.pack(anchor="w", pady=(2, 8))
 
-        bal_right = ctk.CTkFrame(bal_inner, fg_color="transparent")
-        bal_right.pack(side="right")
+        addr_row = ctk.CTkFrame(bal_inner, fg_color="transparent")
+        addr_row.pack(anchor="w", fill="x", pady=(0, 8))
 
-        addr_row = ctk.CTkFrame(bal_right, fg_color="transparent")
-        addr_row.pack(anchor="e", pady=(0, 6))
-        ctk.CTkLabel(addr_row, text="Address:", font=("Courier New", 10),
-                     text_color=TEXT2).pack(side="left")
-        self._addr_label = ctk.CTkLabel(addr_row, text="—",
-                                         font=("Courier New", 10), text_color=GOLD)
-        self._addr_label.pack(side="left", padx=(6, 6))
-        ctk.CTkButton(addr_row, text="Copy", width=52, height=22,
-                      fg_color=BG3, hover_color=BORDER, text_color=TEXT2,
-                      font=("Courier New", 10),
-                      command=self._copy_address).pack(side="left", padx=(0, 4))
-        ctk.CTkButton(addr_row, text="Receive", width=64, height=22,
-                      fg_color=BG3, hover_color=BORDER, text_color=GOLD,
-                      font=("Courier New", 10),
+        addr_box = ctk.CTkFrame(addr_row, fg_color=BG3, corner_radius=8)
+        addr_box.pack(side="left", padx=(0, 8))
+        self._addr_label = ctk.CTkLabel(addr_box, text="—",
+                                         font=FM(11), text_color=GOLD)
+        self._addr_label.pack(padx=12, pady=6)
+        Tooltip(addr_box, "Your wallet address — share to receive CHK")
+
+        ctk.CTkButton(addr_row, text="Copy", width=68, height=32,
+                      fg_color=BG3, hover_color=BORDER, text_color=TEXT2, font=F(13),
+                      command=self._copy_address).pack(side="left", padx=(0, 6))
+        ctk.CTkButton(addr_row, text="Receive", width=80, height=32,
+                      fg_color=BG3, hover_color=BORDER, text_color=GOLD, font=F(13),
                       command=self._show_receive).pack(side="left")
-        Tooltip(addr_row, "Your wallet address — share this to receive CHK")
 
-        mine_row = ctk.CTkFrame(bal_right, fg_color="transparent")
-        mine_row.pack(anchor="e")
-        self._mining_label = ctk.CTkLabel(mine_row, text="Not Mining",
-                                           font=("Courier New", 10), text_color=TEXT2)
-        self._mining_label.pack(side="left", padx=(0, 8))
+        mine_row = ctk.CTkFrame(bal_inner, fg_color="transparent")
+        mine_row.pack(anchor="w")
         self._mine_btn = ctk.CTkButton(mine_row, text="Start Mining",
-                                        width=118, height=26,
+                                        width=140, height=34,
                                         fg_color=BG3, hover_color=BORDER,
-                                        text_color=TEXT2, font=("Courier New", 11),
+                                        text_color=TEXT2, font=F(13, bold=True),
                                         command=self._toggle_mining)
-        self._mine_btn.pack(side="left")
+        self._mine_btn.pack(side="left", padx=(0, 12))
         Tooltip(self._mine_btn, "Mine CHK blocks to earn block rewards")
+        self._mining_label = ctk.CTkLabel(mine_row, text="Not mining", font=F(13), text_color=TEXT2)
+        self._mining_label.pack(side="left")
 
-        # ── Two-column bottom section ──────────────────────────────────────
-        # Left (38%): Send + Transactions   Right (62%): Recent Blocks
+        # Send card
+        send_card = ctk.CTkFrame(mid, fg_color=BG2, corner_radius=14)
+        send_card.grid(row=0, column=1, sticky="nsew", padx=(6, 0))
+
+        send_inner = ctk.CTkFrame(send_card, fg_color="transparent")
+        send_inner.pack(fill="both", padx=22, pady=16)
+
+        ctk.CTkLabel(send_inner, text="SEND CHK",
+                     font=F(10, bold=True), text_color=TEXT2).pack(anchor="w", pady=(0, 12))
+
+        to_row = ctk.CTkFrame(send_inner, fg_color="transparent")
+        to_row.pack(fill="x", pady=(0, 8))
+        ctk.CTkLabel(to_row, text="To", font=F(13), text_color=TEXT2, width=44, anchor="w").pack(side="left")
+        self._to_entry = ctk.CTkEntry(to_row, placeholder_text="CK1 address…",
+                                       fg_color=BG3, border_color=BORDER,
+                                       text_color=TEXT, font=F(13), height=36)
+        self._to_entry.pack(side="left", fill="x", expand=True)
+
+        amt_row = ctk.CTkFrame(send_inner, fg_color="transparent")
+        amt_row.pack(fill="x", pady=(0, 12))
+        ctk.CTkLabel(amt_row, text="Amount", font=F(13), text_color=TEXT2, width=44, anchor="w").pack(side="left")
+        self._amt_entry = ctk.CTkEntry(amt_row, placeholder_text="0.000000",
+                                        fg_color=BG3, border_color=BORDER,
+                                        text_color=TEXT, font=F(13), height=36)
+        self._amt_entry.pack(side="left", fill="x", expand=True, padx=(0, 8))
+        ctk.CTkLabel(amt_row, text="CHK", font=F(13), text_color=TEXT2).pack(side="left")
+
+        ctk.CTkButton(send_inner, text="Send  →",
+                      fg_color=GOLD, hover_color=GOLD_HOVER, text_color="#000",
+                      font=F(15, bold=True), height=40, corner_radius=10,
+                      command=self._do_send).pack(fill="x", pady=(0, 8))
+
+        self._send_result = ctk.CTkLabel(send_inner, text="", font=F(12),
+                                          text_color=TEXT2, wraplength=300, anchor="w")
+        self._send_result.pack(anchor="w")
+
+        # ── Bottom section: Transactions + Blocks ─────────────────────────
         bottom = ctk.CTkFrame(self, fg_color="transparent")
-        bottom.pack(fill="both", expand=True, padx=16, pady=(4, 8))
+        bottom.pack(fill="both", expand=True, padx=16, pady=(0, 10))
         bottom.columnconfigure(0, weight=38)
         bottom.columnconfigure(1, weight=62)
         bottom.rowconfigure(0, weight=1)
 
-        # ── Left pane ─────────────────────────────────────────────────────
-        left = ctk.CTkFrame(bottom, fg_color=BG2, corner_radius=10)
-        left.grid(row=0, column=0, sticky="nsew", padx=(0, 4))
-        left.rowconfigure(3, weight=1)  # tx frame expands
+        # Transactions pane
+        tx_pane = ctk.CTkFrame(bottom, fg_color=BG2, corner_radius=14)
+        tx_pane.grid(row=0, column=0, sticky="nsew", padx=(0, 6))
+        tx_pane.rowconfigure(1, weight=1)
+        tx_pane.columnconfigure(0, weight=1)
 
-        ctk.CTkLabel(left, text="Send CHK",
-                     font=("Courier New", 12, "bold"), text_color=TEXT2
-                     ).grid(row=0, column=0, sticky="w", padx=16, pady=(10, 4))
+        tx_top = ctk.CTkFrame(tx_pane, fg_color="transparent")
+        tx_top.grid(row=0, column=0, sticky="ew", padx=16, pady=(14, 6))
+        ctk.CTkLabel(tx_top, text="RECEIVED", font=F(10, bold=True), text_color=TEXT2).pack(side="left")
+        ctk.CTkLabel(tx_top, text="UTXOs", font=F(10), text_color=TEXT2).pack(side="right")
 
-        send_fields = ctk.CTkFrame(left, fg_color="transparent")
-        send_fields.grid(row=1, column=0, sticky="ew", padx=16, pady=(0, 4))
-
-        to_row = ctk.CTkFrame(send_fields, fg_color="transparent")
-        to_row.pack(fill="x", pady=(0, 4))
-        ctk.CTkLabel(to_row, text="To:", font=("Courier New", 11),
-                     text_color=TEXT2, width=32).pack(side="left")
-        self._to_entry = ctk.CTkEntry(to_row, placeholder_text="CK1…",
-                                       fg_color=BG3, border_color=BORDER,
-                                       text_color=TEXT, font=("Courier New", 11))
-        self._to_entry.pack(side="left", fill="x", expand=True, padx=(4, 0))
-
-        amt_row = ctk.CTkFrame(send_fields, fg_color="transparent")
-        amt_row.pack(fill="x")
-        ctk.CTkLabel(amt_row, text="Amt:", font=("Courier New", 11),
-                     text_color=TEXT2, width=32).pack(side="left")
-        self._amt_entry = ctk.CTkEntry(amt_row, placeholder_text="0.000000",
-                                        fg_color=BG3, border_color=BORDER,
-                                        text_color=TEXT, font=("Courier New", 11), width=110)
-        self._amt_entry.pack(side="left", padx=(4, 4))
-        ctk.CTkLabel(amt_row, text="CHK", font=("Courier New", 11),
-                     text_color=TEXT2).pack(side="left", padx=(0, 8))
-        ctk.CTkButton(amt_row, text="Send",
-                      fg_color=GOLD, hover_color=GOLD_HOVER,
-                      text_color="#000", font=("Courier New", 12, "bold"),
-                      command=self._do_send, width=72, height=28).pack(side="left")
-
-        self._send_result = ctk.CTkLabel(left, text="",
-                                          font=("Courier New", 10), text_color=TEXT2,
-                                          wraplength=310, anchor="w")
-        self._send_result.grid(row=2, column=0, sticky="ew", padx=16, pady=(2, 0))
-
-        # Divider + tx section header
-        tx_section = ctk.CTkFrame(left, fg_color="transparent")
-        tx_section.grid(row=3, column=0, sticky="nsew", padx=0, pady=0)
-        tx_section.rowconfigure(1, weight=1)
-        tx_section.columnconfigure(0, weight=1)
-
-        div = ctk.CTkFrame(tx_section, fg_color=BORDER, height=1, corner_radius=0)
-        div.grid(row=0, column=0, sticky="ew", padx=16, pady=(6, 0))
-
-        tx_hdr = ctk.CTkFrame(tx_section, fg_color="transparent")
-        tx_hdr.grid(row=0, column=0, sticky="ew", padx=16, pady=(8, 2))
-        ctk.CTkLabel(tx_hdr, text="Recent Transactions",
-                     font=("Courier New", 11, "bold"), text_color=TEXT2).pack(side="left")
-        ctk.CTkLabel(tx_hdr, text="received UTXOs",
-                     font=("Courier New", 9), text_color=TEXT2).pack(side="right")
-
-        self._tx_frame = ctk.CTkScrollableFrame(tx_section, fg_color="transparent",
-                                                 corner_radius=0)
+        self._tx_frame = ctk.CTkScrollableFrame(tx_pane, fg_color="transparent", corner_radius=0)
         self._tx_frame.grid(row=1, column=0, sticky="nsew", padx=8, pady=(0, 8))
         ctk.CTkLabel(self._tx_frame, text="No transactions yet",
-                     font=("Courier New", 10), text_color=TEXT2).pack(anchor="w", padx=4)
+                     font=F(13), text_color=TEXT2).pack(anchor="w", padx=8, pady=6)
 
-        # ── Right pane ────────────────────────────────────────────────────
-        right = ctk.CTkFrame(bottom, fg_color=BG2, corner_radius=10)
-        right.grid(row=0, column=1, sticky="nsew", padx=(4, 0))
+        # Blocks pane
+        blk_pane = ctk.CTkFrame(bottom, fg_color=BG2, corner_radius=14)
+        blk_pane.grid(row=0, column=1, sticky="nsew", padx=(6, 0))
 
-        blk_top = ctk.CTkFrame(right, fg_color="transparent")
-        blk_top.pack(fill="x", padx=16, pady=(10, 2))
-        ctk.CTkLabel(blk_top, text="Recent Blocks",
-                     font=("Courier New", 12, "bold"), text_color=TEXT2).pack(side="left")
+        blk_top = ctk.CTkFrame(blk_pane, fg_color="transparent")
+        blk_top.pack(fill="x", padx=16, pady=(14, 6))
+        ctk.CTkLabel(blk_top, text="RECENT BLOCKS", font=F(10, bold=True), text_color=TEXT2).pack(side="left")
         ctk.CTkLabel(blk_top, text="click row to open in explorer",
-                     font=("Courier New", 9), text_color=TEXT2).pack(side="right")
+                     font=F(10), text_color=TEXT2).pack(side="right")
 
-        hdr = ctk.CTkFrame(right, fg_color=BG3, corner_radius=4)
-        hdr.pack(fill="x", padx=16, pady=(0, 2))
-        for col_name, w in [("Height", 58), ("Hash", 150), ("Miner", 148), ("Age", 88), ("Txs", 40)]:
-            ctk.CTkLabel(hdr, text=col_name, width=w, font=("Courier New", 10),
-                         text_color=TEXT2, anchor="w").pack(side="left", padx=6, pady=3)
+        col_hdr = ctk.CTkFrame(blk_pane, fg_color=BG3, corner_radius=6)
+        col_hdr.pack(fill="x", padx=16, pady=(0, 4))
+        for col_name, w in [("Height", 64), ("Hash", 148), ("Miner", 148), ("Age", 88), ("Txs", 40)]:
+            ctk.CTkLabel(col_hdr, text=col_name, width=w, font=F(12, bold=True),
+                         text_color=TEXT2, anchor="w").pack(side="left", padx=8, pady=6)
 
-        self._blocks_frame = ctk.CTkScrollableFrame(right, fg_color="transparent",
-                                                     corner_radius=0)
-        self._blocks_frame.pack(fill="both", expand=True, padx=16, pady=(0, 6))
-
-    def _stat_box(self, parent, key, val):
-        f = ctk.CTkFrame(parent, fg_color=BG3, corner_radius=6)
-        f.pack(side="left", padx=(0, 8), pady=2)
-        ctk.CTkLabel(f, text=key, font=("Courier New", 9),
-                     text_color=TEXT2).pack(padx=10, pady=(4, 0))
-        lbl = ctk.CTkLabel(f, text=val, font=("Courier New", 13, "bold"), text_color=GOLD)
-        lbl.pack(padx=10, pady=(0, 4))
-        return lbl
+        self._blocks_frame = ctk.CTkScrollableFrame(blk_pane, fg_color="transparent", corner_radius=0)
+        self._blocks_frame.pack(fill="both", expand=True, padx=16, pady=(0, 8))
 
     # ═══════════════════════════════════════════════════════════════════════════
     # Polling + UI updates
@@ -1042,22 +963,22 @@ class ChakramApp(ctk.CTk):
         peers  = info.get("peers",  "—")
         net    = str(info.get("network", "—")).capitalize()
 
-        self._stat_height.configure(text=str(height))
-        self._stat_peers.configure(text=str(peers))
+        self._stat_height.configure(text=f"Ht {height}")
+        self._stat_peers.configure(text=f"Peers {peers}")
         self._stat_net.configure(text=net)
 
         if not synced:
             m = re.search(r'(\d+)%', sync)
             pct = int(m.group(1)) / 100.0 if m else 0.0
-            self._sync_label.configure(text=sync[:38])
+            self._sync_label.configure(text=sync[:42])
             self._sync_bar.set(pct)
-            self._sync_row.pack(fill="x", padx=16, pady=(0, 6))
+            self._sync_row.pack(fill="x", after=self._sync_row.master.winfo_children()[0])
         else:
             self._sync_row.pack_forget()
 
         addr = info.get("wallet", "")
         self._address = addr
-        self._addr_label.configure(text=trunc(addr, 26))
+        self._addr_label.configure(text=trunc(addr, 28))
 
         if addr:
             threading.Thread(target=self._fetch_balance,      args=(addr,), daemon=True).start()
@@ -1066,14 +987,14 @@ class ChakramApp(ctk.CTk):
         if self._mining:
             hr = f"  {self._hashrate}" if self._hashrate else ""
             if self._last_mined_block:
-                txt = f"⛏  block {self._last_mined_block}{hr}"
+                txt = f"⛏  Block {self._last_mined_block}{hr}"
             else:
                 txt = f"⛏  Mining{hr}"
             self._mining_label.configure(text=txt, text_color=GREEN)
             self._mine_btn.configure(text="Stop Mining", fg_color=RED,
                                       hover_color="#a03030", text_color=TEXT)
         else:
-            self._mining_label.configure(text="Not Mining", text_color=TEXT2)
+            self._mining_label.configure(text="Not mining", text_color=TEXT2)
             self._mine_btn.configure(text="Start Mining", fg_color=BG3,
                                       hover_color=BORDER, text_color=TEXT2)
 
@@ -1087,7 +1008,7 @@ class ChakramApp(ctk.CTk):
             self._check_mined_blocks(blocks, height)
 
         self._statusbar.configure(
-            text=f"Chakram {net}  |  Height: {height}  |  Peers: {peers}  |  {VERSION}")
+            text=f"Chakram {net}  ·  Height {height}  ·  Peers {peers}  ·  {VERSION}")
 
     # ── Balance ────────────────────────────────────────────────────────────────
 
@@ -1103,15 +1024,13 @@ class ChakramApp(ctk.CTk):
     def _apply_balance(self, chk, pending=0.0):
         self._balance_label.configure(text=f"{chk:,.6f} CHK")
         if pending > 0:
-            self._pending_label.configure(
-                text=f"+ {pending:,.6f} CHK maturing…")
+            self._pending_label.configure(text=f"+ {pending:,.6f} CHK maturing…")
         else:
             self._pending_label.configure(text="")
-        # Flash gold only when confirmed balance increases (block matured / received CHK).
         if self._last_balance >= 0 and chk > self._last_balance:
             self._flash_balance_gold()
-        self._last_balance  = chk
-        self._last_pending  = pending
+        self._last_balance = chk
+        self._last_pending = pending
 
     def _flash_balance_gold(self):
         self._balance_label.configure(text_color="#ffffff")
@@ -1121,7 +1040,7 @@ class ChakramApp(ctk.CTk):
         self._balance_label.configure(text_color=GREEN)
         self.after(800, lambda: self._balance_label.configure(text_color=GOLD))
 
-    # ── Transaction history ────────────────────────────────────────────────────
+    # ── Transactions ───────────────────────────────────────────────────────────
 
     def _fetch_transactions(self, addr):
         utxos = rpc_get(f"/utxos/{addr}")
@@ -1129,7 +1048,6 @@ class ChakramApp(ctk.CTk):
 
     def _check_mined_blocks(self, blocks, current_height=0):
         mine_blocks = [b for b in blocks if b.get("miner", "") == self._address]
-        # Flash green when one of our blocks just crossed the maturity threshold.
         newly_matured = [
             b for b in mine_blocks
             if current_height - b.get("height", 0) == CoinbaseMaturity
@@ -1139,13 +1057,17 @@ class ChakramApp(ctk.CTk):
         self._last_tx_count = len(mine_blocks)
 
     def _render_tx_history(self, utxos):
+        sig = str([(u.get("txid"), u.get("value_chk"), u.get("mature")) for u in utxos[:20]])
+        if sig == self._last_utxos_sig:
+            return
+        self._last_utxos_sig = sig
+
         for w in self._tx_frame.winfo_children():
             w.destroy()
 
         if not utxos:
             ctk.CTkLabel(self._tx_frame, text="No transactions yet",
-                         font=("Courier New", 10), text_color=TEXT2
-                         ).pack(anchor="w", padx=4)
+                         font=F(13), text_color=TEXT2).pack(anchor="w", padx=8, pady=6)
             return
 
         sorted_utxos = sorted(utxos, key=lambda u: u.get("block_height", 0), reverse=True)
@@ -1155,21 +1077,20 @@ class ChakramApp(ctk.CTk):
             coin   = u.get("is_coinbase", False)
             mature = u.get("mature", True)
             label  = "Mining reward" if coin else "Received"
-            suffix = "" if mature else " (maturing…)"
+            col    = TEXT2 if mature else ORANGE
 
             row = ctk.CTkFrame(self._tx_frame, fg_color="transparent")
-            row.pack(fill="x", pady=1)
+            row.pack(fill="x", pady=2)
             ctk.CTkLabel(row, text=f"+{chk:.6f}",
-                         font=("Courier New", 10, "bold"), text_color=GREEN,
-                         width=90, anchor="w").pack(side="left", padx=(4, 0))
-            ctk.CTkLabel(row, text="CHK",
-                         font=("Courier New", 10), text_color=TEXT2,
-                         width=32, anchor="w").pack(side="left")
-            ctk.CTkLabel(row,
-                         text=f"{label}{suffix} #{bh}",
-                         font=("Courier New", 10),
-                         text_color=TEXT2 if mature else ORANGE
-                         ).pack(side="left", padx=(2, 0))
+                         font=F(13, bold=True), text_color=GREEN,
+                         width=108, anchor="w").pack(side="left", padx=(8, 0))
+            ctk.CTkLabel(row, text="CHK", font=F(12), text_color=TEXT2,
+                         width=36, anchor="w").pack(side="left")
+            ctk.CTkLabel(row, text=f"{label}  #{bh}",
+                         font=F(12), text_color=col).pack(side="left", padx=(2, 0))
+
+            ctk.CTkFrame(self._tx_frame, fg_color=BORDER, height=1,
+                         corner_radius=0).pack(fill="x", padx=8)
 
     # ── Blocks ─────────────────────────────────────────────────────────────────
 
@@ -1187,29 +1108,24 @@ class ChakramApp(ctk.CTk):
             confs   = current_height - height if isinstance(height, int) else 0
             mature  = confs >= CoinbaseMaturity
 
-            if is_mine:
-                miner_col = GREEN if mature else ORANGE
-                row_bg    = BG3
-            else:
-                miner_col = TEXT2
-                row_bg    = "transparent"
+            miner_col = (GREEN if mature else ORANGE) if is_mine else TEXT2
+            row_bg    = BG3 if is_mine else "transparent"
 
             url = f"{RPC_BASE}/block/{height}"
-            row = ctk.CTkFrame(self._blocks_frame,
-                                fg_color=row_bg,
-                                corner_radius=3, cursor="hand2")
+            row = ctk.CTkFrame(self._blocks_frame, fg_color=row_bg,
+                                corner_radius=4, cursor="hand2")
             row.pack(fill="x", pady=1)
 
             for txt, w, col in [
-                (str(height),        58,  GOLD),
-                (trunc(hash_, 18),  150,  TEXT2),
-                (trunc(miner, 20),  148,  miner_col),
-                (time_ago(ts),       88,  TEXT2),
-                (str(tx_cnt),        40,  TEXT),
+                (str(height),       64,  GOLD),
+                (trunc(hash_, 18), 148,  TEXT2),
+                (trunc(miner, 20), 148,  miner_col),
+                (time_ago(ts),      88,  TEXT2),
+                (str(tx_cnt),       40,  TEXT),
             ]:
-                lbl = ctk.CTkLabel(row, text=txt, width=w, font=("Courier New", 10),
+                lbl = ctk.CTkLabel(row, text=txt, width=w, font=F(13),
                                    text_color=col, anchor="w", cursor="hand2")
-                lbl.pack(side="left", padx=6)
+                lbl.pack(side="left", padx=8, pady=5)
                 lbl.bind("<Button-1>", lambda _, u=url: webbrowser.open(u))
 
             row.bind("<Button-1>", lambda _, u=url: webbrowser.open(u))
@@ -1225,31 +1141,27 @@ class ChakramApp(ctk.CTk):
             self.clipboard_clear()
             self.clipboard_append(self._address)
             self._addr_label.configure(text="Copied!")
-            self.after(1500, lambda: self._addr_label.configure(
-                text=trunc(self._address, 26)))
+            self.after(1500, lambda: self._addr_label.configure(text=trunc(self._address, 28)))
 
     def _show_receive(self):
         win = ctk.CTkToplevel(self)
         win.title("Receive CHK")
-        win.geometry("500x240")
+        win.geometry("520x240")
         win.configure(fg_color=BG)
         win.grab_set()
         win.focus()
 
         ctk.CTkLabel(win, text="Your Wallet Address",
-                     font=("Courier New", 16, "bold"), text_color=GOLD
-                     ).pack(pady=(22, 4))
+                     font=F(18, bold=True), text_color=GOLD).pack(pady=(24, 4))
         ctk.CTkLabel(win, text="Share this address to receive CHK",
-                     font=("Courier New", 11), text_color=TEXT2).pack()
+                     font=F(13), text_color=TEXT2).pack()
 
-        box = ctk.CTkFrame(win, fg_color=BG3, corner_radius=8)
-        box.pack(padx=28, pady=14, fill="x")
+        box = ctk.CTkFrame(win, fg_color=BG3, corner_radius=10)
+        box.pack(padx=30, pady=14, fill="x")
         ctk.CTkLabel(box, text=self._address or "—",
-                     font=("Courier New", 13, "bold"), text_color=GOLD,
-                     wraplength=440).pack(padx=16, pady=14)
+                     font=FM(13), text_color=GOLD, wraplength=460).pack(padx=16, pady=14)
 
-        copied_lbl = ctk.CTkLabel(win, text="",
-                                   font=("Courier New", 11), text_color=GREEN)
+        copied_lbl = ctk.CTkLabel(win, text="", font=F(12), text_color=GREEN)
         copied_lbl.pack()
 
         def copy():
@@ -1258,50 +1170,45 @@ class ChakramApp(ctk.CTk):
             copied_lbl.configure(text="✓ Copied to clipboard")
             win.after(1400, win.destroy)
 
-        ctk.CTkButton(win, text="Copy Address", width=180, height=36,
+        ctk.CTkButton(win, text="Copy Address", width=200, height=40,
                       fg_color=GOLD, hover_color=GOLD_HOVER, text_color="#000",
-                      font=("Courier New", 13, "bold"),
-                      command=copy).pack(pady=(4, 0))
+                      font=F(14, bold=True), command=copy).pack(pady=(4, 0))
 
     def _show_settings(self):
         info = rpc_get("/info")
         win = ctk.CTkToplevel(self)
         win.title("Settings")
-        win.geometry("460x330")
+        win.geometry("480x340")
         win.configure(fg_color=BG)
         win.grab_set()
         win.focus()
 
-        ctk.CTkLabel(win, text="⚙  Node Info",
-                     font=("Courier New", 16, "bold"), text_color=GOLD
-                     ).pack(pady=(20, 10))
+        ctk.CTkLabel(win, text="Node Info",
+                     font=F(18, bold=True), text_color=GOLD).pack(pady=(24, 12))
 
-        card = ctk.CTkFrame(win, fg_color=BG2, corner_radius=10)
-        card.pack(fill="x", padx=24)
+        card = ctk.CTkFrame(win, fg_color=BG2, corner_radius=12)
+        card.pack(fill="x", padx=28)
 
         data_dir = os.path.expanduser("~/.chakram/mainnet")
-        net_val  = "—"
-        ver_val  = "—"
-        ht_val   = "—"
+        net_val  = ver_val = ht_val = "—"
         if info:
             net_val = str(info.get("network", "—")).capitalize()
             ver_val = str(info.get("version", "—"))
             ht_val  = str(info.get("height", "—"))
 
-        rows = [
+        for label, value in [
             ("Data Directory", data_dir),
             ("Network",        net_val),
             ("Node Version",   ver_val),
             ("Chain Height",   ht_val),
             ("GUI Version",    VERSION),
-        ]
-        for label, value in rows:
+        ]:
             r = ctk.CTkFrame(card, fg_color="transparent")
-            r.pack(fill="x", padx=16, pady=5)
-            ctk.CTkLabel(r, text=f"{label}:", font=("Courier New", 11),
-                         text_color=TEXT2, width=130, anchor="w").pack(side="left")
-            ctk.CTkLabel(r, text=value, font=("Courier New", 11),
-                         text_color=TEXT, anchor="w").pack(side="left")
+            r.pack(fill="x", padx=20, pady=6)
+            ctk.CTkLabel(r, text=f"{label}:", font=F(13), text_color=TEXT2,
+                         width=140, anchor="w").pack(side="left")
+            ctk.CTkLabel(r, text=value, font=F(13), text_color=TEXT,
+                         anchor="w").pack(side="left")
 
         def open_data_dir():
             os.makedirs(data_dir, exist_ok=True)
@@ -1310,18 +1217,15 @@ class ChakramApp(ctk.CTk):
             elif sys.platform.startswith("linux"):
                 subprocess.Popen(["xdg-open", data_dir])
             else:
-                # os.startfile is the correct Windows API — no shell quoting issues.
                 os.startfile(data_dir)
 
         btn_row = ctk.CTkFrame(win, fg_color="transparent")
-        btn_row.pack(pady=16)
-        ctk.CTkButton(btn_row, text="Open Data Folder", width=160, height=30,
-                      fg_color=BG3, hover_color=BORDER, text_color=TEXT2,
-                      font=("Courier New", 11),
+        btn_row.pack(pady=18)
+        ctk.CTkButton(btn_row, text="Open Data Folder", width=170, height=36,
+                      fg_color=BG3, hover_color=BORDER, text_color=TEXT2, font=F(13),
                       command=open_data_dir).pack(side="left", padx=(0, 10))
-        ctk.CTkButton(btn_row, text="Reset Node Data", width=160, height=30,
-                      fg_color=BG3, hover_color="#5a1010", text_color=RED,
-                      font=("Courier New", 11),
+        ctk.CTkButton(btn_row, text="Reset Node Data", width=170, height=36,
+                      fg_color=BG3, hover_color="#5a1010", text_color=RED, font=F(13),
                       command=lambda: self._confirm_reset(win)).pack(side="left")
 
     def _confirm_reset(self, parent):
@@ -1334,37 +1238,34 @@ class ChakramApp(ctk.CTk):
         dlg.focus()
 
         ctk.CTkLabel(dlg, text="⚠  Reset Node Data",
-                     font=("Courier New", 16, "bold"), text_color=RED).pack(pady=(24, 4))
+                     font=F(18, bold=True), text_color=RED).pack(pady=(28, 8))
 
-        card = ctk.CTkFrame(dlg, fg_color=BG2, corner_radius=10)
-        card.pack(fill="x", padx=24, pady=(8, 0))
+        card = ctk.CTkFrame(dlg, fg_color=BG2, corner_radius=12)
+        card.pack(fill="x", padx=28)
         ctk.CTkLabel(card,
                      text="This will permanently delete your local chain data.\n"
-                          "This action cannot be undone.\n\n"
-                          "⚠  Any CHK stored only on this node will be lost.\n"
-                          "Transfer your balance to another wallet first.",
-                     font=("Courier New", 11), text_color=TEXT2,
-                     justify="center", wraplength=390).pack(padx=16, pady=16)
+                          "This cannot be undone.\n\n"
+                          "⚠  Transfer your balance to another wallet first.",
+                     font=F(13), text_color=TEXT2, justify="center", wraplength=380
+                     ).pack(padx=20, pady=18)
 
         ctk.CTkLabel(dlg, text='Type  RESET  to confirm:',
-                     font=("Courier New", 11), text_color=TEXT2).pack(pady=(12, 4))
-        confirm_entry = ctk.CTkEntry(dlg, width=180, fg_color=BG3, border_color=RED,
-                                     text_color=TEXT, font=("Courier New", 13, "bold"),
-                                     justify="center")
+                     font=F(13), text_color=TEXT2).pack(pady=(14, 6))
+        confirm_entry = ctk.CTkEntry(dlg, width=180, height=40, fg_color=BG3,
+                                     border_color=RED, text_color=TEXT,
+                                     font=F(14, bold=True), justify="center")
         confirm_entry.pack()
 
-        err_lbl = ctk.CTkLabel(dlg, text="", font=("Courier New", 10), text_color=RED)
+        err_lbl = ctk.CTkLabel(dlg, text="", font=F(12), text_color=RED)
         err_lbl.pack(pady=(4, 0))
 
         btn_row = ctk.CTkFrame(dlg, fg_color="transparent")
-        btn_row.pack(pady=12)
-        ctk.CTkButton(btn_row, text="Cancel", width=110, height=34,
-                      fg_color=BG3, hover_color=BORDER, text_color=TEXT2,
-                      font=("Courier New", 12),
-                      command=dlg.destroy).pack(side="left", padx=(0, 12))
-        ctk.CTkButton(btn_row, text="Reset Everything", width=150, height=34,
-                      fg_color=RED, hover_color="#a03030", text_color=TEXT,
-                      font=("Courier New", 12, "bold"),
+        btn_row.pack(pady=14)
+        ctk.CTkButton(btn_row, text="Cancel", width=120, height=38,
+                      fg_color=BG3, hover_color=BORDER, text_color=TEXT2, font=F(13),
+                      command=dlg.destroy).pack(side="left", padx=(0, 10))
+        ctk.CTkButton(btn_row, text="Reset Everything", width=160, height=38,
+                      fg_color=RED, hover_color="#a03030", text_color=TEXT, font=F(13, bold=True),
                       command=lambda: self._do_reset(confirm_entry.get(), err_lbl, dlg)
                       ).pack(side="left")
 
@@ -1378,11 +1279,12 @@ class ChakramApp(ctk.CTk):
         import shutil
         try:
             shutil.rmtree(data_dir)
-        except Exception as e:
+        except Exception:
             pass
-        self._last_balance    = -1.0
+        self._last_balance     = -1.0
         self._last_mined_block = None
-        self._last_tx_count   = 0
+        self._last_tx_count    = 0
+        self._last_utxos_sig   = None
         self._balance_label.configure(text="— CHK")
         self._addr_label.configure(text="—")
         self._address = ""
@@ -1394,15 +1296,12 @@ class ChakramApp(ctk.CTk):
         if self._mining:
             self._hashrate = ""
         new_mine = not self._mining
-        # Disable button while switching to prevent double-click race.
         self._mine_btn.configure(state="disabled", text="Restarting…")
         self._status_label.configure(text="Restarting node…")
-        threading.Thread(target=self._do_toggle_mining,
-                         args=(new_mine,), daemon=True).start()
+        threading.Thread(target=self._do_toggle_mining, args=(new_mine,), daemon=True).start()
 
     def _do_toggle_mining(self, mine):
         self._launch_node(mine=mine)
-        # Re-enable the button once the new node process is launched.
         self.after(0, lambda: self._mine_btn.configure(state="normal"))
 
     def _do_send(self):
@@ -1410,8 +1309,7 @@ class ChakramApp(ctk.CTk):
         amt_str = self._amt_entry.get().strip()
 
         if not to_addr.startswith("CK1"):
-            self._send_result.configure(
-                text="⚠ Invalid address — must start with CK1", text_color=RED)
+            self._send_result.configure(text="⚠ Invalid address — must start with CK1", text_color=RED)
             return
         try:
             if float(amt_str) <= 0:
@@ -1421,33 +1319,28 @@ class ChakramApp(ctk.CTk):
             return
 
         self._send_result.configure(text="Sending…", text_color=TEXT2)
-        cmd = [self._binary, "send", to_addr, amt_str,
-               "--password", self._password]
+        cmd = [self._binary, "send", to_addr, amt_str, "--password", self._password]
 
         def run():
             try:
                 res = subprocess.run(cmd, capture_output=True, text=True, timeout=30)
                 out = res.stdout.strip() or res.stderr.strip()
                 if res.returncode == 0:
-                    # Parse TxID from output line "  TxID:   abc123..."
                     txid = ""
                     for line in out.splitlines():
                         if "TxID" in line:
                             txid = line.split(":", 1)[-1].strip()
                             break
-                    self.after(0, self._send_result.configure,
-                               {"text": "✓ Sent", "text_color": GREEN})
+                    self.after(0, self._send_result.configure, {"text": "✓ Sent", "text_color": GREEN})
                     self.after(0, self._show_send_success, to_addr, amt_str, txid)
                     self.after(0, self._clear_send_fields)
                 else:
                     self.after(0, self._send_result.configure,
                                {"text": f"⚠ {out[:80]}", "text_color": RED})
             except subprocess.TimeoutExpired:
-                self.after(0, self._send_result.configure,
-                           {"text": "⚠ Timed out", "text_color": RED})
+                self.after(0, self._send_result.configure, {"text": "⚠ Timed out", "text_color": RED})
             except Exception as e:
-                self.after(0, self._send_result.configure,
-                           {"text": f"⚠ {e}", "text_color": RED})
+                self.after(0, self._send_result.configure, {"text": f"⚠ {e}", "text_color": RED})
 
         threading.Thread(target=run, daemon=True).start()
 
@@ -1458,26 +1351,24 @@ class ChakramApp(ctk.CTk):
     def _show_send_success(self, to_addr, amount, txid):
         win = ctk.CTkToplevel(self)
         win.title("Transaction Sent")
-        win.geometry("480x280")
+        win.geometry("500x280")
         win.configure(fg_color=BG)
         win.grab_set()
         win.focus()
 
         ctk.CTkLabel(win, text="✓  Transaction Submitted",
-                     font=("Courier New", 16, "bold"), text_color=GREEN).pack(pady=(22, 4))
+                     font=F(18, bold=True), text_color=GREEN).pack(pady=(26, 4))
         ctk.CTkLabel(win, text="Will confirm in the next block (~60 seconds)",
-                     font=("Courier New", 11), text_color=TEXT2).pack(pady=(0, 14))
+                     font=F(13), text_color=TEXT2).pack(pady=(0, 14))
 
-        card = ctk.CTkFrame(win, fg_color=BG2, corner_radius=10)
-        card.pack(fill="x", padx=24)
-
+        card = ctk.CTkFrame(win, fg_color=BG2, corner_radius=12)
+        card.pack(fill="x", padx=28)
         for label, value in [("To", trunc(to_addr, 34)), ("Amount", f"{amount} CHK"), ("TxID", trunc(txid, 34))]:
-            row = ctk.CTkFrame(card, fg_color="transparent")
-            row.pack(fill="x", padx=16, pady=4)
-            ctk.CTkLabel(row, text=f"{label}:", font=("Courier New", 11),
-                         text_color=TEXT2, width=60, anchor="w").pack(side="left")
-            ctk.CTkLabel(row, text=value, font=("Courier New", 11),
-                         text_color=TEXT, anchor="w").pack(side="left")
+            r = ctk.CTkFrame(card, fg_color="transparent")
+            r.pack(fill="x", padx=20, pady=6)
+            ctk.CTkLabel(r, text=f"{label}:", font=F(13), text_color=TEXT2,
+                         width=70, anchor="w").pack(side="left")
+            ctk.CTkLabel(r, text=value, font=F(13), text_color=TEXT, anchor="w").pack(side="left")
 
         btn_row = ctk.CTkFrame(win, fg_color="transparent")
         btn_row.pack(pady=18)
@@ -1488,21 +1379,19 @@ class ChakramApp(ctk.CTk):
             copy_btn.configure(text="Copied!")
             win.after(1500, lambda: copy_btn.configure(text="Copy TxID"))
 
-        copy_btn = ctk.CTkButton(btn_row, text="Copy TxID", width=120, height=32,
+        copy_btn = ctk.CTkButton(btn_row, text="Copy TxID", width=130, height=38,
                                   fg_color=BG3, hover_color=BORDER, text_color=TEXT2,
-                                  font=("Courier New", 11), command=copy_txid)
+                                  font=F(13), command=copy_txid)
         copy_btn.pack(side="left", padx=(0, 10))
-        ctk.CTkButton(btn_row, text="Close", width=100, height=32,
+        ctk.CTkButton(btn_row, text="Close", width=110, height=38,
                       fg_color=GOLD, hover_color=GOLD_HOVER, text_color="#000",
-                      font=("Courier New", 11, "bold"),
-                      command=win.destroy).pack(side="left")
+                      font=F(13, bold=True), command=win.destroy).pack(side="left")
 
     # ═══════════════════════════════════════════════════════════════════════════
     # Shutdown
     # ═══════════════════════════════════════════════════════════════════════════
 
     def _stop_node(self):
-        """Kill the node we launched. Safe to call multiple times."""
         if not self._we_started_node:
             return
         proc = self._node_proc
@@ -1539,7 +1428,6 @@ class ChakramApp(ctk.CTk):
             pass
 
     def _kill_orphan_node(self):
-        """Kill any node left running from a previous crashed GUI session."""
         try:
             if os.path.exists(PID_FILE):
                 with open(PID_FILE) as f:
@@ -1562,10 +1450,8 @@ class ChakramApp(ctk.CTk):
             self._kill_node_by_port_win()
             return
         try:
-            result = subprocess.run(
-                ["lsof", "-t", f"-i:{RPC_PORT}"],
-                capture_output=True, text=True, timeout=3
-            )
+            result = subprocess.run(["lsof", "-t", f"-i:{RPC_PORT}"],
+                                    capture_output=True, text=True, timeout=3)
             for line in result.stdout.strip().splitlines():
                 try:
                     os.kill(int(line.strip()), signal.SIGTERM)
@@ -1575,12 +1461,8 @@ class ChakramApp(ctk.CTk):
             pass
 
     def _kill_node_by_port_win(self):
-        """Windows fallback: find and kill whatever process owns RPC_PORT."""
         try:
-            result = subprocess.run(
-                ["netstat", "-ano"],
-                capture_output=True, text=True, timeout=5
-            )
+            result = subprocess.run(["netstat", "-ano"], capture_output=True, text=True, timeout=5)
             for line in result.stdout.splitlines():
                 if f":{RPC_PORT}" in line and "LISTENING" in line:
                     parts = line.split()
