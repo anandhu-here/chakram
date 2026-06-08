@@ -14,7 +14,6 @@ Chakram is a fast, CPU-mineable cryptocurrency inspired by the ancient Travancor
 - **Fast** — 30 second block time, near-instant confirmations.
 - **Secure** — Ed25519 signatures, double SHA256, BadgerDB storage.
 - **Decentralised** — P2P network, no central authority.
-- **Mobile Ready** — Android mining node coming in v1.1.
 - **Cultural Heritage** — Named after the real Travancore Chakram coin.
   1 CHK = 1,000,000 Cash. The word "cash" comes from the Malayalam "Kasu".
 
@@ -100,6 +99,8 @@ http://localhost:8339
 ```
 
 The block explorer is built into the node — no separate server needed.
+
+> By default the RPC binds to localhost only. Start with `--rpc-public` to expose it on the network.
 
 Live explorer: **https://chakram.one**
 

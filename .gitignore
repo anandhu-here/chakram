@@ -8,10 +8,12 @@ chakram-linux
 chakram-mac
 chakram-windows.exe
 
-# Wallet / key material
+# Wallet / key material — runtime files that must never be committed
 pnemonic.txt
-*.json
 wallet.json
+peers.json
+banned.json
+gcp-key.json
 
 # Internal docs
 docs/
@@ -30,8 +32,6 @@ gui/Chakram.spec
 mainnet_launch.md
 chakram-windows-gui-build.md
 
-gcp-key.json
-
 logs.txt
 
 tsn
@@ -43,3 +43,4 @@ ideas.md
 
 mobile-wallet/
 scaling.md
+reachout.md
