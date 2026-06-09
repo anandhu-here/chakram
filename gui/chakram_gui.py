@@ -56,7 +56,7 @@ RPC_BASE         = "http://127.0.0.1:8339"
 RPC_PORT         = 8339
 PID_FILE         = os.path.expanduser("~/.chakram/mainnet/gui.pid")
 POLL_SECS        = 5
-VERSION          = "v1.0.72"
+VERSION          = "v1.0.73"
 CoinbaseMaturity = 10
 MINER_ADDR_FILE  = os.path.expanduser("~/.chakram/mainnet/miner_addr.txt")
 
@@ -993,10 +993,20 @@ class ChakramApp(ctk.CTk):
             self._status_label.configure(text="Node unreachable")
             return
 
-        sync   = info.get("sync_status", "")
-        synced = "synced" in sync.lower()
-        self._status_dot.configure(text_color=GREEN if synced else ORANGE)
-        self._status_label.configure(text="Synced" if synced else "Syncing…")
+        sync     = info.get("sync_status", "")
+        sync_low = sync.lower()
+        no_peers = "no peers" in sync_low or "idle" in sync_low
+        synced   = "synced" in sync_low
+
+        if synced:
+            self._status_dot.configure(text_color=GREEN)
+            self._status_label.configure(text="Synced")
+        elif no_peers:
+            self._status_dot.configure(text_color=RED)
+            self._status_label.configure(text="No peers")
+        else:
+            self._status_dot.configure(text_color=ORANGE)
+            self._status_label.configure(text="Syncing…")
 
         height = info.get("height", 0)
         peers  = info.get("peers",  "—")
@@ -1006,7 +1016,7 @@ class ChakramApp(ctk.CTk):
         self._stat_peers.configure(text=f"Peers {peers}")
         self._stat_net.configure(text=net)
 
-        if not synced:
+        if not synced and not no_peers:
             m = re.search(r'(\d+)%', sync)
             pct = int(m.group(1)) / 100.0 if m else 0.0
             self._sync_label.configure(text=sync[:42])
