@@ -292,21 +292,36 @@ func (n *Node) Start() error {
 	}
 
 	go func() {
+		failCount := make(map[string]int)
 		ticker := time.NewTicker(5 * time.Second)
 		defer ticker.Stop()
 		for {
 			select {
 			case <-ticker.C:
-				// Seeds are hardcoded infrastructure — always reconnect to them
-				// unconditionally, regardless of total peer count. This keeps
-				// block propagation alive across seed restarts without requiring
-				// miners to restart too.
 				for _, seed := range n.Config.Seeds {
 					if n.Server.isOwnAddress(seed) {
 						continue
 					}
-					if !n.Server.IsConnected(seed) {
-						n.Server.ConnectToPeer(seed) //nolint:errcheck
+					if n.Server.IsConnected(seed) {
+						failCount[seed] = 0
+						continue
+					}
+					// Exponential backoff: wait 5s, 10s, 20s, 40s … capped at 60s.
+					// This prevents hammering seeds when they reject connections,
+					// which would trigger their rate-limiter and permanently block us.
+					fails := failCount[seed]
+					backoff := 1 << uint(fails) // 1, 2, 4, 8, 16 ticks
+					if backoff > 12 {
+						backoff = 12 // cap at 12 × 5s = 60s
+					}
+					if fails > 0 && fails%backoff != 0 {
+						continue
+					}
+					if err := n.Server.ConnectToPeer(seed); err != nil {
+						failCount[seed]++
+						fmt.Printf("[P2P] reconnect %s failed (attempt %d): %v\n", seed, failCount[seed], err)
+					} else {
+						failCount[seed] = 0
 					}
 				}
 			case <-n.quit:

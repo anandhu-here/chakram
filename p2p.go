@@ -511,12 +511,19 @@ func (s *Server) readLoop(peer *Peer) {
 		}
 		msg, err := DecodeMessage(peer.Conn, s.magic)
 		if err != nil {
+			if !peer.Connected {
+				fmt.Printf("[P2P] peer %s dropped before handshake: %v\n", peer.Address, err)
+			}
 			return
 		}
 		peer.LastSeen = time.Now()
 		if err := s.handleMessage(peer, msg); err != nil {
-			if s.penalizePeer(peer) {
-				return // peer was banned, exit loop
+			// Only penalize after a successful handshake. Pre-handshake errors
+			// (e.g. from reconnect storms) are not deliberate protocol violations.
+			if peer.Connected {
+				if s.penalizePeer(peer) {
+					return
+				}
 			}
 		}
 	}
