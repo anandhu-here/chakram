@@ -245,6 +245,17 @@ func (n *Node) Start() error {
 		return fmt.Errorf("start server: %w", err)
 	}
 
+	// Start RPC before peer connections so the GUI and clients can connect
+	// immediately — peer dials can block up to 10 s each on slow/dead hosts.
+	if err := n.RPCServer.Start(); err != nil {
+		return fmt.Errorf("start rpc: %w", err)
+	}
+	if n.RPCServer.public {
+		fmt.Printf("RPC:     http://0.0.0.0:%d  (public)\n", n.RPCServer.port)
+	} else {
+		fmt.Printf("RPC:     http://127.0.0.1:%d  (localhost only — use --rpc-public to expose)\n", n.RPCServer.port)
+	}
+
 	for _, seed := range n.Config.Seeds {
 		if n.Server.isOwnAddress(seed) {
 			fmt.Printf("  seed %s: skipping (own address)\n", seed)
@@ -257,31 +268,23 @@ func (n *Node) Start() error {
 		}
 	}
 
-	// Connect to previously known peers from the address book so the node
-	// can reach the network even if seeds are temporarily unreachable.
-	// Limit to 8 attempts on startup — the reconnect ticker handles the rest.
+	// Address-book reconnects are best-effort — run in background so startup
+	// is never blocked by dead peers (each dial has a 10 s timeout).
 	if known := n.Server.AddrBook.GetAll(); len(known) > 0 {
 		fmt.Printf("AddrBook: %d known peers\n", len(known))
-		attempted := 0
-		for _, addr := range known {
-			if attempted >= 8 {
-				break
+		go func() {
+			attempted := 0
+			for _, addr := range known {
+				if attempted >= 8 {
+					break
+				}
+				if n.Server.isOwnAddress(addr) || n.Server.HasPeer(addr) {
+					continue
+				}
+				n.Server.ConnectToPeer(addr) //nolint:errcheck
+				attempted++
 			}
-			if n.Server.isOwnAddress(addr) || n.Server.HasPeer(addr) {
-				continue
-			}
-			n.Server.ConnectToPeer(addr) //nolint:errcheck — best-effort
-			attempted++
-		}
-	}
-
-	if err := n.RPCServer.Start(); err != nil {
-		return fmt.Errorf("start rpc: %w", err)
-	}
-	if n.RPCServer.public {
-		fmt.Printf("RPC:     http://0.0.0.0:%d  (public)\n", n.RPCServer.port)
-	} else {
-		fmt.Printf("RPC:     http://127.0.0.1:%d  (localhost only — use --rpc-public to expose)\n", n.RPCServer.port)
+		}()
 	}
 
 	if n.Config.Mine {

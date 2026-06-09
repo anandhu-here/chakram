@@ -55,7 +55,7 @@ echo "  ✓ config.go version → $VERSION"
 
 GUI_FILE="gui/chakram_gui.py"
 if [ -f "$GUI_FILE" ]; then
-  sed -i '' "s|VERSION   = \"v[0-9]*\.[0-9]*\.[0-9]*\"|VERSION   = \"$VERSION\"|" "$GUI_FILE"
+  sed -i '' 's|^VERSION[[:space:]]*=.*|VERSION          = "'"$VERSION"'"|' "$GUI_FILE"
   echo "  ✓ GUI version → $VERSION"
 fi
 
