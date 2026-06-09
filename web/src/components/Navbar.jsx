@@ -7,6 +7,7 @@ const NAV = [
   { to: '/wallet',   label: 'Wallet'    },
   { to: '/download', label: 'Download'  },
   { to: '/docs',     label: 'Docs'      },
+  { to: '/releases', label: 'Releases'  },
 ]
 
 function SunIcon() {

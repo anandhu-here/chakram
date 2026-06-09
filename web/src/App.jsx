@@ -5,6 +5,7 @@ import Explorer  from './pages/Explorer.jsx'
 import Wallet    from './pages/Wallet.jsx'
 import Download  from './pages/Download.jsx'
 import Docs      from './pages/Docs.jsx'
+import Releases from './pages/Releases.jsx'
 
 // Map subdomain prefix → path.
 // wallet.chakram.one/ → /wallet, faucet.chakram.one/ → /faucet, etc.
@@ -38,6 +39,7 @@ export default function App() {
           <Route path="/wallet"   element={<Wallet />} />
           <Route path="/download" element={<Download />} />
           <Route path="/docs"     element={<Docs />} />
+          <Route path="/releases" element={<Releases />} />
         </Routes>
       </BrowserRouter>
     </ThemeProvider>

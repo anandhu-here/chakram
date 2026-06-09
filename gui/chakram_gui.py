@@ -56,7 +56,7 @@ RPC_BASE         = "http://127.0.0.1:8339"
 RPC_PORT         = 8339
 PID_FILE         = os.path.expanduser("~/.chakram/mainnet/gui.pid")
 POLL_SECS        = 5
-VERSION          = "v1.0.76"
+VERSION          = "v1.0.77"
 CoinbaseMaturity = 10
 MINER_ADDR_FILE  = os.path.expanduser("~/.chakram/mainnet/miner_addr.txt")
 
@@ -1018,6 +1018,16 @@ class ChakramApp(ctk.CTk):
         self._check_for_update()
         _update_tick = 0
         while not self._poll_stop.is_set():
+            # Watchdog: if we started the node and it has since died, restart it.
+            # Use return (not continue) so this poll loop exits — _on_node_ready
+            # will start a fresh one after the node comes back up.
+            if self._we_started_node and self._node_proc and self._node_proc.poll() is not None:
+                self._mining = False
+                self.after(0, lambda: threading.Thread(
+                    target=self._connect_or_start, daemon=True).start()
+                )
+                return
+
             info   = rpc_get("/info")
             blocks = rpc_get("/blocks/latest/20")
             self.after(0, self._update_ui, info, blocks)
