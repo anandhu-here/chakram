@@ -56,7 +56,7 @@ RPC_BASE         = "http://127.0.0.1:8339"
 RPC_PORT         = 8339
 PID_FILE         = os.path.expanduser("~/.chakram/mainnet/gui.pid")
 POLL_SECS        = 5
-VERSION          = "v1.0.74"
+VERSION          = "v1.0.75"
 CoinbaseMaturity = 10
 MINER_ADDR_FILE  = os.path.expanduser("~/.chakram/mainnet/miner_addr.txt")
 
@@ -787,9 +787,25 @@ class ChakramApp(ctk.CTk):
         explorer_lbl.bind("<Button-1>", lambda _: webbrowser.open(f"{RPC_BASE}/explorer"))
         Tooltip(explorer_lbl, "Open block explorer in browser")
 
+        # Update banner (hidden until a newer release is detected)
+        self._update_bar = ctk.CTkFrame(self, fg_color="#1a1400", corner_radius=0, height=32)
+        self._update_bar.pack_propagate(False)
+        update_inner = ctk.CTkFrame(self._update_bar, fg_color="transparent")
+        update_inner.place(relx=0.5, rely=0.5, anchor="center")
+        self._update_label = ctk.CTkLabel(update_inner, text="", font=F(12), text_color=GOLD)
+        self._update_label.pack(side="left", padx=(0, 12))
+        ctk.CTkButton(update_inner, text="Download update →",
+                      fg_color="transparent", hover_color=BG3,
+                      text_color=GOLD, font=F(12, bold=True), height=24, width=160,
+                      border_width=1, border_color=GOLD,
+                      command=lambda: webbrowser.open(
+                          "https://github.com/anandhu-here/chakram/releases/latest"
+                      )).pack(side="left")
+
         # ── Header bar ────────────────────────────────────────────────────
         hdr = ctk.CTkFrame(self, fg_color=BG2, corner_radius=0, height=58)
         hdr.pack(side="top", fill="x")
+        self._hdr = hdr
         hdr.pack_propagate(False)
 
         hdr_left = ctk.CTkFrame(hdr, fg_color="transparent")
@@ -981,11 +997,40 @@ class ChakramApp(ctk.CTk):
     # ═══════════════════════════════════════════════════════════════════════════
 
     def _poll_loop(self):
+        self._check_for_update()
+        _update_tick = 0
         while not self._poll_stop.is_set():
             info   = rpc_get("/info")
             blocks = rpc_get("/blocks/latest/20")
             self.after(0, self._update_ui, info, blocks)
+            _update_tick += 1
+            if _update_tick >= 720:   # re-check every hour (720 × 5 s)
+                self._check_for_update()
+                _update_tick = 0
             time.sleep(POLL_SECS)
+
+    def _check_for_update(self):
+        def run():
+            try:
+                r = requests.get(
+                    "https://api.github.com/repos/anandhu-here/chakram/releases/latest",
+                    timeout=8, headers={"Accept": "application/vnd.github+json"}
+                )
+                tag = r.json().get("tag_name", "")
+                if tag and tag != VERSION:
+                    self.after(0, self._show_update_bar, tag)
+            except Exception:
+                pass
+        threading.Thread(target=run, daemon=True).start()
+
+    def _show_update_bar(self, new_version):
+        self._update_label.configure(
+            text=f"Update available: {new_version}  (you have {VERSION})"
+        )
+        # Pack right after the header bar (second child); no-op if already visible.
+        if not self._update_bar.winfo_ismapped():
+            self._update_bar.pack(in_=self, side="top", fill="x",
+                                  after=self._hdr)
 
     def _update_ui(self, info, blocks):
         if info is None:

@@ -445,6 +445,21 @@ chmod +x chakram
             <H3>Running a community seed</H3>
             <P>Anyone can run a community seed node. Start with <code className="bg-surface2 border border-border px-1.5 py-0.5 rounded text-xs font-mono">--seed-mode</code>, set up DNS A records pointing to your server, and submit a pull request to add your hostname to the <code className="bg-surface2 border border-border px-1.5 py-0.5 rounded text-xs font-mono">DNSSeeds</code> list in <code className="bg-surface2 border border-border px-1.5 py-0.5 rounded text-xs font-mono">config.go</code>. Once merged and released, all new nodes will resolve your hostname alongside the core team seeds. Each operator controls their own DNS independently.</P>
             <Callout type="tip">This is the same model Bitcoin uses — multiple independent DNS seed operators, each running their own crawler. No single party controls discovery.</Callout>
+            <H3>Keeping a community seed up to date</H3>
+            <P>Community seed nodes are independent infrastructure — the core team does <strong className="text-text">not</strong> push updates to them automatically. You are responsible for monitoring releases and upgrading your server.</P>
+            <DataTable headers={['Step', 'Action']} rows={[
+              ['1', 'Watch the GitHub Releases page — subscribe to release notifications'],
+              ['2', 'Check the changelog — protocol-breaking releases (MinProtocolVersion bump) require an upgrade before the activation block'],
+              ['3', 'Download the new binary, replace the old one, restart the service'],
+              ['4', 'Verify with: chakram --version and curl http://localhost:8339/info'],
+            ]} />
+            <Pre>{`# Linux update example
+wget https://github.com/anandhu-here/chakram/releases/latest/download/chakram-linux
+chmod +x chakram-linux
+sudo systemctl stop chakram
+sudo mv chakram-linux /usr/local/bin/chakram
+sudo systemctl start chakram`}</Pre>
+            <Callout type="warn">If a release bumps <code className="font-mono text-xs">MinProtocolVersion</code>, nodes running an older binary will be disconnected by upgraded peers once the activation block is reached. Protocol upgrade windows are announced in the release notes and community channels.</Callout>
           </section>
 
           {/* ── Mining ── */}

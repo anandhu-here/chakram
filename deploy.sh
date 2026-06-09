@@ -32,55 +32,74 @@ echo "  ✓ web/dist"
 echo "Building Linux binary..."
 GOOS=linux GOARCH=amd64 go build -o chakram-linux .
 
-# ── Stop services ─────────────────────────────────────────────────────────────
+# ── Rolling deploy — one seed at a time ───────────────────────────────────────
+# Keeps at least 2 seeds live at all times so the network never goes dark.
+# Protocol-breaking upgrades (MinProtocolVersion bump) still need a coordinated
+# cutover; rolling is safe for all normal binary updates.
 
-echo "Stopping services..."
-ssh $SSH_OPTS $REMOTE_USER@$SEED1 "sudo systemctl stop chakram-mainnet 2>/dev/null || sudo systemctl stop chakram-seed 2>/dev/null || true"
-ssh $SSH_OPTS $REMOTE_USER@$SEED2 "sudo systemctl stop chakram-mainnet 2>/dev/null || sudo systemctl stop chakram-seed 2>/dev/null || true"
-ssh $SSH_OPTS $REMOTE_USER@$SEED3 "sudo systemctl stop chakram-mainnet 2>/dev/null || sudo systemctl stop chakram-miner 2>/dev/null || true"
-sleep 5
+wait_healthy() {
+  local host=$1
+  local label=$2
+  local deadline=$((SECONDS + 60))
+  printf "  waiting for %s to come up" "$label"
+  while [ $SECONDS -lt $deadline ]; do
+    peers=$(ssh $SSH_OPTS $REMOTE_USER@$host "curl -s http://localhost:8339/info 2>/dev/null | python3 -c \"import sys,json; d=json.load(sys.stdin); print(d.get('peers',0))\" 2>/dev/null" 2>/dev/null || echo "0")
+    if [ "$peers" -ge 1 ] 2>/dev/null; then
+      echo " ✓ (peers=$peers)"
+      return 0
+    fi
+    printf "."
+    sleep 3
+  done
+  echo " ✗ (timeout — continuing anyway)"
+  return 0
+}
 
-# ── Copy binary ───────────────────────────────────────────────────────────────
+deploy_seed() {
+  local host=$1
+  local label=$2
 
-echo "Copying binary..."
-for HOST in $SEED1 $SEED2 $SEED3; do
-  # Remove the old binary first — a running process holds the file open on Linux,
-  # which causes scp to fail with "dest open: Failure" even after systemctl stop.
-  ssh $SSH_OPTS $REMOTE_USER@$HOST "rm -f $REMOTE_BIN"
-  scp $SSH_OPTS $BINARY $REMOTE_USER@$HOST:$REMOTE_BIN && \
-    ssh $SSH_OPTS $REMOTE_USER@$HOST "chmod +x $REMOTE_BIN" && \
-    echo "  $HOST done" || echo "  $HOST FAILED"
-done
+  echo ""
+  echo "── $label ($host) ──"
 
-# ── Install mainnet service ───────────────────────────────────────────────────
+  echo "  stopping..."
+  ssh $SSH_OPTS $REMOTE_USER@$host \
+    "sudo systemctl stop chakram-mainnet 2>/dev/null || sudo systemctl stop chakram-seed 2>/dev/null || sudo systemctl stop chakram-miner 2>/dev/null || true"
+  sleep 2
 
-echo "Installing mainnet service..."
-for HOST in $SEED1 $SEED2 $SEED3; do
-  # Substitute the actual remote user into the service file on the fly.
-  # The template uses 'ubuntu' (good open-source default); we replace it here
-  # so the installed service matches whoever $REMOTE_USER actually is.
+  echo "  copying binary..."
+  ssh $SSH_OPTS $REMOTE_USER@$host "rm -f $REMOTE_BIN"
+  scp $SSH_OPTS $BINARY $REMOTE_USER@$host:$REMOTE_BIN
+  ssh $SSH_OPTS $REMOTE_USER@$host "chmod +x $REMOTE_BIN"
+
+  echo "  installing service..."
   sed "s|User=ubuntu|User=$REMOTE_USER|g; s|/home/ubuntu/|/home/$REMOTE_USER/|g" \
-    deploy/chakram-mainnet.service | ssh $SSH_OPTS $REMOTE_USER@$HOST \
+    deploy/chakram-mainnet.service | ssh $SSH_OPTS $REMOTE_USER@$host \
     "sudo tee /etc/systemd/system/chakram-mainnet.service > /dev/null && \
      sudo systemctl daemon-reload && \
      sudo systemctl enable chakram-mainnet"
-done
-echo "  service installed on all 3 nodes"
 
-# ── Wipe chain data (launch only) ────────────────────────────────────────────
+  if [ "$WIPE" = true ]; then
+    echo "  wiping chain data..."
+    ssh $SSH_OPTS $REMOTE_USER@$host "rm -rf ~/.chakram/ && echo '  wiped'"
+  fi
 
-if [ "$WIPE" = true ]; then
-  echo "Wiping chain data..."
-  ssh $SSH_OPTS $REMOTE_USER@$SEED1 "rm -rf ~/.chakram/ && echo '  seed-1 wiped'"
-  ssh $SSH_OPTS $REMOTE_USER@$SEED2 "rm -rf ~/.chakram/ && echo '  seed-2 wiped'"
-  ssh $SSH_OPTS $REMOTE_USER@$SEED3 "rm -rf ~/.chakram/ && echo '  seed-3 wiped'"
-fi
+  echo "  starting..."
+  ssh $SSH_OPTS $REMOTE_USER@$host "sudo systemctl start chakram-mainnet"
+
+  wait_healthy "$host" "$label"
+}
+
+deploy_seed "$SEED1" "seed-1"
+deploy_seed "$SEED2" "seed-2"
+deploy_seed "$SEED3" "seed-3"
 
 # ── Nginx on seed-2 (chakram.one) ─────────────────────────────────────────────
 # Only install/overwrite nginx config on first setup (before certbot runs).
 # Once SSL certs exist, certbot owns the nginx config — we must not overwrite it
 # or HTTPS breaks. Subsequent deploys just reload nginx.
 
+echo ""
 echo "Configuring nginx on seed-2..."
 ssh $SSH_OPTS $REMOTE_USER@$SEED2 "which nginx >/dev/null 2>&1 || sudo apt-get install -y nginx -q"
 ssh $SSH_OPTS $REMOTE_USER@$SEED2 "
@@ -99,7 +118,6 @@ NGINXEOF
 "
 
 # ── Nginx subdomains on seed-2 ────────────────────────────────────────────────
-# Same rule: only install config before certbot runs. After certs exist, just reload.
 
 ssh $SSH_OPTS $REMOTE_USER@$SEED2 "
   if ! sudo grep -q 'ssl_certificate' /etc/nginx/sites-available/chakram-subdomains 2>/dev/null; then
@@ -114,20 +132,6 @@ NGINXEOF
     echo '  subdomains nginx reloaded (SSL active)'
   fi
 "
-
-# ── Start nodes in order ──────────────────────────────────────────────────────
-
-echo "Starting seed-1..."
-ssh $SSH_OPTS $REMOTE_USER@$SEED1 "sudo systemctl start chakram-mainnet"
-
-echo "Starting seed-2..."
-ssh $SSH_OPTS $REMOTE_USER@$SEED2 "sudo systemctl start chakram-mainnet"
-
-echo "Waiting for seeds to initialize..."
-sleep 15
-
-echo "Starting seed-3..."
-ssh $SSH_OPTS $REMOTE_USER@$SEED3 "sudo systemctl start chakram-mainnet"
 
 # ── Done ──────────────────────────────────────────────────────────────────────
 

@@ -63,6 +63,57 @@ var DNSSeeds = []string{
 
 Each operator controls their own hostname and A records independently.
 
+## Running a community seed node
+
+Community seed nodes are independent infrastructure — you run your own server and nobody pushes updates to it. This means **you are responsible for keeping your node current**.
+
+### Initial setup
+
+```bash
+# Download the latest binary for your OS from GitHub Releases
+wget https://github.com/anandhu-here/chakram/releases/latest/download/chakram-linux
+chmod +x chakram-linux
+sudo mv chakram-linux /usr/local/bin/chakram
+
+# Start as a seed (no mining, just relaying blocks and transactions)
+chakram node --seed-mode
+```
+
+Open port **8338** (TCP) inbound on your firewall so other nodes can connect.
+
+### Updating your seed node
+
+The core team does **not** push updates to community nodes automatically.
+When a new release is published:
+
+1. Check the [GitHub Releases page](https://github.com/anandhu-here/chakram/releases) for the changelog.
+2. If the release is **protocol-breaking** (MinProtocolVersion bumped), you must upgrade before the activation block or your node will be rejected by the network.
+3. Download the new binary, replace the old one, and restart:
+
+```bash
+# Stop the running node
+sudo systemctl stop chakram   # or: pkill chakram
+
+# Replace the binary (Linux example)
+wget https://github.com/anandhu-here/chakram/releases/latest/download/chakram-linux
+chmod +x chakram-linux
+sudo mv chakram-linux /usr/local/bin/chakram
+
+# Restart
+sudo systemctl start chakram  # or: chakram node --seed-mode &
+```
+
+### How to know when to update
+
+- Watch the [releases page](https://github.com/anandhu-here/chakram/releases) — subscribe to notifications on GitHub
+- Join community channels linked on [chakram.one](https://chakram.one) — protocol upgrades are announced there
+- Run `./chakram --version` on your node and compare it against the latest release tag
+- The GUI app shows an update banner automatically when a newer version is available on GitHub
+
+### Your node never affects the official seeds
+
+Core team seeds (`35.207.229.32`, `34.1.166.49`, `35.207.217.64`) are deployed separately by the core team. Your community node is fully independent.
+
 ## Questions
 
 Open a GitHub issue or reach out via the community channels linked on [chakram.one](https://chakram.one).
