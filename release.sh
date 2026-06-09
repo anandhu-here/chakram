@@ -139,6 +139,23 @@ else
   gsutil setmeta -h "Cache-Control:no-cache, no-store" \
     "gs://chakram-dist/latest/Chakram-mac-intel.zip" 2>/dev/null || true
   echo "  ✓ uploaded to gs://chakram-dist/latest/Chakram-mac-intel.zip"
+
+  # Prune GCS: keep only the 5 most recent versioned folders, delete the rest.
+  echo "Pruning old GCS versions (keeping 5)..."
+  ALL_VERS=$(gsutil ls gs://chakram-dist/ 2>/dev/null \
+    | grep -E 'gs://chakram-dist/v[0-9]+\.[0-9]+\.[0-9]+/$' \
+    | sort -t. -k3,3n)
+  COUNT=$(echo "$ALL_VERS" | grep -c 'v' 2>/dev/null || echo 0)
+  if [ "$COUNT" -gt 5 ]; then
+    REMOVE=$((COUNT - 5))
+    echo "$ALL_VERS" | head -n "$REMOVE" | while read -r old; do
+      echo "  Removing $old"
+      gsutil -m rm -r "$old" 2>/dev/null || true
+    done
+    echo "  ✓ pruned $REMOVE old version(s)"
+  else
+    echo "  ✓ only $COUNT version(s) in bucket — nothing to prune"
+  fi
 fi
 
 echo ""

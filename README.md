@@ -1,27 +1,30 @@
 # ⬡ Chakram (CHK)
 
-**Website:** https://chakram.one
+**Website:** https://chakram.one · **Explorer:** https://chakram.one · **Download:** https://chakram.one/download
 
 > ചക്രം — The heritage of Kerala, reborn in the digital age.
 
-> ⚠️ **Note:** Code signing certificates are on our roadmap. For now, Mac and Windows users may see security warnings — this is normal for open-source software without paid certificates. See installation instructions below.
+Chakram is a CPU-mineable UTXO cryptocurrency built from scratch in Go, inspired by the ancient Travancore kingdom coins of Kerala, India. Not a fork — every line is original. Anyone can mine it on a regular laptop or desktop.
 
-Chakram is a fast, CPU-mineable cryptocurrency inspired by the ancient Travancore kingdom coins of Kerala, India. Anyone can mine it — on a laptop, desktop, or spare Android phone.
+> ⚠️ **Code signing:** Mac and Windows binaries are not yet code-signed. macOS users: right-click → Open → Open. Windows users: More info → Run anyway. This is normal for open-source software without paid certificates.
 
 ## Features
 
-- **CPU Mining** — RandomX algorithm, ASIC resistant. Mine with any laptop or desktop.
-- **Fast** — 30 second block time, near-instant confirmations.
-- **Secure** — Ed25519 signatures, double SHA256, BadgerDB storage.
-- **Decentralised** — P2P network, no central authority.
-- **Cultural Heritage** — Named after the real Travancore Chakram coin.
-  1 CHK = 1,000,000 Cash. The word "cash" comes from the Malayalam "Kasu".
+- **CPU Mining** — RandomX algorithm, ASIC-resistant. Full mode uses a 2 GB dataset for ~10× the hashrate of light mode.
+- **Fast blocks** — 30 second target, LWMA-3 difficulty adjustment.
+- **Ed25519 signatures** — fast, small, secure. BIP39 12-word mnemonic recovery.
+- **UTXO model** — same model as Bitcoin. Full transaction index.
+- **Decentralised** — P2P network with DNS seeds, peer exchange, ban list, and address book persistence.
+- **Built-in explorer** — block explorer and wallet served directly from the node binary.
+- **Cultural heritage** — Named after the real Travancore Chakram coin. 1 CHK = 1,000,000 Cash. The word "cash" comes from the Malayalam "Kasu" (കാശ്).
 
-## Installation
+## Get Started
 
-Download the latest binary for your platform from [Releases](https://github.com/anandhu-here/chakram/releases), or get the GUI desktop app from [chakram.one/download](https://chakram.one/download).
+The easiest way is the **GUI desktop app** — download for Windows, Mac, or Linux at [chakram.one/download](https://chakram.one/download). Opens straight to a wallet and one-click mining.
 
-### macOS
+For CLI, download the latest binary from [Releases](https://github.com/anandhu-here/chakram/releases).
+
+### macOS (CLI)
 
 ```bash
 cd ~/Downloads
@@ -30,15 +33,15 @@ xattr -d com.apple.quarantine chakram-mac
 ./chakram-mac node
 ```
 
-> If you see "cannot be opened" — right-click the file, select **Open**, then click **Open** in the dialog.
+### Windows (CLI)
 
-### Windows
+```
+chakram-windows.exe node
+```
 
-1. Download `chakram-windows.exe`
-2. Double-click to run
-3. If Windows SmartScreen appears: click **More info** → **Run anyway**
+If SmartScreen appears: **More info → Run anyway**.
 
-### Linux
+### Linux (CLI)
 
 ```bash
 chmod +x chakram-linux
@@ -47,60 +50,52 @@ chmod +x chakram-linux
 
 ## Quick Start
 
-### Run a Node
+### Run a node
 
 ```bash
-./chakram-mac node       # macOS
-./chakram-linux node     # Linux
-chakram-windows.exe node # Windows (or double-click)
+./chakram node                  # sync + block explorer at http://127.0.0.1:8339
+./chakram node --mine           # sync + mine
+./chakram node --rpc-public     # expose RPC on 0.0.0.0 (for external access)
+./chakram node --seed-mode      # infrastructure seed (125 peers, public RPC)
 ```
 
-Your node will:
-1. Generate a wallet automatically
-2. Connect to the Chakram network
-3. Start syncing the blockchain
-4. Display your CK1 address
+On first start the node:
+1. Generates a wallet and prints your CK1 address
+2. Connects to the Chakram network via DNS seeds
+3. Syncs the chain
+4. Starts mining if `--mine` is set
 
-**Back up your 12-word mnemonic phrase immediately.**
+**Back up your 12-word mnemonic immediately — it is only shown once.**
 
 ### Mine Chakram
 
 ```bash
-./chakram-mac node --mine
+./chakram node --mine
+./chakram node --mine --mineraddress CK1YourAddress   # pay rewards to a different address
+./chakram node --mine --threads 4                     # use 4 CPU threads
 ```
 
-Mining rewards go directly to your wallet address.
+Mining requires at least 1 connected peer and a fully synced chain. Rewards go directly to your wallet.
 
-### Wallet Commands
+### Wallet commands
 
 ```bash
-# Show your wallet address
-./chakram-mac wallet address
-
-# Check your balance
-./chakram-mac wallet balance
-
-# Send CHK
-./chakram-mac send CK1... 10.5
-
-# Generate a new wallet
-./chakram-mac wallet new
-
-# Recover from mnemonic
-./chakram-mac wallet recover --mnemonic "word1 word2 ... word12"
+./chakram wallet address                                       # show your CK1 address
+./chakram wallet balance                                       # show balance in CHK
+./chakram send CK1RecipientAddress 10.5                        # send 10.5 CHK
+./chakram wallet new                                           # generate a new wallet
+./chakram wallet recover --mnemonic "word1 word2 ... word12"   # recover from mnemonic
 ```
 
-### Block Explorer
+### Block explorer
 
-Once your node is running, open your browser at:
+Once your node is running:
 
 ```
-http://localhost:8339
+http://127.0.0.1:8339
 ```
 
-The block explorer is built into the node — no separate server needed.
-
-> By default the RPC binds to localhost only. Start with `--rpc-public` to expose it on the network.
+No separate server needed — the explorer is built into the binary.
 
 Live explorer: **https://chakram.one**
 
@@ -108,76 +103,87 @@ Live explorer: **https://chakram.one**
 
 | | Mainnet | Testnet |
 |---|---|---|
-| P2P Port | 8338 | 18338 |
-| RPC Port | 8339 | 18339 |
+| P2P port | 8338 | 18338 |
+| RPC port | 8339 | 18339 |
 | Block time | ~30 sec | ~30 sec |
-| Halving | every 2,102,400 blocks | every 2,102,400 blocks |
+| Halving | every 2,102,400 blocks (~2 years) | every 2,102,400 blocks |
 | Initial reward | 50 CHK | 50 CHK |
 | Max supply | 44,800,000 CHK | 44,800,000 CHK |
 
+### DNS seeds
+
+On startup, nodes resolve `seeds.chakram.one` to discover the network. If DNS is unavailable, three hardcoded fallback IPs are used automatically. Discovered peers are saved to `~/.chakram/mainnet/peers.json` so the node can reconnect without DNS on the next start.
+
+Anyone can run a community seed — see [CONTRIBUTING.md](CONTRIBUTING.md).
+
+## Checkpoints
+
+Checkpoints are block hashes hardcoded into the binary. A block at a checkpointed height must exactly match — a peer serving a different hash is rejected. Reorgs cannot roll back past the highest checkpoint.
+
+| Height | Hash |
+|---|---|
+| 600 | `081454bdec667c88b5b5b10ca539688efeb2c8b872cbe250e30be7b0813c752d` |
+
+Verify any checkpoint yourself by querying `/block/600` on any fully synced node.
+
+## Data directory
+
+All node data is stored under `~/.chakram/mainnet/` (or `~/.chakram/testnet/`):
+
+| File | Contents |
+|---|---|
+| `wallet.json` | Encrypted Ed25519 key + mnemonic (Argon2id) |
+| `peers.json` | Known peer addresses — persists across restarts |
+| `badger/` | BadgerDB chain and UTXO database |
+
 ## Build from Source
 
-Requires Go 1.21+.
+Requires Go 1.21+ and a C compiler (for RandomX CGo bindings).
 
 ```bash
 git clone https://github.com/anandhu-here/chakram
 cd chakram
 
-# Build for your platform (CGo enabled — requires a C compiler for RandomX)
+# Native build (CGo enabled — full RandomX performance)
 go build -o chakram .
 
 # Cross-compile (pure-Go RandomX fallback, sufficient for relay nodes)
 GOOS=linux   GOARCH=amd64 CGO_ENABLED=0 go build -o chakram-linux .
-GOOS=windows GOARCH=amd64 go build -o chakram-windows.exe .
-GOOS=darwin  GOARCH=amd64 go build -o chakram-mac .
+GOOS=windows GOARCH=amd64                go build -o chakram-windows.exe .
+GOOS=darwin  GOARCH=amd64                go build -o chakram-mac .
 ```
 
-### RandomX Libraries
+Pre-built RandomX static libraries are vendored in `lib/` for macOS Intel, macOS Apple Silicon, Linux AMD64, and Windows AMD64. No separate library install needed.
 
-Pre-built static libraries are vendored in `lib/` for supported platforms:
-
-| Platform | Path |
-|---|---|
-| macOS Intel | `lib/darwin_amd64/librandomx.a` |
-| macOS Apple Silicon | `lib/darwin_arm64/librandomx.a` |
-| Linux AMD64 | `lib/linux_amd64/librandomx.a` |
-| Windows AMD64 | `lib/windows_amd64/librandomx.a` |
-
-To rebuild a library from source, see the [RandomX repository](https://github.com/tevador/RandomX).
-
-## Configuration
-
-```bash
-cp chakram.conf.example ~/.chakram/chakram.conf
-```
-
-See [`chakram.conf.example`](chakram.conf.example) for all options.
+See [CONTRIBUTING.md](CONTRIBUTING.md) for the full build guide including the web frontend.
 
 ## RPC API
 
-The node exposes a JSON HTTP API on the RPC port:
+JSON HTTP API on the RPC port. Base URL: `http://127.0.0.1:8339` (localhost only by default).
 
 | Endpoint | Description |
 |---|---|
-| `GET /info` | Node info, height, peers, supply |
+| `GET /info` | Node status, height, peers, sync state, total supply |
 | `GET /block/:height` | Block by height |
-| `GET /block/hash/:hash` | Block by hash |
-| `GET /blocks/latest/:n` | Last N blocks (max 50) |
+| `GET /block/hash/:hash` | Block by 64-char hex hash |
+| `GET /blocks/latest/:n` | Last N blocks, newest first (max 50) |
 | `GET /tx/:txid` | Transaction by ID |
-| `GET /address/:address` | Address balance (balance, balance_chk, utxo_count) |
-| `GET /utxos/:address` | Unspent outputs for an address (use as tx inputs) |
+| `GET /address/:address` | Address balance and UTXO count |
+| `GET /utxos/:address` | Unspent outputs — use as inputs when building transactions |
 | `GET /peers` | Connected peers |
 | `POST /tx/submit` | Broadcast a signed transaction |
 
+Full protocol documentation: **https://chakram.one/docs**
+
 ## Protocol Upgrades
 
-Chakram uses a versioned fork activation system. Scheduled hard forks activate at a specific block height — miners have advance notice to upgrade before the rules change. Old nodes that miss the upgrade are rejected by `MinProtocolVersion` in subsequent releases.
+Chakram uses a versioned fork activation system. Hard forks activate at a specific block height — miners have advance notice to upgrade. Nodes that miss an upgrade are rejected by `MinProtocolVersion` in subsequent releases.
 
-See `config.go` (`ForkActivations`, `ProtocolVersion`, `MinProtocolVersion`) for details.
+See `config.go` (`ForkActivations`, `ProtocolVersion`, `MinProtocolVersion`).
 
 ## About the Name
 
-The **Chakram** (ചക്രം) was a small copper coin used in the Travancore kingdom of Kerala from the 18th–19th centuries. The word **"cash"** itself derives from the Malayalam word **"Kasu"** (കാശ്) — a coin denomination used throughout Kerala's trading history. Chakram (CHK) honours this heritage by bringing Kerala's monetary legacy into the digital age.
+The **Chakram** (ചക്രം) was a small copper coin used in the Travancore kingdom of Kerala from the 18th–19th centuries. The word **"cash"** itself derives from the Malayalam **"Kasu"** (കാശ്) — a denomination used throughout Kerala's trading history. Chakram (CHK) honours that heritage by bringing it into the digital age.
 
 ## License
 
