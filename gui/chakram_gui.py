@@ -52,7 +52,7 @@ def FM(size=12):
     return (_MONO, size)
 
 # ── Constants ──────────────────────────────────────────────────────────────────
-RPC_BASE         = "http://localhost:8339"
+RPC_BASE         = "http://127.0.0.1:8339"
 RPC_PORT         = 8339
 PID_FILE         = os.path.expanduser("~/.chakram/mainnet/gui.pid")
 POLL_SECS        = 5
