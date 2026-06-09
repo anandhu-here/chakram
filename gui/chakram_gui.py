@@ -56,7 +56,7 @@ RPC_BASE         = "http://127.0.0.1:8339"
 RPC_PORT         = 8339
 PID_FILE         = os.path.expanduser("~/.chakram/mainnet/gui.pid")
 POLL_SECS        = 5
-VERSION          = "v1.0.75"
+VERSION          = "v1.0.76"
 CoinbaseMaturity = 10
 MINER_ADDR_FILE  = os.path.expanduser("~/.chakram/mainnet/miner_addr.txt")
 
@@ -87,7 +87,25 @@ def _logo(size: tuple):
 
 # ── Binary detection ───────────────────────────────────────────────────────────
 
+UPDATE_BIN_DIR = os.path.expanduser("~/.chakram/bin")
+
+def _update_binary_name():
+    """Returns the exact GitHub release asset name for this platform/arch."""
+    if sys.platform == "win32":
+        return "chakram-windows.exe"
+    if sys.platform == "darwin":
+        if platform.machine() == "arm64":
+            return "chakram-mac-arm"
+        return "chakram-mac"
+    return "chakram-linux"
+
 def get_binary_path():
+    # Auto-updated binary takes priority over the bundled one so live updates
+    # apply without reinstalling the app.
+    upd = os.path.join(UPDATE_BIN_DIR, _update_binary_name())
+    if os.path.exists(upd) and os.access(upd, os.X_OK):
+        return upd
+
     if hasattr(sys, '_MEIPASS'):
         for name in ['chakram', 'chakram.exe']:
             p = os.path.join(sys._MEIPASS, name)
@@ -794,13 +812,13 @@ class ChakramApp(ctk.CTk):
         update_inner.place(relx=0.5, rely=0.5, anchor="center")
         self._update_label = ctk.CTkLabel(update_inner, text="", font=F(12), text_color=GOLD)
         self._update_label.pack(side="left", padx=(0, 12))
-        ctk.CTkButton(update_inner, text="Download update →",
+        self._update_btn = ctk.CTkButton(update_inner, text="Install & Restart Node →",
                       fg_color="transparent", hover_color=BG3,
-                      text_color=GOLD, font=F(12, bold=True), height=24, width=160,
+                      text_color=GOLD, font=F(12, bold=True), height=24, width=200,
                       border_width=1, border_color=GOLD,
-                      command=lambda: webbrowser.open(
-                          "https://github.com/anandhu-here/chakram/releases/latest"
-                      )).pack(side="left")
+                      command=self._do_live_update)
+        self._update_btn.pack(side="left")
+        self._pending_update_url = None
 
         # ── Header bar ────────────────────────────────────────────────────
         hdr = ctk.CTkFrame(self, fg_color=BG2, corner_radius=0, height=58)
@@ -1016,21 +1034,89 @@ class ChakramApp(ctk.CTk):
                     "https://api.github.com/repos/anandhu-here/chakram/releases/latest",
                     timeout=8, headers={"Accept": "application/vnd.github+json"}
                 )
-                tag = r.json().get("tag_name", "")
-                if tag and tag != VERSION:
-                    self.after(0, self._show_update_bar, tag)
+                data = r.json()
+                tag  = data.get("tag_name", "")
+                if not tag or tag == VERSION:
+                    return
+                # Find the platform-appropriate asset download URL.
+                assets = data.get("assets", [])
+                binary = _update_binary_name()
+                url = None
+                for asset in assets:
+                    if asset.get("name", "") == binary:
+                        url = asset.get("browser_download_url")
+                        break
+                self.after(0, self._show_update_bar, tag, url)
             except Exception:
                 pass
         threading.Thread(target=run, daemon=True).start()
 
-    def _show_update_bar(self, new_version):
+    def _show_update_bar(self, new_version, download_url):
+        self._pending_update_url = download_url
         self._update_label.configure(
             text=f"Update available: {new_version}  (you have {VERSION})"
         )
-        # Pack right after the header bar (second child); no-op if already visible.
+        if download_url is None:
+            # No direct binary — fall back to browser download.
+            self._update_btn.configure(
+                text="Download update →",
+                command=lambda: webbrowser.open(
+                    "https://github.com/anandhu-here/chakram/releases/latest"
+                )
+            )
+        else:
+            self._update_btn.configure(
+                text="Install & Restart Node →",
+                command=self._do_live_update
+            )
         if not self._update_bar.winfo_ismapped():
-            self._update_bar.pack(in_=self, side="top", fill="x",
-                                  after=self._hdr)
+            self._update_bar.pack(in_=self, side="top", fill="x", after=self._hdr)
+
+    def _do_live_update(self):
+        url = self._pending_update_url
+        if not url:
+            return
+        self._update_btn.configure(state="disabled", text="Downloading…")
+        def run():
+            try:
+                # Download to a temp file first.
+                os.makedirs(UPDATE_BIN_DIR, exist_ok=True)
+                tmp  = os.path.join(UPDATE_BIN_DIR, _update_binary_name() + ".new")
+                dest = os.path.join(UPDATE_BIN_DIR, _update_binary_name())
+                with requests.get(url, stream=True, timeout=60) as resp:
+                    resp.raise_for_status()
+                    with open(tmp, "wb") as f:
+                        for chunk in resp.iter_content(chunk_size=65536):
+                            f.write(chunk)
+                os.chmod(tmp, 0o755)
+                # Stop node, swap binary, restart — GUI stays alive.
+                self.after(0, self._apply_update, tmp, dest)
+            except Exception as e:
+                self.after(0, self._update_download_failed, str(e))
+        threading.Thread(target=run, daemon=True).start()
+
+    def _apply_update(self, tmp, dest):
+        self._update_label.configure(text="Restarting node with new version…")
+        mining = self._mining
+        self._stop_node()
+        try:
+            if sys.platform == "win32":
+                import shutil
+                shutil.move(tmp, dest)
+            else:
+                os.replace(tmp, dest)
+            self._binary = dest
+        except Exception as e:
+            self._update_label.configure(text=f"Update failed: {e}")
+            self._update_btn.configure(state="normal", text="Retry")
+            return
+        # Restart the node with the new binary.
+        self.after(500, lambda: self._launch_node(mine=mining))
+        self._update_bar.pack_forget()
+
+    def _update_download_failed(self, reason):
+        self._update_label.configure(text=f"Download failed — check connection")
+        self._update_btn.configure(state="normal", text="Retry")
 
     def _update_ui(self, info, blocks):
         if info is None:

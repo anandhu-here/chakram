@@ -4,6 +4,8 @@
 // manipulation and hash-rate volatility.
 package main
 
+import "math/big"
+
 // NextDifficulty returns the proof-of-work difficulty for the block at height.
 // Called by the miner and must produce identical results on every node.
 //
@@ -22,6 +24,9 @@ package main
 //     than being permanently stuck.
 //   - Result never falls below MinDifficulty.
 func NextDifficulty(bc *Blockchain, height uint64) uint64 {
+	if ProtocolVersionAt(height) >= 2 {
+		return nextDifficultyV2(bc.Storage, height)
+	}
 	if height <= DifficultyWindow {
 		return InitialDifficulty
 	}
@@ -106,6 +111,9 @@ func highestCheckpoint() uint64 {
 // blocks via GetBlockByHash so it works correctly for blocks on a fork that
 // has not yet been adopted as the canonical chain.
 func NextDifficultyFromParent(s *Storage, height uint64, parent *Block) uint64 {
+	if ProtocolVersionAt(height) >= 2 {
+		return nextDifficultyFromParentV2(s, height, parent)
+	}
 	if height <= DifficultyWindow {
 		return InitialDifficulty
 	}
@@ -158,4 +166,113 @@ func NextDifficultyFromParent(s *Storage, height uint64, parent *Block) uint64 {
 		next = MinDifficulty
 	}
 	return next
+}
+
+// ── Protocol v2 difficulty (compact continuous target) ────────────────────────
+//
+// From block 10000, difficulty is stored as a compact uint64 target instead of
+// an integer bit-count. This lets LWMA make fractional adjustments so the chain
+// smoothly tracks the true equilibrium difficulty rather than oscillating between
+// coarse integer steps. See decodeCompact/encodeCompact in block.go.
+
+func lwmaWindowV2(blocks []*Block, N int) int64 {
+	var weightedSum, divisor int64
+	for i := 1; i <= N; i++ {
+		solveTime := blocks[i].Header.Timestamp - blocks[i-1].Header.Timestamp
+		if solveTime < 1 {
+			solveTime = 1
+		}
+		if solveTime > 6*TargetBlockTime {
+			solveTime = 6 * TargetBlockTime
+		}
+		weight := int64(i)
+		weightedSum += solveTime * weight
+		divisor += weight
+	}
+	avg := weightedSum / divisor
+	if avg < 1 {
+		avg = 1
+	}
+	return avg
+}
+
+func adjustTargetV2(currentTarget *big.Int, avg int64) *big.Int {
+	// new_target = current_target × avg / TargetBlockTime
+	// Higher avg (slow blocks) → larger target → easier.
+	// Lower avg (fast blocks) → smaller target → harder.
+	newTarget := new(big.Int).Mul(currentTarget, big.NewInt(avg))
+	newTarget.Div(newTarget, big.NewInt(TargetBlockTime))
+
+	// Cap: difficulty must not increase by more than 4× per window
+	// (target must not fall below current/4).
+	minTarget := new(big.Int).Div(currentTarget, big.NewInt(4))
+	if newTarget.Cmp(minTarget) < 0 {
+		newTarget = minTarget
+	}
+
+	// Floor: target must not exceed InitialCompactTargetV2 (minimum difficulty).
+	maxTarget := decodeCompact(InitialCompactTargetV2)
+	if newTarget.Cmp(maxTarget) > 0 {
+		newTarget = maxTarget
+	}
+
+	return newTarget
+}
+
+func nextDifficultyV2(s *Storage, height uint64) uint64 {
+	actHeight := ForkActivations[2]
+	if height <= actHeight {
+		return InitialCompactTargetV2
+	}
+
+	N := int(DifficultyWindow)
+	blocks := make([]*Block, N+1)
+	for i := 0; i <= N; i++ {
+		h := height - 1 - uint64(N-i)
+		b, err := s.GetBlockByHeight(h)
+		if err != nil {
+			return InitialCompactTargetV2
+		}
+		blocks[i] = b
+	}
+
+	var currentTarget *big.Int
+	if blocks[N].Header.Height >= actHeight {
+		currentTarget = decodeCompact(blocks[N].Header.Difficulty)
+	} else {
+		currentTarget = decodeCompact(InitialCompactTargetV2)
+	}
+
+	avg := lwmaWindowV2(blocks, N)
+	return encodeCompact(adjustTargetV2(currentTarget, avg))
+}
+
+func nextDifficultyFromParentV2(s *Storage, height uint64, parent *Block) uint64 {
+	actHeight := ForkActivations[2]
+	if height <= actHeight {
+		return InitialCompactTargetV2
+	}
+
+	N := int(DifficultyWindow)
+	blocks := make([]*Block, N+1)
+	blocks[N] = parent
+	cur := parent
+	for i := N - 1; i >= 0; i-- {
+		prev, err := s.GetBlockByHash(cur.Header.PreviousHash)
+		if err != nil {
+			return InitialCompactTargetV2
+		}
+		blocks[i] = prev
+		cur = prev
+	}
+
+	var currentTarget *big.Int
+	if blocks[N].Header.Height >= actHeight {
+		currentTarget = decodeCompact(blocks[N].Header.Difficulty)
+	} else {
+		currentTarget = decodeCompact(InitialCompactTargetV2)
+	}
+
+	avg := lwmaWindowV2(blocks, N)
+	return encodeCompact(adjustTargetV2(currentTarget, avg))
 }

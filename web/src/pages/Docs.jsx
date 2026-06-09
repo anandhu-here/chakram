@@ -97,6 +97,7 @@ const SECTIONS = [
     { href: '#transactions', label: 'Transactions' },
     { href: '#signing',      label: 'Signing' },
     { href: '#utxo-model',   label: 'UTXO Model' },
+    { href: '#protocol-v2',  label: 'Protocol v2 Upgrade' },
   ]},
   { title: 'Node', links: [
     { href: '#running',        label: 'Running' },
@@ -518,6 +519,48 @@ sudo systemctl start chakram`}</Pre>
               ['Seed node',    '125', '--seed-mode'],
             ]} />
             <P>Peers that send structurally invalid messages accumulate violations. At 5 violations the peer IP is banned for 24 hours. Bans are enforced at the TCP accept stage — banned IPs are dropped before any data is read.</P>
+          </section>
+
+          {/* ── Protocol v2 ── */}
+          <section id="protocol-v2">
+            <H2 id="protocol-v2">Protocol v2 Upgrade</H2>
+            <Callout type="warn">
+              ⚠️ Protocol v2 activates automatically at block <strong>10,000</strong>. All nodes and miners must be on v1.0.36 or later before that height or they will fork off the canonical chain.
+            </Callout>
+            <P>
+              Protocol v2 replaces the integer bit-count difficulty with a <strong className="text-text">compact floating-point target</strong>. This allows the LWMA difficulty algorithm to make fractional adjustments — eliminating the oscillation that happens when the only adjustment steps available are "double" or "halve".
+            </P>
+
+            <H3>Why it was needed</H3>
+            <P>
+              In Protocol v1, difficulty is an integer <em>N</em> and the proof-of-work target is <code className="bg-surface2 border border-border px-1.5 py-0.5 rounded text-xs font-mono">2^(256-N)</code>. Each integer step doubles the required work. LWMA targets 30-second blocks, but because steps are coarse, on a small network (e.g. 3 miners) the algorithm could only oscillate between "too easy" and "too hard" — it could never find the true equilibrium. With a compact target, the algorithm finds and holds the exact equilibrium difficulty.
+            </P>
+
+            <H3>What changes at block 10,000</H3>
+            <DataTable headers={['Parameter', 'Before (v1)', 'After (v2)']} rows={[
+              ['Difficulty field', 'Integer N — target = 2^(256-N)', 'Compact uint64 — upper 8 bits = byte-length, lower 56 bits = mantissa'],
+              ['Minimum block gap', '45 seconds (post-bootstrap)', '20 seconds'],
+              ['LWMA adjustment', 'Integer steps only (2× per step)', 'Continuous fractional adjustment'],
+              ['Starting target', '—', '0x2010000000000000 (≡ old diff 4)'],
+            ]} />
+            <P>
+              The first v2 block at height 10,000 uses <code className="bg-surface2 border border-border px-1.5 py-0.5 rounded text-xs font-mono">InitialCompactTargetV2 = 0x2010000000000000</code>, which decodes to <code className="bg-surface2 border border-border px-1.5 py-0.5 rounded text-xs font-mono">2^252</code> — the same work requirement as the old difficulty 4. The transition is seamless: no wipe, no hard fork ceremony. Any node that has downloaded an update before block 10,000 will follow the canonical chain automatically.
+            </P>
+
+            <H3>What miners and node operators need to do</H3>
+            <DataTable headers={['Role', 'Action', 'Deadline']} rows={[
+              ['GUI app users (Mac/Windows)', 'App will notify you of an update. Click "Update now" — the node restarts automatically, no data loss.', 'Before block 10,000'],
+              ['Linux CLI nodes', 'Download the new binary and restart the node service.', 'Before block 10,000'],
+              ['Community seed operators', 'Follow the update steps in the Contributing guide. Rolling restarts are safe.', 'Before block 10,000'],
+            ]} />
+            <Callout type="tip">
+              💡 The app's built-in update checker polls for new releases hourly. You'll see a yellow banner at the top of the window when an update is available. You do not need to close and redownload manually.
+            </Callout>
+
+            <H3>Checking which protocol version your node is running</H3>
+            <Pre>{`curl http://localhost:8339/info
+# Look for "height" in the response.
+# If height >= 10000, your node is on Protocol v2.`}</Pre>
           </section>
 
           {/* ── Integration ── */}

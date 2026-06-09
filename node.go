@@ -445,12 +445,15 @@ func (n *Node) mineLoop() {
 		txs = append(txs, pending...)
 
 		// Time floor: enforce minimum gap before creating the next block.
-		// Bootstrap (h ≤ DifficultyWindow): full 60s gap (TEB).
-		// Post-bootstrap: permanent 30s gap to prevent LWMA overshoot.
+		// Bootstrap (h ≤ DifficultyWindow): TargetBlockTime (30s) floor.
+		// v1 post-bootstrap: 45s floor — keeps difficulty stable at MinDifficulty.
+		// v2 post-bootstrap: 20s floor — below target so LWMA can raise difficulty.
 		{
 			var minGap int64
 			if height <= DifficultyWindow {
 				minGap = TargetBlockTime
+			} else if ProtocolVersionAt(height) >= 2 {
+				minGap = PostBootstrapMinGapV2
 			} else {
 				minGap = PostBootstrapMinGap
 			}

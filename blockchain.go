@@ -151,10 +151,19 @@ func (bc *Blockchain) epochKey(height uint64) []byte {
 	return []byte(fmt.Sprintf("chakram-epoch-%d", epochNum))
 }
 
-// blockWork returns the expected number of hashes required for one block at
-// the given difficulty: 2^difficulty. Summing this across all blocks gives
-// cumulative chainwork — the canonical Bitcoin fork-selection metric.
-func blockWork(difficulty uint64) *big.Int {
+// blockWork returns the expected number of hashes for one block.
+// v1: work = 2^difficulty  (bit-count difficulty).
+// v2: work = 2^256 / target  (compact target — lower target = more work).
+// Summing across all blocks gives cumulative chainwork for fork selection.
+func blockWork(height uint64, difficulty uint64) *big.Int {
+	if ProtocolVersionAt(height) >= 2 {
+		target := decodeCompact(difficulty)
+		if target.Sign() == 0 {
+			return big.NewInt(0)
+		}
+		max256 := new(big.Int).Lsh(big.NewInt(1), 256)
+		return new(big.Int).Div(max256, target)
+	}
 	return new(big.Int).Lsh(big.NewInt(1), uint(difficulty))
 }
 
@@ -163,7 +172,7 @@ func blockWork(difficulty uint64) *big.Int {
 // Returns an error if any ancestor is missing — incomplete work must never
 // be compared against a complete chain, as it would bias fork selection.
 func (bc *Blockchain) chainWork(b *Block) (*big.Int, error) {
-	total := blockWork(b.Header.Difficulty)
+	total := blockWork(b.Header.Height, b.Header.Difficulty)
 	cur := b
 	for cur.Header.Height > 0 {
 		parent, err := bc.Storage.GetBlockByHash(cur.Header.PreviousHash)
@@ -171,7 +180,7 @@ func (bc *Blockchain) chainWork(b *Block) (*big.Int, error) {
 			return nil, fmt.Errorf("chainwork: missing ancestor %x at height %d: %w",
 				cur.Header.PreviousHash, cur.Header.Height-1, err)
 		}
-		total.Add(total, blockWork(parent.Header.Difficulty))
+		total.Add(total, blockWork(parent.Header.Height, parent.Header.Difficulty))
 		cur = parent
 	}
 	return total, nil
@@ -313,7 +322,11 @@ func (bc *Blockchain) AddBlock(b *Block) error {
 		}
 		fmt.Printf("[BOOTSTRAP] h=%d gap=%ds ✓\n", b.Header.Height, b.Header.Timestamp-parent.Header.Timestamp)
 	} else {
-		minTS := parent.Header.Timestamp + PostBootstrapMinGap
+		gap := PostBootstrapMinGap
+		if ProtocolVersionAt(b.Header.Height) >= 2 {
+			gap = PostBootstrapMinGapV2
+		}
+		minTS := parent.Header.Timestamp + gap
 		if b.Header.Timestamp < minTS {
 			return fmt.Errorf("invalid block: minimum block gap violated at h=%d (ts=%d, need>=%d)",
 				b.Header.Height, b.Header.Timestamp, minTS)

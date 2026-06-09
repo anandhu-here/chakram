@@ -12,15 +12,15 @@ const (
 	// ProtocolVersion is the current network protocol version, embedded in
 	// every block header and P2P handshake. Increment this for each hard fork.
 	// Old nodes will be rejected once MinProtocolVersion is raised to match.
-	ProtocolVersion uint32 = 1
+	ProtocolVersion uint32 = 2
 
 	// MinProtocolVersion is the lowest peer protocol version this node accepts
-	// during the handshake. Raise this (with a new release) after a hard fork
-	// to isolate nodes that have not upgraded.
+	// during the handshake. Still 1 — will be bumped to 2 in the release after
+	// block 10000 activates, once all miners have upgraded.
 	MinProtocolVersion uint32 = 1
 
 	// SoftwareVersion is the human-readable release string. Bumped by release.sh.
-	SoftwareVersion = "v1.0.75"
+	SoftwareVersion = "v1.0.76"
 )
 
 // ForkActivations maps each protocol version to the block height at which its
@@ -34,7 +34,8 @@ const (
 //  4. After the fork activates, raise MinProtocolVersion = newVer in the
 //     following release to disconnect nodes still running old code.
 var ForkActivations = map[uint32]uint64{
-	1: 0, // genesis rules, always active
+	1: 0,     // genesis rules, always active
+	2: 10000, // compact-target difficulty + 20s block floor (auto-activates at height 10000)
 }
 
 // Checkpoints are immutable (height → hex-encoded hash) entries committed to
@@ -138,11 +139,20 @@ const (
 	MinDifficulty uint64 = 4
 
 	// PostBootstrapMinGap is the minimum seconds between consecutive blocks
-	// after the TEB bootstrap window ends. Prevents a single fast miner from
-	// flooding the network with sub-second blocks that cause LWMA to overshoot.
-	// 45s floor means blocks can run at most 1.33× faster than target during
-	// calibration, keeping the LWMA overshoot small at bootstrap boundary.
+	// after the TEB bootstrap window ends (protocol v1). Set above TargetBlockTime
+	// to keep difficulty pinned at MinDifficulty while the network bootstraps.
 	PostBootstrapMinGap int64 = 45
+
+	// PostBootstrapMinGapV2 replaces PostBootstrapMinGap from protocol v2 onward
+	// (activates at block 10000). Below TargetBlockTime so LWMA can raise
+	// difficulty as more miners join and hashrate grows.
+	PostBootstrapMinGapV2 int64 = 20
+
+	// InitialCompactTargetV2 is the compact-encoded PoW target for the first
+	// protocol-v2 block (height 10000). Encodes target = 2^252, which is exactly
+	// equivalent to the old integer difficulty of 4 (hash < 2^(256-4) = 2^252).
+	// Compact format: upper 8 bits = byte-length (32), lower 56 bits = mantissa (2^52).
+	InitialCompactTargetV2 uint64 = 0x2010000000000000
 
 	// RandomXLightMode is retained for reference. The CGo engine uses full mode
 	// (2 GB dataset, ~10x faster) on all supported platforms and falls back to

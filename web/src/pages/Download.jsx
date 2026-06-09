@@ -1,8 +1,10 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { Link } from 'react-router-dom'
 import Navbar from '../components/Navbar.jsx'
 
-const GCS = 'https://storage.googleapis.com/chakram-dist/latest'
+const GCS    = 'https://storage.googleapis.com/chakram-dist/latest'
+const GH_API = 'https://api.github.com/repos/anandhu-here/chakram/releases'
+const GH_DL  = 'https://github.com/anandhu-here/chakram/releases/download'
 
 function Step({ num, title, children }) {
   return (
@@ -55,6 +57,140 @@ const TABS = [
   { id: 'android', label: '🤖 Android' },
 ]
 
+const PLATFORM_ASSETS = {
+  'chakram-mac-arm':    { label: 'Mac ARM',   icon: '🍎' },
+  'chakram-mac':        { label: 'Mac Intel', icon: '🍎' },
+  'chakram-windows.exe':{ label: 'Windows',   icon: '🪟' },
+  'chakram-linux':      { label: 'Linux',     icon: '🐧' },
+}
+
+function ReleaseRow({ release, isLatest }) {
+  const date = new Date(release.published_at).toLocaleDateString('en-GB', {
+    day: 'numeric', month: 'short', year: 'numeric',
+  })
+
+  const assets = (release.assets || []).filter(a => PLATFORM_ASSETS[a.name])
+
+  return (
+    <tr className="border-b border-border last:border-0 hover:bg-surface2/50 transition-colors">
+      <td className="py-3.5 px-4">
+        <div className="flex items-center gap-2">
+          <span className="font-mono font-bold text-text text-sm">{release.tag_name}</span>
+          {isLatest && (
+            <span className="text-xs font-bold bg-goldbg border border-gold/40 text-gold px-2 py-0.5 rounded-full">
+              Latest
+            </span>
+          )}
+        </div>
+        <div className="text-xs text-muted mt-0.5">{date}</div>
+      </td>
+      <td className="py-3.5 px-4">
+        <div className="flex flex-wrap gap-2">
+          {assets.length > 0 ? assets.map(a => (
+            <a
+              key={a.name}
+              href={a.browser_download_url}
+              className="inline-flex items-center gap-1.5 text-xs font-medium border border-border hover:border-gold hover:text-gold text-muted px-3 py-1.5 rounded-lg transition-colors"
+            >
+              <span>{PLATFORM_ASSETS[a.name].icon}</span>
+              {PLATFORM_ASSETS[a.name].label}
+            </a>
+          )) : (
+            <span className="text-xs text-muted">GUI — see release notes</span>
+          )}
+        </div>
+      </td>
+      <td className="py-3.5 px-4 hidden sm:table-cell">
+        <a
+          href={release.html_url}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="text-xs text-gold hover:underline"
+        >
+          Changelog ↗
+        </a>
+      </td>
+    </tr>
+  )
+}
+
+function ReleasesTable() {
+  const [releases, setReleases] = useState([])
+  const [loading,  setLoading]  = useState(true)
+  const [error,    setError]    = useState(false)
+  const [showAll,  setShowAll]  = useState(false)
+
+  useEffect(() => {
+    fetch(`${GH_API}?per_page=20`, {
+      headers: { Accept: 'application/vnd.github+json' },
+    })
+      .then(r => r.json())
+      .then(data => {
+        if (Array.isArray(data)) setReleases(data)
+        else setError(true)
+        setLoading(false)
+      })
+      .catch(() => { setError(true); setLoading(false) })
+  }, [])
+
+  const visible = showAll ? releases : releases.slice(0, 5)
+
+  return (
+    <div className="mt-16 px-4 sm:px-8 pb-20 max-w-4xl mx-auto">
+      <div className="flex items-center justify-between mb-4">
+        <h2 className="text-xl font-bold text-text">All Releases</h2>
+        <a
+          href="https://github.com/anandhu-here/chakram/releases"
+          target="_blank"
+          rel="noopener noreferrer"
+          className="text-sm text-gold hover:underline"
+        >
+          View on GitHub ↗
+        </a>
+      </div>
+
+      <div className="border border-border rounded-2xl overflow-hidden">
+        {loading && (
+          <div className="py-10 text-center text-muted text-sm">Loading releases…</div>
+        )}
+        {error && !loading && (
+          <div className="py-10 text-center text-muted text-sm">
+            Could not load releases.{' '}
+            <a href="https://github.com/anandhu-here/chakram/releases" target="_blank" rel="noopener noreferrer" className="text-gold hover:underline">
+              View on GitHub ↗
+            </a>
+          </div>
+        )}
+        {!loading && !error && releases.length > 0 && (
+          <table className="w-full text-sm">
+            <thead>
+              <tr className="border-b border-border bg-surface2">
+                <th className="text-left py-3 px-4 text-muted font-semibold text-xs uppercase tracking-wider">Version</th>
+                <th className="text-left py-3 px-4 text-muted font-semibold text-xs uppercase tracking-wider">Downloads</th>
+                <th className="text-left py-3 px-4 text-muted font-semibold text-xs uppercase tracking-wider hidden sm:table-cell">Notes</th>
+              </tr>
+            </thead>
+            <tbody>
+              {visible.map((r, i) => (
+                <ReleaseRow key={r.id} release={r} isLatest={i === 0} />
+              ))}
+            </tbody>
+          </table>
+        )}
+      </div>
+
+      {!loading && !error && releases.length > 5 && (
+        <button
+          onClick={() => setShowAll(v => !v)}
+          className="mt-4 w-full py-2.5 text-sm text-muted hover:text-gold border border-border hover:border-gold rounded-xl transition-colors"
+        >
+          {showAll ? 'Show fewer' : `Show all ${releases.length} releases`}
+        </button>
+      )}
+    </div>
+  )
+}
+
 export default function Download() {
   const [tab, setTab] = useState('mac')
 
@@ -98,7 +234,7 @@ export default function Download() {
       </div>
 
       {/* Platform tabs */}
-      <div className="px-4 sm:px-8 mb-10">
+      <div className="px-4 sm:px-8 mb-10 max-w-3xl">
         <div className="flex bg-surface2 border border-border rounded-2xl p-1.5 gap-1.5">
           {TABS.map(t => (
             <button
@@ -116,8 +252,8 @@ export default function Download() {
         </div>
       </div>
 
-      {/* Content */}
-      <div className="px-4 sm:px-8 pb-20 max-w-3xl">
+      {/* Install steps */}
+      <div className="px-4 sm:px-8 pb-10 max-w-3xl">
 
         {tab === 'mac' && (
           <div>
@@ -132,44 +268,27 @@ export default function Download() {
                 </>,
               },
               {
-                title: 'Unzip the file',
+                title: 'Unzip and open',
                 body: <>
-                  Double-click <strong className="text-text">Chakram-mac.zip</strong> in Downloads — Mac unzips automatically.
-                  <Code>📦 Chakram-mac.zip{'\n'}🖥 Chakram.app  ← this is the app</Code>
-                </>,
-              },
-              {
-                title: 'Try to open Chakram.app',
-                body: <>
-                  Double-click <strong className="text-text">Chakram.app</strong>. Mac shows a security warning — <strong className="text-text">this is normal</strong> for apps not from the App Store.
+                  Double-click the zip to extract <strong className="text-text">Chakram.app</strong>, then double-click to open it.
+                  Mac will show a security warning — <strong className="text-text">this is normal</strong> for apps not from the App Store.
                   <Code>🚫 "Chakram" cannot be opened because Apple cannot check it for malicious software.</Code>
-                  Click <strong className="text-text">OK</strong>, then continue to the next step.
-                  <Note variant="info">ℹ️ Chakram is open-source and distributed directly — not through the App Store. It's safe.</Note>
+                  Click <strong className="text-text">OK</strong>, then go to <strong className="text-text">System Settings → Privacy &amp; Security</strong>, scroll down, and click <strong className="text-text">Open Anyway</strong>.
+                  <Note variant="info">ℹ️ Chakram is open-source and distributed directly — not through the App Store. The source is at github.com/anandhu-here/chakram.</Note>
                 </>,
-              },
-              {
-                title: 'Allow in System Settings',
-                body: <>
-                  Open <strong className="text-text">System Settings → Privacy &amp; Security</strong>. Scroll down to find <em>"Chakram was blocked"</em> and click <strong className="text-text">Open Anyway</strong>.
-                  <Note variant="gold">💡 On macOS Ventura or older: System Preferences → Security &amp; Privacy → General tab.</Note>
-                </>,
-              },
-              {
-                title: 'Confirm and open',
-                body: <>Mac asks one more time. Click <strong className="text-text">Open</strong>. You only do this once — Mac remembers.</>,
               },
               {
                 title: 'Create your wallet',
                 body: <>
-                  On first launch, create a wallet. Choose a <strong className="text-text">password</strong> then write down your <strong className="text-text">12-word recovery phrase</strong> on paper.
+                  On first launch, choose a <strong className="text-text">password</strong> and write down your <strong className="text-text">12-word recovery phrase</strong> on paper.
                   <Note variant="warn">⚠️ Never share your 12 words. Anyone who has them controls your wallet.</Note>
                 </>,
               },
               {
                 title: 'Start mining',
                 body: <>
-                  The app connects to mainnet and syncs the blockchain. Click <strong className="text-text">Start Mining</strong> to begin earning CHK.
-                  <Note variant="info">💡 Mining works on any modern Mac — no special hardware needed. More cores = more chances to win.</Note>
+                  The app connects to mainnet and syncs. Click <strong className="text-text">Start Mining</strong> to begin earning CHK.
+                  <Note variant="info">💡 Mining works on any modern Mac. No special hardware needed.</Note>
                 </>,
               },
             ].map((s, i) => <Step key={i} num={i + 1} title={s.title}>{s.body}</Step>)}
@@ -186,16 +305,14 @@ export default function Download() {
               {
                 title: 'Run Chakram.exe',
                 body: <>
-                  Double-click <strong className="text-text">Chakram.exe</strong>. Windows SmartScreen may warn you — <strong className="text-text">this is normal</strong>.
-                  <Code>🛡 Windows protected your PC{'\n\n'}Microsoft Defender SmartScreen prevented an unrecognized app…</Code>
-                  Click <strong className="text-text">More info</strong> then <strong className="text-text">Run anyway</strong>.
-                  <Note variant="info">ℹ️ Chakram is distributed directly, not through the Microsoft Store. It's safe.</Note>
+                  Double-click <strong className="text-text">Chakram.exe</strong>. Windows SmartScreen may warn you — click <strong className="text-text">More info</strong> then <strong className="text-text">Run anyway</strong>.
+                  <Note variant="info">ℹ️ Chakram is distributed directly, not through the Microsoft Store. It's safe and open-source.</Note>
                 </>,
               },
               {
                 title: 'Create your wallet',
                 body: <>
-                  On first launch, choose a <strong className="text-text">password</strong> and write down your <strong className="text-text">12-word recovery phrase</strong>.
+                  Choose a <strong className="text-text">password</strong> and write down your <strong className="text-text">12-word recovery phrase</strong>.
                   <Note variant="warn">⚠️ Never share your 12 words. Anyone who has them controls your wallet.</Note>
                 </>,
               },
@@ -214,30 +331,27 @@ export default function Download() {
                 title: 'Download the APK',
                 body: <>
                   <DlBtn href={`${GCS}/chakram-wallet-unsigned.apk`}>⬇ chakram-wallet-unsigned.apk</DlBtn>
-                  <p className="mt-3">Saves to your Downloads folder. This is the Chakram mobile wallet — send, receive, and manage CHK from your phone.</p>
-                  <Note variant="warn">⚠️ This APK is unsigned. You must allow installation from unknown sources on your device.</Note>
+                  <p className="mt-3">Chakram mobile wallet — send, receive, and manage CHK from your phone.</p>
+                  <Note variant="warn">⚠️ This APK is unsigned. You must allow installation from unknown sources.</Note>
                 </>,
               },
               {
                 title: 'Allow unknown sources',
                 body: <>
-                  Android blocks apps not from the Play Store by default. To install:
                   <Code>{`Settings → Apps → Special app access\n→ Install unknown apps\n→ Your browser or Files app → Allow`}</Code>
-                  <p className="mt-2">On older Android: <strong className="text-text">Settings → Security → Unknown sources → Enable</strong>.</p>
                 </>,
               },
               {
-                title: 'Install the APK',
+                title: 'Install and open',
                 body: <>
-                  Open your <strong className="text-text">Downloads</strong> folder and tap <strong className="text-text">chakram-wallet-unsigned.apk</strong>. Tap <strong className="text-text">Install</strong> when prompted.
-                  <Note variant="info">ℹ️ Android may scan the file — this is normal. The app is open-source and safe.</Note>
+                  Tap <strong className="text-text">chakram-wallet-unsigned.apk</strong> in Downloads and tap <strong className="text-text">Install</strong>.
                 </>,
               },
               {
                 title: 'Create or restore your wallet',
                 body: <>
-                  On first launch, create a new wallet or restore from your 12-word recovery phrase. Your wallet is encrypted on-device with your password.
-                  <Note variant="warn">⚠️ Write down your 12-word recovery phrase. It's the only way to recover your funds if you lose the device.</Note>
+                  Create a new wallet or restore from your 12-word phrase.
+                  <Note variant="warn">⚠️ Write down your 12-word recovery phrase — it's the only way to recover funds if you lose the device.</Note>
                 </>,
               },
             ].map((s, i) => <Step key={i} num={i + 1} title={s.title}>{s.body}</Step>)}
@@ -249,11 +363,7 @@ export default function Download() {
             {[
               {
                 title: 'Download the binary',
-                body: <Code>{`curl -L ${GCS}/chakram-linux -o chakram`}</Code>,
-              },
-              {
-                title: 'Make it executable',
-                body: <Code>chmod +x chakram</Code>,
+                body: <Code>{`curl -L ${GCS}/chakram-linux -o chakram\nchmod +x chakram`}</Code>,
               },
               {
                 title: 'Create a wallet',
@@ -274,7 +384,12 @@ export default function Download() {
             ].map((s, i) => <Step key={i} num={i + 1} title={s.title}>{s.body}</Step>)}
           </div>
         )}
+
       </div>
+
+      {/* Version history */}
+      <div className="border-t border-border" />
+      <ReleasesTable />
 
       <footer className="border-t border-border py-6 text-center">
         <p className="text-muted text-xs">

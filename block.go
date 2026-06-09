@@ -100,11 +100,50 @@ func (b *Block) SetHash() {
 	b.Hash = b.ComputeHash()
 }
 
+// decodeCompact unpacks a compact uint64 PoW target (protocol v2+) to a *big.Int.
+// Upper 8 bits = byte-length of the target value; lower 56 bits = mantissa.
+func decodeCompact(compact uint64) *big.Int {
+	byteLen := int(compact >> 56)
+	mantissa := compact & 0x00FFFFFFFFFFFFFF
+	result := new(big.Int).SetUint64(mantissa)
+	if byteLen > 7 {
+		result.Lsh(result, uint(8*(byteLen-7)))
+	} else if byteLen < 7 {
+		result.Rsh(result, uint(8*(7-byteLen)))
+	}
+	return result
+}
+
+// encodeCompact packs a *big.Int target into compact uint64 form.
+func encodeCompact(target *big.Int) uint64 {
+	if target.Sign() <= 0 {
+		return 0
+	}
+	byteLen := (target.BitLen() + 7) / 8
+	if byteLen == 0 {
+		return 0
+	}
+	var mantissa uint64
+	if byteLen >= 7 {
+		tmp := new(big.Int).Rsh(target, uint(8*(byteLen-7)))
+		mantissa = tmp.Uint64() & 0x00FFFFFFFFFFFFFF
+	} else {
+		tmp := new(big.Int).Lsh(target, uint(8*(7-byteLen)))
+		mantissa = tmp.Uint64() & 0x00FFFFFFFFFFFFFF
+	}
+	return (uint64(byteLen) << 56) | mantissa
+}
+
 // HashIsValid reports whether the block's hash meets the proof-of-work target.
-// The target is computed as 2^(256-difficulty), so higher difficulty values
-// produce a smaller target and require more work to satisfy.
+// Protocol v1: target = 2^(256−difficulty)  (integer bit-count difficulty).
+// Protocol v2: target = decodeCompact(difficulty)  (continuous compact target).
 func (b *Block) HashIsValid() bool {
-	target := new(big.Int).Lsh(big.NewInt(1), uint(256-b.Header.Difficulty))
+	var target *big.Int
+	if ProtocolVersionAt(b.Header.Height) >= 2 {
+		target = decodeCompact(b.Header.Difficulty)
+	} else {
+		target = new(big.Int).Lsh(big.NewInt(1), uint(256-b.Header.Difficulty))
+	}
 	hashInt := new(big.Int).SetBytes(b.Hash)
 	return hashInt.Cmp(target) < 0
 }
