@@ -126,14 +126,23 @@ func (sm *SyncManager) doSync() {
 	}
 
 	if best == nil {
-		// No peer ahead of us — but check if any are still in version handshake
-		// (Height=0). If so, defer this decision: those peers may be ahead once
-		// the handshake completes. Declaring SyncComplete prematurely disables
-		// the IBD PoW skip and forces a cold 2-GB RandomX dataset init on the
-		// next block while chainMu is held, freezing the node for minutes.
+		// No peer ahead of us. If the peer we were syncing from is still
+		// connected, defer until all handshaking peers (Height=0) resolve —
+		// they may be ahead of us once the version exchange completes.
+		// But if our previous sync peer has since disconnected, isSyncing=true
+		// is stale: clear it immediately so the miner is not stuck forever.
+		bestStillConnected := false
 		for _, p := range peers {
-			if p.Height == 0 {
-				return // peer heights not yet known — check again next tick
+			if p == sm.bestPeer {
+				bestStillConnected = true
+				break
+			}
+		}
+		if bestStillConnected {
+			for _, p := range peers {
+				if p.Height == 0 {
+					return // peer heights not yet known — check again next tick
+				}
 			}
 		}
 		sm.SetState(SyncComplete)
@@ -187,7 +196,16 @@ func (sm *SyncManager) OnBlockReceived(b *Block, from *Peer) {
 		b.Header.Height >= sm.blockchain.GetHeight()
 	if wouldReorg {
 		sm.reorgMu.Lock()
-		if time.Since(sm.lastReorg) < 2*time.Second {
+		// At fork-activation blocks, skip the rate-limit so competing blocks at
+		// the boundary can resolve immediately under the new rules.
+		isForkBlock := false
+		for _, actHeight := range ForkActivations {
+			if b.Header.Height == actHeight {
+				isForkBlock = true
+				break
+			}
+		}
+		if !isForkBlock && time.Since(sm.lastReorg) < 2*time.Second {
 			sm.reorgMu.Unlock()
 			return
 		}
@@ -433,6 +451,9 @@ func (sm *SyncManager) OnPeerDisconnected(p *Peer) {
 	}
 	var next *Peer
 	for _, peer := range peers {
+		if peer.Height == 0 {
+			continue // skip peers still in version handshake
+		}
 		if next == nil || peer.Height > next.Height {
 			next = peer
 		}

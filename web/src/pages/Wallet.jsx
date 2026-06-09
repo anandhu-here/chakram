@@ -1115,7 +1115,7 @@ function RestoreScreen({ onBack, onRestored, showToast }) {
 
 // ── Unlock screen (returning user) ────────────────────────────────────────────
 
-function UnlockScreen({ onUnlock }) {
+function UnlockScreen({ onUnlock, onSwitch }) {
   const { dark, toggle } = useTheme()
   const [pw, setPw]   = useState('')
   const [err, setErr] = useState('')
@@ -1140,6 +1140,11 @@ function UnlockScreen({ onUnlock }) {
           className="w-full py-4 rounded-2xl bg-gold hover:bg-golddim text-white font-bold text-lg shadow-lg active:scale-[0.98] transition-all">
           Unlock
         </button>
+        <div className="text-center pt-2">
+          <button onClick={onSwitch} className="text-muted text-sm hover:text-gold transition-colors">
+            Use a different wallet →
+          </button>
+        </div>
       </div>
     </div>
   )
@@ -1176,7 +1181,7 @@ export default function Wallet() {
       <div className="w-full max-w-[430px] bg-surface dark:bg-surface min-h-screen flex flex-col relative shadow-2xl dark:shadow-none overflow-hidden" style={{ paddingTop: 'env(safe-area-inset-top)' }}>
         {screen === 'loading'  && <div className="flex-1 bg-surface" />}
         {screen === 'welcome'  && <WelcomeScreen  onNew={() => setScreen('create')} onRestore={() => setScreen('restore')} />}
-        {screen === 'unlock'   && <UnlockScreen   onUnlock={handleUnlock} />}
+        {screen === 'unlock'   && <UnlockScreen   onUnlock={handleUnlock} onSwitch={() => setScreen('welcome')} />}
         {screen === 'create'   && <CreateScreen   onBack={() => setScreen('welcome')} onCreated={toWallet}  showToast={showToast} />}
         {screen === 'restore'  && <RestoreScreen  onBack={() => setScreen('welcome')} onRestored={toWallet} showToast={showToast} />}
         {screen === 'wallet'   && <WalletApp      state={ws} onLock={lock} onRemove={remove} showToast={showToast} />}

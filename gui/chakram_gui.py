@@ -56,7 +56,7 @@ RPC_BASE         = "http://127.0.0.1:8339"
 RPC_PORT         = 8339
 PID_FILE         = os.path.expanduser("~/.chakram/mainnet/gui.pid")
 POLL_SECS        = 5
-VERSION          = "v1.0.77"
+VERSION          = "v1.0.78"
 CoinbaseMaturity = 10
 MINER_ADDR_FILE  = os.path.expanduser("~/.chakram/mainnet/miner_addr.txt")
 
@@ -232,11 +232,14 @@ class ChakramApp(ctk.CTk):
         self._node_proc        = None
         self._we_started_node  = False
         self._mining           = False
+        self._updating         = False
         self._password         = "chakram"
         self._binary           = None
         self._poll_stop        = threading.Event()
         self._last_blocks_hash = None
         self._last_utxos_sig   = None
+        self._fetch_bal_running = False
+        self._fetch_tx_running  = False
         self._hashrate         = ""
 
         atexit.register(self._stop_node)
@@ -1016,21 +1019,39 @@ class ChakramApp(ctk.CTk):
 
     def _poll_loop(self):
         self._check_for_update()
-        _update_tick = 0
+        _update_tick  = 0
+        _last_height  = 0
+        _height_since = time.time()
         while not self._poll_stop.is_set():
-            # Watchdog: if we started the node and it has since died, restart it.
-            # Use return (not continue) so this poll loop exits — _on_node_ready
-            # will start a fresh one after the node comes back up.
+            # Watchdog: node process died — restart it (skip if update is mid-apply).
             if self._we_started_node and self._node_proc and self._node_proc.poll() is not None:
-                self._mining = False
-                self.after(0, lambda: threading.Thread(
-                    target=self._connect_or_start, daemon=True).start()
-                )
-                return
+                if not self._updating:
+                    self._mining = False
+                    self.after(0, lambda: threading.Thread(
+                        target=self._connect_or_start, daemon=True).start()
+                    )
+                    return
+                time.sleep(POLL_SECS)
+                continue
 
             info   = rpc_get("/info")
             blocks = rpc_get("/blocks/latest/20")
             self.after(0, self._update_ui, info, blocks)
+
+            # Stale-tip watchdog: node is alive and has peers but height hasn't
+            # moved in 5 minutes while we're mining — internal hang, restart.
+            if info and self._we_started_node and self._mining:
+                h = info.get("height", 0)
+                if h != _last_height:
+                    _last_height  = h
+                    _height_since = time.time()
+                elif info.get("peers", 0) > 0 and h > 0 and time.time() - _height_since > 300:
+                    self._mining = False
+                    self.after(0, lambda: threading.Thread(
+                        target=self._connect_or_start, daemon=True).start()
+                    )
+                    return
+
             _update_tick += 1
             if _update_tick >= 720:   # re-check every hour (720 × 5 s)
                 self._check_for_update()
@@ -1108,6 +1129,7 @@ class ChakramApp(ctk.CTk):
     def _apply_update(self, tmp, dest):
         self._update_label.configure(text="Restarting node with new version…")
         mining = self._mining
+        self._updating = True
         self._stop_node()
         try:
             if sys.platform == "win32":
@@ -1117,11 +1139,15 @@ class ChakramApp(ctk.CTk):
                 os.replace(tmp, dest)
             self._binary = dest
         except Exception as e:
+            self._updating = False
             self._update_label.configure(text=f"Update failed: {e}")
             self._update_btn.configure(state="normal", text="Retry")
             return
-        # Restart the node with the new binary.
-        self.after(500, lambda: self._launch_node(mine=mining))
+        # Restart the node with the new binary; clear _updating after it starts.
+        def _restart():
+            self._launch_node(mine=mining)
+            self._updating = False
+        self.after(500, _restart)
         self._update_bar.pack_forget()
 
     def _update_download_failed(self, reason):
@@ -1171,8 +1197,12 @@ class ChakramApp(ctk.CTk):
         self._addr_label.configure(text=trunc(addr, 28))
 
         if addr:
-            threading.Thread(target=self._fetch_balance,      args=(addr,), daemon=True).start()
-            threading.Thread(target=self._fetch_transactions, args=(addr,), daemon=True).start()
+            if not self._fetch_bal_running:
+                self._fetch_bal_running = True
+                threading.Thread(target=self._fetch_balance_guarded, args=(addr,), daemon=True).start()
+            if not self._fetch_tx_running:
+                self._fetch_tx_running = True
+                threading.Thread(target=self._fetch_transactions_guarded, args=(addr,), daemon=True).start()
 
         if self._mining:
             hr = f"  {self._hashrate}" if self._hashrate else ""
@@ -1235,6 +1265,18 @@ class ChakramApp(ctk.CTk):
     def _fetch_transactions(self, addr):
         utxos = rpc_get(f"/utxos/{addr}")
         self.after(0, self._render_tx_history, utxos or [])
+
+    def _fetch_balance_guarded(self, addr):
+        try:
+            self._fetch_balance(addr)
+        finally:
+            self._fetch_bal_running = False
+
+    def _fetch_transactions_guarded(self, addr):
+        try:
+            self._fetch_transactions(addr)
+        finally:
+            self._fetch_tx_running = False
 
     def _check_mined_blocks(self, blocks, current_height=0):
         mine_blocks = [b for b in blocks if b.get("miner", "") == self._address]
