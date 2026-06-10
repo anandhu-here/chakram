@@ -111,13 +111,13 @@ func (sm *SyncManager) doSync() {
 	ourHeight := sm.blockchain.GetHeight()
 
 	// Select best peer: skip height=0 (version exchange still in flight)
-	// and skip peers that are behind us (they have nothing to give us).
+	// and skip peers at or behind our height (they have nothing to give us).
 	var best *Peer
 	for _, p := range peers {
 		if p.Height == 0 {
 			continue
 		}
-		if p.Height < ourHeight {
+		if p.Height <= ourHeight {
 			continue
 		}
 		if best == nil || p.Height > best.Height {
